@@ -1,7 +1,7 @@
 ghm - Guesthouse Manager
-------------------------
+========================
 
-Booking Management built in elm and postgres(t).
+Booking management built in elm and postgres(t).
 
 Todo
 ----
