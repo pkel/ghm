@@ -1,6 +1,7 @@
 module Customer_form exposing (..)
 
-import Html exposing (..)
+import Html exposing (Html)
+import Pure exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 
@@ -112,7 +113,7 @@ view encapsulate model =
 
 viewForm : Model -> Html Msg
 viewForm model =
-  Html.form []
+  Pure.form []
   [   titled_fieldset "Anrede"
     [ input_field     "Anrede"       Title           model.title
     , input_field     "Anrede Brief" Title_letter    model.title_letter

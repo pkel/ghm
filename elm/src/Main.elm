@@ -1,8 +1,10 @@
 module Main exposing (..)
 
-import Html exposing (..)
+import Html exposing (Html)
+import Pure exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+
 
 import Customer_t exposing (Customer)
 
