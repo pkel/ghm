@@ -57,16 +57,19 @@ input      = H.input
 form     a = addClass H.form     "pure-form pure-form-stacked" a
 textarea a = addClass H.textarea "pure-input"                  a
 
-text_field : String -> (String -> msg) -> String -> Html msg
-text_field title action value =
+textfield : String -> (String -> msg) -> String -> Html msg
+textfield prefill action value =
+  input [ A.type_ "text"
+        , E.onInput action
+        , A.value value
+        , A.placeholder prefill
+        , A.class "pure-input-1"
+        ] []
+
+titledTextfield : String -> (String -> msg) -> String -> Html msg
+titledTextfield title action value =
   -- TODO: Set id of input and for tag of label
   let div = classedDiv "pure-control-group" in
   let l = label [] [text title] in
-  let t = input [ A.type_ "text"
-                , E.onInput action
-                , A.value value
-                , A.class "pure-input-1"
-                ] []
-  in
-  div [l,t]
+  div [l, textfield "" action value]
 

@@ -25,8 +25,8 @@ getById encap id =
   in
   Http.send encap (Http.get url CType.jsonDecoderFirst)
 
-getPrevById : (Result Http.Error Customer -> msg) -> Int -> Cmd msg
-getPrevById encap id =
+getPrevById : (Result Http.Error Customer -> msg) -> String -> Int -> Cmd msg
+getPrevById encap filter id =
   let url
       = baseUrl
       ++ "?customer_id=lt."
@@ -34,10 +34,17 @@ getPrevById encap id =
       ++ "&order=customer_id.desc,customer_data_id.desc"
       ++ "&limit=1"
   in
-  Http.send encap (Http.get url CType.jsonDecoderFirst)
+  let url_ = appendMaybeFilter url filter in
+  Http.send encap (Http.get url_ CType.jsonDecoderFirst)
 
-getNextById : (Result Http.Error Customer -> msg) -> Int -> Cmd msg
-getNextById encap id =
+appendMaybeFilter : String -> String -> String
+appendMaybeFilter url filter =
+  case String.trim filter of
+    "" -> url
+    str -> url ++ "&keyword=ilike.%" ++ str ++ "%"
+
+getNextById : (Result Http.Error Customer -> msg) -> String -> Int -> Cmd msg
+getNextById encap filter id =
   let url
       = baseUrl
       ++ "?customer_id=gt."
@@ -45,16 +52,18 @@ getNextById encap id =
       ++ "&order=customer_id.asc,customer_data_id.desc"
       ++ "&limit=1"
   in
-  Http.send encap (Http.get url CType.jsonDecoderFirst)
+  let url_ = appendMaybeFilter url filter in
+  Http.send encap (Http.get url_ CType.jsonDecoderFirst)
 
-getLatest : (Result Http.Error Customer -> msg) -> () -> Cmd msg
-getLatest encap () =
+getLatest : (Result Http.Error Customer -> msg) -> String -> Cmd msg
+getLatest encap filter =
   let url
       = baseUrl
       ++ "?order=customer_id.desc,customer_data_id.desc"
       ++ "&limit=1"
   in
-  Http.send encap (Http.get url CType.jsonDecoderFirst)
+  let url_ = appendMaybeFilter url filter in
+  Http.send encap (Http.get url_ CType.jsonDecoderFirst)
 
 saveNewVersion : (Result Http.Error () -> msg) -> Customer -> Int -> Cmd msg
 saveNewVersion encap c id =

@@ -112,7 +112,7 @@ view encapsulate model =
 
 viewForm : Model -> Html Msg
 viewForm model =
-  let tf = Pure.text_field in
+  let tf = Pure.titledTextfield in
   let title_fields =
     [ tf     "Anrede"       Title           model.title
     , tf     "Anrede Brief" Title_letter    model.title_letter

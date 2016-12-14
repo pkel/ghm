@@ -26,12 +26,13 @@ main =
 type alias Model =
   { customerId : Maybe Int
   , customerForm : CForm.Model
+  , filter : String
   }
 
 init : Int -> (Model, Cmd Msg)
 init id =
-  ( Model Nothing (CForm.initEmpty ())
-  , CHttp.getLatest CustomerReceived () )
+  ( Model Nothing (CForm.initEmpty ()) ""
+  , CHttp.getLatest CustomerReceived "" )
 
 
 -- UPDATE
@@ -42,6 +43,7 @@ type Msg =
   | SaveResponse ( Result Http.Error ())
   | Previous
   | Next
+  | FilterChanged String
   | CustomerReceived (Result Http.Error Customer)
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -72,16 +74,19 @@ update msg model =
     Previous ->
       case model.customerId of
         Just i ->
-          ( model, CHttp.getPrevById CustomerReceived i )
+          ( model, CHttp.getPrevById CustomerReceived model.filter i)
         Nothing ->
-          ( model, CHttp.getLatest CustomerReceived () )
+          ( model, CHttp.getLatest CustomerReceived model.filter)
 
     Next ->
       case model.customerId of
         Just i ->
-          ( model, CHttp.getNextById CustomerReceived i )
+          ( model, CHttp.getNextById CustomerReceived model.filter i)
         Nothing ->
           ( model, Cmd.none )
+
+    FilterChanged str ->
+      ( { model | filter = str }, CHttp.getLatest CustomerReceived str )
 
     CustomerReceived (Ok c) ->
       let model_ =
@@ -111,11 +116,36 @@ update msg model =
 view : Model -> Html Msg
 view model =
   div []
-  [ button [onClick Previous] [text "Previous"]
-  , button [onClick Next] [text "Next"]
-  , button [onClick Save] [text "Save"]
+  [ controls model
   , CForm.view CustomerFormMsg model.customerForm
   ]
+
+controls : Model -> Html Msg
+controls model =
+  let left =
+    Pure.textfield "Suche" FilterChanged model.filter
+  in
+  let middle =
+    div [style [("text-align","center")]]
+        [ button [onClick Previous] [text "Zurück"]
+        , button [onClick Next]     [text "Weiter"]
+        ]
+  in
+  let right =
+    div [style [("text-align","right")]]
+        [ button [onClick Save] [text "Speichern"]
+        ]
+  in
+  let bar =
+    Pure.group2 24
+        [ ([left], 7)
+        , ([], 1)
+        , ([middle], 7)
+        , ([], 1)
+        , ([right], 8)
+        ]
+  in
+  Pure.form [] [bar]
 
 
 -- SUBSCRIPTIONS
