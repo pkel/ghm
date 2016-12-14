@@ -176,6 +176,12 @@ viewForm model =
     titled_fieldset "Sonstiges" additional_fields
   in
   let upper =
-    Pure.group (List.map (Pure.element 1 3) [left,middle,right])
+    Pure.group2 24
+        [ (left,   7)
+        , ([],     1)
+        , (middle, 7)
+        , ([],     1)
+        , (right,  8)
+        ]
   in
   Pure.form [] [upper, bottom]

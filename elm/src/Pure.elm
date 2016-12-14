@@ -41,6 +41,12 @@ group elements =
   let div = classedDiv "pure-g" in
   div divList
 
+group2: Int -> List (List (Html msg), Int) ->  Html msg
+group2 measure lst =
+  let fn (contains, n) = element n measure contains in
+  let lst_ = List.map fn lst in
+  group lst_
+
 -- Forms
 
 fieldset   = H.fieldset
