@@ -24,14 +24,14 @@ main =
 -- MODEL
 
 type alias Model =
-  { customerId : Int
+  { customerId : Maybe Int
   , customerForm : CForm.Model
   }
 
 init : Int -> (Model, Cmd Msg)
 init id =
-  ( Model id (CType.empty ())
-  , CHttp.getById CustomerReceived id )
+  ( Model Nothing (CForm.initEmpty ())
+  , CHttp.getLatest CustomerReceived () )
 
 
 -- UPDATE
@@ -40,6 +40,7 @@ type Msg =
     CustomerFormMsg CForm.Msg
   | Save
   | SaveResponse ( Result Http.Error ())
+  | Previous
   | Next
   | CustomerReceived (Result Http.Error Customer)
 
@@ -53,29 +54,56 @@ update msg model =
       -- trigger put/post
       case CForm.extract model.customerForm of
         Just c ->
-          -- ( model, CHttp.save CustomerReceived c model.customerId )
-          ( model, CHttp.saveNewVersion SaveResponse c model.customerId )
+          case model.customerId of
+            Just i ->
+              ( model, CHttp.saveNewVersion SaveResponse c i )
+            Nothing ->
+              -- TODO: Insert new customer
+              ( model, Cmd.none )
 
         Nothing ->
           -- Invalid state in form
           ( model, Cmd.none )
 
-    SaveResponse result ->
-      -- Refetch, in case of server side trimming
-      case result of
-        Ok () -> ( model, CHttp.getById CustomerReceived model.customerId )
-        Err _ -> ( model , Cmd.none ) -- TODO: report this!
+    SaveResponse (Ok ()) ->
+      -- TODO: Refetch? If Server trims data, yes!
+      ( model, Cmd.none )
+
+    Previous ->
+      case model.customerId of
+        Just i ->
+          ( model, CHttp.getPrevById CustomerReceived i )
+        Nothing ->
+          ( model, CHttp.getLatest CustomerReceived () )
 
     Next ->
-      -- incrementing the id is not the best approach here TODO: fix.
-      let newId = model.customerId + 1 in
-      ( { model | customerId = newId }, CHttp.getById CustomerReceived newId )
+      case model.customerId of
+        Just i ->
+          ( model, CHttp.getNextById CustomerReceived i )
+        Nothing ->
+          ( model, Cmd.none )
 
     CustomerReceived (Ok c) ->
-      ( { model | customerForm =  c } , Cmd.none )
+      let model_ =
+        { model
+        | customerForm = CForm.init c
+        , customerId = c.customer_id
+        }
+      in
+      ( model_ , Cmd.none )
 
+    -- TODO: Introduce error handling
     CustomerReceived (Err _) ->
-      ( { model | customerForm = CType.empty () } , Cmd.none )
+      let model_ =
+        { model
+        | customerForm = CForm.initEmpty ()
+        , customerId = Nothing
+        }
+      in
+      ( model_ , Cmd.none )
+
+    SaveResponse (Err _) ->
+      ( model , Cmd.none )
 
 
 -- VIEW
@@ -83,7 +111,8 @@ update msg model =
 view : Model -> Html Msg
 view model =
   div []
-  [ button [onClick Next] [text "Next"]
+  [ button [onClick Previous] [text "Previous"]
+  , button [onClick Next] [text "Next"]
   , button [onClick Save] [text "Save"]
   , CForm.view CustomerFormMsg model.customerForm
   ]

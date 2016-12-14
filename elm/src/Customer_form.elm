@@ -12,6 +12,14 @@ import Customer_t as CType
 
 type alias Model = Customer
 
+init : Customer -> Model
+init customer =
+  customer
+
+initEmpty : () -> Model
+initEmpty =
+  CType.empty
+
 -- UPDATE
 
 type Msg
@@ -95,15 +103,6 @@ extract m =
 
 -- VIEW
 
--- TODO: This function should be in a Module called html elements
-input_field title action val =
-  label []
-  [ text title
-  , br [] []
-  , input [ type_ "text", onInput action, value val ] []
-  , br [] []
-  ]
-
 titled_fieldset title elements =
   fieldset [] (legend [] [text title] :: elements)
 
@@ -113,54 +112,70 @@ view encapsulate model =
 
 viewForm : Model -> Html Msg
 viewForm model =
-  Pure.form []
-  [   titled_fieldset "Anrede"
-    [ input_field     "Anrede"       Title           model.title
-    , input_field     "Anrede Brief" Title_letter    model.title_letter
+  let tf = Pure.text_field in
+  let title_fields =
+    [ tf     "Anrede"       Title           model.title
+    , tf     "Anrede Brief" Title_letter    model.title_letter
     ]
-  ,   titled_fieldset "Name"
-    [ input_field     "Vorname"      Given           model.given
-    , input_field     "Zweitname"    Second          model.second
-    , input_field     "Nachnahme"    Family          model.family
-    , viewValidation  model
-    ]
-  ,   titled_fieldset "Firma"
-    [ input_field     "Firma"        Company         model.company
-    , input_field     "Adresse"      Company_address model.company_address
-    ]
-  ,   titled_fieldset "Suche"
-    [ input_field     "Kürzel"       Keyword         model.keyword
-    ]
-  ,   titled_fieldset "Adresse"
-    [ input_field     "Straße"       Street          model.street
-    , input_field     "Hausnummer"   Street_number   model.street_number
-    , input_field     "Ort"          City            model.city
-    , input_field     "Postleitzahl" Postal_code     model.postal_code
-    , input_field     "Land"         Country         model.country
-    , input_field     "Ländercode"   Country_code    model.country_code
-    ]
-  ,   titled_fieldset "Kontakt"
-    [ input_field     "Telefon"      Phone           model.phone
-    , input_field     "Telefon2"     Phone2          model.phone2
-    , input_field     "Mobiltelefon" Mobile          model.mobile
-    , input_field     "Fax"          Fax             model.fax
-    , input_field     "Fax2"         Fax2            model.fax2
-    , input_field     "Mail"         Mail            model.mail
-    , input_field     "Mail2"        Mail2           model.mail2
-    , input_field     "Internet"     Web             model.web
-    ]
-  ,   titled_fieldset "Sonstiges"
-    [ textarea [ onInput Note, value model.note ] []
-    ]
-  ]
-
--- This validation is nonsense ...
-viewValidation : Model -> Html Msg
-viewValidation model =
-  let (color, message) =
-    if String.length (String.trim model.family) == 0
-       then ("red", "Mindestens ein Nachnahme sollte angegeben werden")
-       else ("green", "Eingabe OK")
   in
-  div [ style [("color", color)] ] [ text message ]
-
+  let name_fields =
+    [ tf     "Vorname"      Given           model.given
+    -- , tf     "Zweitname"    Second          model.second
+    , tf     "Nachname"    Family          model.family
+    ]
+  in
+  let company_fields =
+    [ tf     "Firma"        Company         model.company
+    , tf     "Adresse"      Company_address model.company_address
+    ]
+  in
+  let search_fields =
+    [ tf     "Kürzel"       Keyword         model.keyword
+    ]
+  in
+  let address_fiels =
+    [ tf     "Straße"       Street          model.street
+    , tf     "Hausnummer"   Street_number   model.street_number
+    , tf     "Ort"          City            model.city
+    , tf     "Postleitzahl" Postal_code     model.postal_code
+    , tf     "Land"         Country         model.country
+    , tf     "Ländercode"   Country_code    model.country_code
+    ]
+  in
+  let contact_fields =
+    [ tf     "Telefon"      Phone           model.phone
+    , tf     "Telefon"      Phone2          model.phone2
+    , tf     "Mobiltelefon" Mobile          model.mobile
+    , tf     "Fax"          Fax             model.fax
+    , tf     "Fax"          Fax2            model.fax2
+    , tf     "Mail"         Mail            model.mail
+    , tf     "Mail"         Mail2           model.mail2
+    , tf     "Internet"     Web             model.web
+    ]
+  in
+  let additional_fields =
+    [ textarea [ onInput Note, value model.note, class "pure-input-1" ] []
+    ]
+  in
+  let left =
+    [ titled_fieldset "Anrede" title_fields
+    , titled_fieldset "Name" name_fields
+    , titled_fieldset "Firma" company_fields
+    ]
+  in
+  let middle =
+    [ titled_fieldset "Suche" search_fields
+    , titled_fieldset "Adresse" address_fiels
+    ]
+  in
+  let right =
+    [ titled_fieldset "Kontakt" contact_fields
+    ]
+  in
+  let bottom =
+    titled_fieldset "Sonstiges" additional_fields
+  in
+  let upper =
+    Pure.group (List.map (Pure.element 1 3) [left,middle,right])
+  in
+  Pure.form [] [upper, bottom]

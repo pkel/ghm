@@ -2,31 +2,65 @@ module Pure exposing (..)
 
 import Html as H exposing (Html, Attribute)
 import Html.Attributes as A
+import Html.Events as E
 
-addClass : (List (Attribute msg) -> List (Html msg) -> Html msg) -> String -> List (Attribute msg) -> List (Html msg) -> Html msg
+addClass : (List (Attribute msg) -> List (Html msg) -> Html msg) ->
+  String -> List (Attribute msg) -> List (Html msg) -> Html msg
 addClass f class a =
   f ((A.class class) :: a)
 
-text     = H.text
-legend   = H.legend
-fieldset = H.fieldset
-label    = H.label
-input    = H.input
-br       = H.br
-div      = H.label
+classedDiv : String -> List (Html msg) -> Html msg
+classedDiv class =
+  addClass div class []
 
-textarea a = addClass H.textarea "pure-input"  a
+addStyle : (List (Attribute msg) -> List (Html msg) -> Html msg) ->
+  List (String,String) -> List (Attribute msg) -> List (Html msg) -> Html msg
+addStyle f stl a =
+  f ((A.style stl) :: a)
+
+text     = H.text
+br       = H.br
+div      = H.div
+
 button   a = addClass H.button   "pure-button" a
-form     a = addClass H.form     "pure-form"   a
 
 -- Grid
-u n outOf a =
-  addClass div ("pure-" ++ (toString n) ++ "-" ++ (toString outOf)) a
+-- we make sure, that a pure-g only contains pure-u-*
 
-g a = addClass div "pure-g"
+type GridElement msg = BasicGridElement (Html msg)
 
-u1_1 a = u 1 1 a
-u1_2 a = u 1 2 a
-u1_3 a = u 1 3 a
-u2_3 a = u 2 3 a
+element: Int -> Int -> List (Html msg) -> GridElement msg
+element n outOf contains =
+  let class = "pure-u-" ++ (toString n) ++ "-" ++ (toString outOf) in
+  let div = classedDiv class in
+  BasicGridElement (div contains)
+
+group: List (GridElement msg) -> Html msg
+group elements =
+  let divList = List.map (\(BasicGridElement msg) -> msg) elements in
+  let div = classedDiv "pure-g" in
+  div divList
+
+-- Forms
+
+fieldset   = H.fieldset
+legend     = H.legend
+label      = H.label
+input      = H.input
+
+form     a = addClass H.form     "pure-form pure-form-stacked" a
+textarea a = addClass H.textarea "pure-input"                  a
+
+text_field : String -> (String -> msg) -> String -> Html msg
+text_field title action value =
+  -- TODO: Set id of input and for tag of label
+  let div = classedDiv "pure-control-group" in
+  let l = label [] [text title] in
+  let t = input [ A.type_ "text"
+                , E.onInput action
+                , A.value value
+                , A.class "pure-input-1"
+                ] []
+  in
+  div [l,t]
 

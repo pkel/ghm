@@ -1,4 +1,10 @@
-module Customer_http exposing (getById, saveNewVersion)
+module Customer_http exposing
+  ( getById
+  , getPrevById
+  , getNextById
+  , getLatest
+  , saveNewVersion
+  )
 
 import Http
 import Json.Encode as Encode
@@ -15,6 +21,38 @@ getById encap id =
       ++ "?customer_id=eq."
       ++ (toString id)
       ++ "&order=customer_data_id.desc"
+      ++ "&limit=1"
+  in
+  Http.send encap (Http.get url CType.jsonDecoderFirst)
+
+getPrevById : (Result Http.Error Customer -> msg) -> Int -> Cmd msg
+getPrevById encap id =
+  let url
+      = baseUrl
+      ++ "?customer_id=lt."
+      ++ (toString id)
+      ++ "&order=customer_id.desc,customer_data_id.desc"
+      ++ "&limit=1"
+  in
+  Http.send encap (Http.get url CType.jsonDecoderFirst)
+
+getNextById : (Result Http.Error Customer -> msg) -> Int -> Cmd msg
+getNextById encap id =
+  let url
+      = baseUrl
+      ++ "?customer_id=gt."
+      ++ (toString id)
+      ++ "&order=customer_id.asc,customer_data_id.desc"
+      ++ "&limit=1"
+  in
+  Http.send encap (Http.get url CType.jsonDecoderFirst)
+
+getLatest : (Result Http.Error Customer -> msg) -> () -> Cmd msg
+getLatest encap () =
+  let url
+      = baseUrl
+      ++ "?order=customer_id.desc,customer_data_id.desc"
+      ++ "&limit=1"
   in
   Http.send encap (Http.get url CType.jsonDecoderFirst)
 
