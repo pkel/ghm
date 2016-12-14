@@ -22,7 +22,7 @@ text     = H.text
 br       = H.br
 div      = H.div
 
-button   a = addClass H.button   "pure-button" a
+button   a = addClass (H.button)   "pure-button" ((A.type_ "button") :: a)
 
 -- Grid
 -- we make sure, that a pure-g only contains pure-u-*

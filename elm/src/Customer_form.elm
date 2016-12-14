@@ -121,7 +121,7 @@ viewForm model =
   let name_fields =
     [ tf     "Vorname"      Given           model.given
     -- , tf     "Zweitname"    Second          model.second
-    , tf     "Nachname"    Family          model.family
+    , tf     "Nachname"     Family          model.family
     ]
   in
   let company_fields =
