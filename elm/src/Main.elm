@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Html exposing (Html)
 import Pure exposing (..)
-import Icons
+import Buttons
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 
@@ -44,6 +44,7 @@ type Msg =
   | SaveResponse ( Result Http.Error ())
   | Previous
   | Next
+  | Last
   | FilterChanged String
   | CustomerReceived (Result Http.Error Customer)
 
@@ -85,6 +86,9 @@ update msg model =
           ( model, CHttp.getNextById CustomerReceived model.filter i)
         Nothing ->
           ( model, Cmd.none )
+
+    Last ->
+      ( model, CHttp.getLatest CustomerReceived model.filter )
 
     FilterChanged str ->
       ( { model | filter = str }, CHttp.getLatest CustomerReceived str )
@@ -128,13 +132,14 @@ controls model =
   in
   let middle =
     div [style [("text-align","center")]]
-        [ button [onClick Previous] [Icons.prev]
-        , button [onClick Next]     [Icons.next]
+        [ Buttons.prev Previous
+        , Buttons.next Next
+        , Buttons.last Last
         ]
   in
   let right =
     div [style [("text-align","right")]]
-        [ button [onClick Save] [Icons.save]
+        [ Buttons.save Save
         ]
   in
   let bar =

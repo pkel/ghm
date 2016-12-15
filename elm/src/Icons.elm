@@ -10,16 +10,18 @@ import Html.Attributes as Attr
 
 
 -- Helper function
-i : String -> Html msg
-i class =
+icon : String -> Html msg
+icon class =
   let class_ = "fa fa-" ++ class in
   Html.i [Attr.class class_] []
 
 
 -- Definitions
 
-save = i "floppy-o"
+save  = icon "floppy-o"
 
-prev = i "angle-left"
-next = i "angle-right"
+prev  = icon "angle-left"
+next  = icon "angle-right"
+last  = icon "angle-double-right"
+first = icon "angle-double-first"
 
