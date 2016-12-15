@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Html exposing (Html)
 import Pure exposing (..)
+import Icons
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 
@@ -127,13 +128,13 @@ controls model =
   in
   let middle =
     div [style [("text-align","center")]]
-        [ button [onClick Previous] [text "Zurück"]
-        , button [onClick Next]     [text "Weiter"]
+        [ button [onClick Previous] [Icons.prev]
+        , button [onClick Next]     [Icons.next]
         ]
   in
   let right =
     div [style [("text-align","right")]]
-        [ button [onClick Save] [text "Speichern"]
+        [ button [onClick Save] [Icons.save]
         ]
   in
   let bar =
