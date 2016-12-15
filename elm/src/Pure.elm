@@ -22,7 +22,8 @@ text     = H.text
 br       = H.br
 div      = H.div
 
-button   a = addClass (H.button)   "pure-button" ((A.type_ "button") :: a)
+button a =
+  addClass (H.button) "pure-button" ((A.type_ "button") :: a)
 
 -- Grid
 -- we make sure, that a pure-g only contains pure-u-*
@@ -54,8 +55,11 @@ legend     = H.legend
 label      = H.label
 input      = H.input
 
-form     a = addClass H.form     "pure-form pure-form-stacked" a
-textarea a = addClass H.textarea "pure-input"                  a
+form a =
+  addClass H.form "pure-form pure-form-stacked" a
+
+textarea a =
+  addClass H.textarea "pure-input" ((A.style [("resize","vertical")]) :: a)
 
 textfield : String -> (String -> msg) -> String -> Html msg
 textfield prefill action value =
