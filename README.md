@@ -7,4 +7,5 @@ Todo
 ----
 
  * Trim data on insert/update
+ * Prevent inserts with higher id's than serial currently is
 
