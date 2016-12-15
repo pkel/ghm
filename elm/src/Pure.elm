@@ -50,10 +50,10 @@ group2 measure lst =
 
 -- Forms
 
-fieldset   = H.fieldset
-legend     = H.legend
-label      = H.label
-input      = H.input
+fieldset = H.fieldset
+legend   = H.legend
+label    = H.label
+input    = H.input
 
 form a =
   addClass H.form "pure-form pure-form-stacked" a

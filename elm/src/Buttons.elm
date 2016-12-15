@@ -17,8 +17,9 @@ button tooltip contains action =
 -- msg -> Html msg
 -- but i am too lazy to type this
 
-prev = button "Zurück"    [Icons.prev]
-next = button "Weiter"    [Icons.next]
-save = button "Speichern" [Icons.save]
-last = button "Letzter"   [Icons.last]
+prev = button "Vorheriger Eintrag" [Icons.prev]
+next = button "Nächster Eintrag"   [Icons.next]
+save = button "Eintrag Speichern"  [Icons.save]
+last = button "Letzter Eintrag"    [Icons.last]
+add  = button "Eintrag hinzufügen" [Icons.add]
 

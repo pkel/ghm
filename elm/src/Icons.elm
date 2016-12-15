@@ -24,4 +24,5 @@ prev  = icon "angle-left"
 next  = icon "angle-right"
 last  = icon "angle-double-right"
 first = icon "angle-double-first"
+add   = icon "plus"
 

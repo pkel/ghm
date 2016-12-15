@@ -42,6 +42,7 @@ type Msg =
     CustomerFormMsg CForm.Msg
   | Save
   | SaveResponse ( Result Http.Error ())
+  | New
   | Previous
   | Next
   | Last
@@ -68,6 +69,16 @@ update msg model =
         Nothing ->
           -- Invalid state in form
           ( model, Cmd.none )
+
+    New ->
+      let model_ =
+        { model
+        | customerForm = CForm.initEmpty ()
+        , customerId = Nothing
+        , filter = ""
+       }
+      in
+      ( model_ , Cmd.none )
 
     SaveResponse (Ok ()) ->
       -- TODO: Refetch? If Server trims data, yes!
@@ -102,16 +113,10 @@ update msg model =
       in
       ( model_ , Cmd.none )
 
-    -- TODO: Introduce error handling
     CustomerReceived (Err _) ->
-      let model_ =
-        { model
-        | customerForm = CForm.initEmpty ()
-        , customerId = Nothing
-        }
-      in
-      ( model_ , Cmd.none )
+      ( model , Cmd.none )
 
+    -- TODO: Introduce error handling
     SaveResponse (Err _) ->
       ( model , Cmd.none )
 
@@ -135,6 +140,7 @@ controls model =
         [ Buttons.prev Previous
         , Buttons.next Next
         , Buttons.last Last
+        , Buttons.add  New
         ]
   in
   let right =
