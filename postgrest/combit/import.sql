@@ -421,3 +421,10 @@ from combit where art4 not like '';
 
 delete from booking_rooms where description ilike 'Kurtaxe';
 
+/*
+ * Set serial to highest inserted value
+ * TODO: Build import in a way, that this is not possible, i.e. give new id's
+ */
+
+SELECT setval('customers_customer_id_seq', max(customer_id)) FROM customers;
+SELECT setval('bookings_booking_id_seq', max(booking_id)) FROM bookings;
