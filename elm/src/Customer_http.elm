@@ -9,10 +9,11 @@ module Customer_http exposing
 import Http
 import Json.Encode as Encode
 
+import Config
 import Customer_t as CType exposing (Customer)
 
 baseUrl : String
-baseUrl = "http://localhost:3000/customer_data"
+baseUrl = Config.apiUrl ++ "/customer_data"
 
 getById : (Result Http.Error Customer -> msg) -> Int -> Cmd msg
 getById encap id =
