@@ -1,10 +1,9 @@
-create table customers (
-    customer_id bigserial primary key
-);
+create schema db;
 
-create table customer_data (
-    customer_data_id bigserial primary key,
-    customer_id      bigint    references customers on delete cascade on update cascade not null,
+set search_path to db;
+
+create table customers (
+    customer_id bigserial primary key,
 
     title            text      not null default '',
     title_letter     text      not null default '',
@@ -35,6 +34,19 @@ create table customer_data (
     keyword          text      not null default '',
     note             text      not null default ''
 );
+
+/* We want to log changes to this table */
+
+create table customers_log (like customers);
+
+alter table customers_log
+  add column customers_log_id bigserial primary key,
+  add column log_date timestamp default current_timestamp;
+
+/* TODO: catch non-changes */
+create rule log_customers as on update to customers
+  do insert into customers_log values (old.*);
+
 
 create table rooms (
     room_id           bigserial        primary key,

@@ -1,3 +1,5 @@
+set search_path to db;
+
 /*
  * some useful values for our own setup
  */

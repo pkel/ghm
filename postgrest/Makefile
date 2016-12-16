@@ -22,4 +22,4 @@ clean :
 	rm -rf schema.png
 
 schema.png : schema.sql
-	sqlt-graph -f PostgreSQL -o schema.png -t png schema.sql
+	# sqlt-graph -f PostgreSQL -o schema.png -t png schema.sql

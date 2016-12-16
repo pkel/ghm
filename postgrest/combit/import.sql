@@ -1,7 +1,8 @@
+set search_path to public,db;
 /*
  * combit csv export structure
  */
-create table combit (
+create table db.combit (
 /* create temporary table combit ( */
   firma      text, firma2     text, firma3     text, abteilung  text,
   anrede     text, anredebr   text, name       text, vorname    text,
@@ -50,7 +51,7 @@ create table combit (
 /*
  * lets keep a backup
  */
-select * into table combit_raw from combit;
+select * into table db.combit_raw from combit;
 
 /*
  * drop nonsense
@@ -223,9 +224,7 @@ order by
  * copy new customer data
  */
 
-insert into customers (customer_id) select distinct groupid from combit;
-
-insert into customer_data (
+insert into customers (
   customer_id,
   title,
   title_letter,
@@ -249,7 +248,7 @@ insert into customer_data (
   mail2,
   web
   )
-select
+select distinct on (groupid)
 /* the following lines are reference. use copy and paste to fill the above */
   groupid               as customer_id,
   anrede                as title,
@@ -274,10 +273,7 @@ select
   email2                as mail2,
   internet              as web
 from combit
-/* filter duplicates from above */
-inner join customer_keep on customer_keep.recordid = combit.recordid
-/* the following should preserve the order of entries */
-order by combit.recordid asc;
+order by groupid asc, combit.recordid desc;
 
 /*
  * bookings
