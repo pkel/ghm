@@ -42,7 +42,9 @@ appendMaybeFilter : String -> String -> String
 appendMaybeFilter uri filter =
   case String.trim filter of
     "" -> uri
-    str -> uri ++ "&keyword=ilike.%" ++ str ++ "%"
+    str ->
+        let str_ = Http.encodeUri ("%" ++ str ++ "%")
+        in uri ++ "&keyword=ilike." ++ str_
 
 getNextById : (Result Http.Error Customer -> msg) -> String -> Int -> Cmd msg
 getNextById encap filter id =
