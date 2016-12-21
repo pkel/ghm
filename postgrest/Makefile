@@ -1,25 +1,21 @@
 database = ghm-postgrest
 
-.PHONY : db combit run png all
+.PHONY : db combit run all
 
 all : run
 
 run :
-	postgrest postgrest.cfg
+	postgrest etc/postgrest.cfg
 
-db : png
+db :
 	dropdb --if-exists $(database)
 	createdb $(database)
-	psql $(database) -qf schema.sql
-	psql $(database) -qf config.sql
+	psql $(database) -qf schema/internal.sql
+	psql $(database) -qf schema/api.sql
+	psql $(database) -qf etc/ghm-cfg.sql
 
 combit : db
 	psql $(database) -qf combit/import.sql
 
-png : schema.png
-
 clean :
-	rm -rf schema.png
-
-schema.png : schema.sql
-	# sqlt-graph -f PostgreSQL -o schema.png -t png schema.sql
+	# rm -rf schema.png

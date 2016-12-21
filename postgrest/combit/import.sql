@@ -1,8 +1,9 @@
-set search_path to public,db;
+set search_path to internal;
+
 /*
  * combit csv export structure
  */
-create table db.combit (
+create table combit (
 /* create temporary table combit ( */
   firma      text, firma2     text, firma3     text, abteilung  text,
   anrede     text, anredebr   text, name       text, vorname    text,
@@ -51,7 +52,7 @@ create table db.combit (
 /*
  * lets keep a backup
  */
-select * into table db.combit_raw from combit;
+select * into table combit_raw from combit;
 
 /*
  * drop nonsense
@@ -165,64 +166,10 @@ alter table combit
   alter column groupid set not null;
 
 /*
- * get rid of duplicate customers enties (mark unique, filter on insert)
- * TODO: fill notes with plzp,postfach, kundennummer, kategorie
- */
-select distinct on (
-  groupid,
-  anrede,
-  anredebr,
-  vorname,
-  name,
-  firma,
-  abteilung,
-  such,
-  strasse,
-  hnr,
-  ort,
-  plzz,
-  land___ausgeschrieben,
-  land,
-  telefon,
-  telefon2,
-  mobiltel,
-  telefax,
-  telefon2,
-  email,
-  email2,
-  internet
-  ) recordid
-into temporary customer_keep
-from combit
-order by
-  groupid,
-  anrede,
-  anredebr,
-  vorname,
-  name,
-  firma,
-  abteilung,
-  such,
-  strasse,
-  hnr,
-  ort,
-  plzz,
-  land___ausgeschrieben,
-  land,
-  telefon,
-  telefon2,
-  mobiltel,
-  telefax,
-  telefon2,
-  email,
-  email2,
-  internet
-  /* a should be kept on a->b->a situations, thus mark highest id */
-  , recordid desc;
-
-/*
  * copy new customer data
  */
+
+/* TODO: old revisions are ignores here. */
 
 insert into customers (
   customer_id,
@@ -273,7 +220,7 @@ select distinct on (groupid)
   email2                as mail2,
   internet              as web
 from combit
-order by groupid asc, combit.recordid desc;
+order by combit.groupid asc, combit.recordid desc;
 
 /*
  * bookings

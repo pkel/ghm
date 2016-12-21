@@ -1,4 +1,4 @@
-set search_path to db;
+set search_path to internal;
 
 /*
  * some useful values for our own setup
