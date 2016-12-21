@@ -41,7 +41,6 @@ init id =
 type Msg =
     CustomerFormMsg CForm.Msg
   | Save
-  | SaveResponse ( Result Http.Error ())
   | New
   | Previous
   | Next
@@ -61,10 +60,9 @@ update msg model =
         Just c ->
           case model.customerId of
             Just i ->
-              ( model, CHttp.saveNewVersion SaveResponse c i )
+              ( model, CHttp.save CustomerReceived c i )
             Nothing ->
-              -- TODO: Insert new customer
-              ( model, Cmd.none )
+              ( model, CHttp.new CustomerReceived c)
 
         Nothing ->
           -- Invalid state in form
@@ -79,10 +77,6 @@ update msg model =
        }
       in
       ( model_ , Cmd.none )
-
-    SaveResponse (Ok ()) ->
-      -- TODO: Refetch? If Server trims data, yes!
-      ( model, Cmd.none )
 
     Previous ->
       case model.customerId of
@@ -114,10 +108,6 @@ update msg model =
       ( model_ , Cmd.none )
 
     CustomerReceived (Err _) ->
-      ( model , Cmd.none )
-
-    -- TODO: Introduce error handling
-    SaveResponse (Err _) ->
       ( model , Cmd.none )
 
 

@@ -3,7 +3,8 @@ module Customer_http exposing
   , getPrevById
   , getNextById
   , getLatest
-  , saveNewVersion
+  , save
+  , new
   )
 
 import Http
@@ -13,68 +14,74 @@ import Json.Decode as Decode
 import Config
 import Customer_t as CType exposing (Customer)
 
-dataUrl : String
-dataUrl = Config.apiUrl ++ "/customer_data"
-
-entityUrl : String
-entityUrl = Config.apiUrl ++ "/customer"
+resourceUri : String
+resourceUri = Config.apiUrl ++ "/customers"
 
 getById : (Result Http.Error Customer -> msg) -> Int -> Cmd msg
 getById encap id =
-  let url
-      = dataUrl
+  let uri
+      = resourceUri
       ++ "?customer_id=eq."
       ++ (toString id)
-      ++ "&order=customer_data_id.desc"
-      ++ "&limit=1"
   in
-  Http.send encap (Http.get url CType.jsonDecoderFirst)
+  Http.send encap (Http.get uri CType.jsonDecoderFirst)
 
 getPrevById : (Result Http.Error Customer -> msg) -> String -> Int -> Cmd msg
 getPrevById encap filter id =
-  let url
-      = dataUrl
+  let uri
+      = resourceUri
       ++ "?customer_id=lt."
       ++ (toString id)
-      ++ "&order=customer_id.desc,customer_data_id.desc"
+      ++ "&order=customer_id.desc"
       ++ "&limit=1"
   in
-  let url_ = appendMaybeFilter url filter in
-  Http.send encap (Http.get url_ CType.jsonDecoderFirst)
+  let uri_ = appendMaybeFilter uri filter in
+  Http.send encap (Http.get uri_ CType.jsonDecoderFirst)
 
 appendMaybeFilter : String -> String -> String
-appendMaybeFilter url filter =
+appendMaybeFilter uri filter =
   case String.trim filter of
-    "" -> url
-    str -> url ++ "&keyword=ilike.%" ++ str ++ "%"
+    "" -> uri
+    str -> uri ++ "&keyword=ilike.%" ++ str ++ "%"
 
 getNextById : (Result Http.Error Customer -> msg) -> String -> Int -> Cmd msg
 getNextById encap filter id =
-  let url
-      = dataUrl
+  let uri
+      = resourceUri
       ++ "?customer_id=gt."
       ++ (toString id)
-      ++ "&order=customer_id.asc,customer_data_id.desc"
+      ++ "&order=customer_id.asc"
       ++ "&limit=1"
   in
-  let url_ = appendMaybeFilter url filter in
-  Http.send encap (Http.get url_ CType.jsonDecoderFirst)
+  let uri_ = appendMaybeFilter uri filter in
+  Http.send encap (Http.get uri_ CType.jsonDecoderFirst)
 
 getLatest : (Result Http.Error Customer -> msg) -> String -> Cmd msg
 getLatest encap filter =
-  let url
-      = dataUrl
-      ++ "?order=customer_id.desc,customer_data_id.desc"
+  let uri
+      = resourceUri
+      ++ "?order=customer_id.desc"
       ++ "&limit=1"
   in
-  let url_ = appendMaybeFilter url filter in
-  Http.send encap (Http.get url_ CType.jsonDecoderFirst)
+  let uri_ = appendMaybeFilter uri filter in
+  Http.send encap (Http.get uri_ CType.jsonDecoderFirst)
 
-saveNewVersion : (Result Http.Error () -> msg) -> Customer -> Int -> Cmd msg
-saveNewVersion encap c id =
+save : (Result Http.Error Customer -> msg) -> Customer -> Int -> Cmd msg
+save encap c id =
+  let uri
+      = resourceUri
+      ++ "?customer_id=eq."
+      ++ (toString id)
+  in
   let cc = { c | customer_id = Just id } in
   let json = CType.jsonEncode cc in
-  Http.send encap (postJsonExpectEmptyResponse dataUrl json)
+  Http.send encap (patchJson uri json CType.jsonDecoderFirst)
+
+new : (Result Http.Error Customer -> msg) -> Customer -> Cmd msg
+new encap c =
+  let cc = { c | customer_id = Nothing } in
+  let json = CType.jsonEncode cc in
+  Http.send encap (postJson resourceUri json CType.jsonDecoder)
 
 
 -- TODO: separate this into (postgrest) helper module
@@ -86,27 +93,30 @@ emptyJsonList : Encode.Value
 emptyJsonList =
   Encode.list []
 
-postJsonExpectEmptyResponse : String -> Encode.Value -> Http.Request ()
-postJsonExpectEmptyResponse url json =
+patchJson : String -> Encode.Value -> Decode.Decoder a -> Http.Request a
+patchJson uri json decoder =
+  let postgrestFullResponseHeader =
+    Http.header "Prefer" "return=representation"
+  in
   Http.request
-    { method = "POST"
-    , headers = []
-    , url = url
+    { method = "PATCH"
+    , headers = [postgrestFullResponseHeader]
+    , url = uri
     , body = Http.jsonBody json
-    , expect = Http.expectStringResponse (\_ -> Ok ())
+    , expect = Http.expectJson decoder
     , timeout = Nothing
     , withCredentials = False
     }
 
 postJson : String -> Encode.Value -> Decode.Decoder a -> Http.Request a
-postJson url json decoder =
+postJson uri json decoder =
   let postgrestFullResponseHeader =
     Http.header "Prefer" "return=representation"
   in
   Http.request
     { method = "POST"
     , headers = [postgrestFullResponseHeader]
-    , url = url
+    , url = uri
     , body = Http.jsonBody json
     , expect = Http.expectJson decoder
     , timeout = Nothing

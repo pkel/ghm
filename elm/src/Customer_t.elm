@@ -7,7 +7,6 @@ import Json.Encode.Extra as EncodeX
 
 type alias Customer = {
   customer_id      : Maybe Int,
-  customer_data_id : Maybe Int,
 
   title            : String,
   title_letter     : String,
@@ -55,7 +54,6 @@ jsonDecoder =
   let string   = Decode.string in
   Pipeline.decode Customer
     |> required "customer_id"      (nullable int)
-    |> required "customer_data_id" (nullable int)
 
     |> optional "title"            string    ""
     |> optional "title_letter"     string    ""
@@ -94,8 +92,6 @@ jsonEncode c =
   let string = Encode.string in
   Encode.object
     [ ("customer_id",      (maybe int) c.customer_id)
-    -- This field disturbs during post. On put/patch, we set it via uri
-    -- , ("customer_data_id", (maybe int) c.customer_data_id)
 
     , ("title",            string c.title)
     , ("title_letter",     string c.title_letter)
@@ -132,6 +128,6 @@ jsonEncode c =
 
 empty : () -> Customer
 empty () =
-  Customer Nothing Nothing
+  Customer Nothing
     "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
 
