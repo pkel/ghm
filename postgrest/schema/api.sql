@@ -6,6 +6,7 @@ set search_path to api;
  */
 create view customers as select
       customer_id
+
     , title
     , title_letter
 
@@ -156,4 +157,57 @@ create rule customers_update as on update to customers do instead
 create rule customers_delete as on delete to customers do
   insert into internal.customers_log values (old.*);
 
-create view bookings as select * from internal.bookings;
+/*
+ * bookings
+ */
+create view bookings as select
+    booking_id,
+    customer_id,
+
+    state,
+    deposit_asked,
+    deposit_got,
+    no_tax,
+    note
+  from internal.bookings;
+
+create view booked_rooms as select
+    booked_room_id,
+    booking_id,
+    room_id,
+
+    beds,
+    price_per_bed,
+    factor,
+
+    description,
+
+    breakfast,
+
+    note,
+
+    from_date,
+    to_date
+  from internal.booked_rooms;
+
+create view booked_individuals as select
+    booked_individual_id,
+    booking_id,
+
+    given,
+    second,
+    family,
+    year_of_birth,
+    month_of_birth,
+    day_of_birth
+  from internal.booked_individuals;
+
+/*
+ * static configuration tables
+ *
+ * - rooms
+ * - booking_states
+ */
+create view rooms          as select * from internal.rooms;
+create view booking_states as select * from internal.booking_states;
+

@@ -245,7 +245,7 @@ from combit;
 
 /* individuals */
 
-insert into booking_individuals (
+insert into booked_individuals (
   booking_id,
   given,
   family
@@ -286,7 +286,7 @@ update combit set beds2 = 4 where art2 ilike '%Vierbettzimmer%';
 update combit set beds3 = 4 where art3 ilike '%Vierbettzimmer%';
 update combit set beds4 = 4 where art4 ilike '%Vierbettzimmer%';
 
-insert into booking_rooms (
+insert into booked_rooms (
   booking_id,
   beds,
   price_per_bed,
@@ -305,7 +305,7 @@ select
   abis
 from combit where art1 not like '';
 
-insert into booking_rooms (
+insert into booked_rooms (
   booking_id,
   beds,
   price_per_bed,
@@ -324,7 +324,7 @@ select
   abis
 from combit where art2 not like '';
 
-insert into booking_rooms (
+insert into booked_rooms (
   booking_id,
   beds,
   price_per_bed,
@@ -343,7 +343,7 @@ select
   abis
 from combit where art3 not like '';
 
-insert into booking_rooms (
+insert into booked_rooms (
   booking_id,
   beds,
   price_per_bed,
@@ -362,7 +362,7 @@ select
   abis
 from combit where art4 not like '';
 
-delete from booking_rooms where description ilike 'Kurtaxe';
+delete from booked_rooms where description ilike 'Kurtaxe';
 
 /*
  * Set serial to highest inserted value

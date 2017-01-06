@@ -57,6 +57,7 @@ create table booking_states (
 create table bookings (
     booking_id        bigserial primary key,
     customer_id       bigint    references customers on delete cascade on update cascade,
+
     state             int       references booking_states not null default '0',
     deposit_asked     numeric   check (deposit_asked >= 0),
     deposit_got       numeric   check (deposit_got >= 0),
@@ -64,8 +65,8 @@ create table bookings (
     note              text      not null default ''
 );
 
-create table booking_rooms (
-    booking_room_id   bigserial primary key,
+create table booked_rooms (
+    booked_room_id    bigserial primary key,
     booking_id        bigint    references bookings on delete cascade on update cascade not null,
     room_id           bigint    references rooms,
 
@@ -83,8 +84,8 @@ create table booking_rooms (
     to_date           date
 );
 
-create table booking_individuals (
-    booking_individual_id
+create table booked_individuals (
+    booked_individual_id
                       bigserial        primary key,
     booking_id        bigint           references bookings on delete cascade on update cascade not null,
 
