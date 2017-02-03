@@ -1,4 +1,4 @@
-module Customer_t exposing (Customer, jsonDecoder, jsonDecoderFirst, jsonEncode, empty)
+module Customer exposing (Customer, jsonDecoder, jsonDecoderFirst, jsonEncode, empty)
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline

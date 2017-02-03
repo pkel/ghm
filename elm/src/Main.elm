@@ -7,11 +7,10 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 
 
-import Customer_t exposing (Customer)
+import Customer as C exposing (Customer)
 
-import Customer_t as CType
-import Customer_form as CForm
-import Customer_http as CHttp
+import CustomerForm as CForm
+import Database as Db
 import Http
 
 
@@ -33,7 +32,7 @@ type alias Model =
 init : Int -> (Model, Cmd Msg)
 init id =
   ( Model Nothing (CForm.initEmpty ()) ""
-  , CHttp.getLatest CustomerReceived "" )
+  , Db.getLatestCustomer CustomerReceived "" )
 
 
 -- UPDATE
@@ -60,9 +59,9 @@ update msg model =
         Just c ->
           case model.customerId of
             Just i ->
-              ( model, CHttp.save CustomerReceived c i )
+              ( model, Db.saveCustomer CustomerReceived c i )
             Nothing ->
-              ( model, CHttp.new CustomerReceived c)
+              ( model, Db.newCustomer CustomerReceived c)
 
         Nothing ->
           -- Invalid state in form
@@ -81,22 +80,22 @@ update msg model =
     Previous ->
       case model.customerId of
         Just i ->
-          ( model, CHttp.getPrevById CustomerReceived model.filter i)
+          ( model, Db.getPrevCustomerById CustomerReceived model.filter i)
         Nothing ->
-          ( model, CHttp.getLatest CustomerReceived model.filter)
+          ( model, Db.getLatestCustomer CustomerReceived model.filter)
 
     Next ->
       case model.customerId of
         Just i ->
-          ( model, CHttp.getNextById CustomerReceived model.filter i)
+          ( model, Db.getNextCustomerById CustomerReceived model.filter i)
         Nothing ->
           ( model, Cmd.none )
 
     Last ->
-      ( model, CHttp.getLatest CustomerReceived model.filter )
+      ( model, Db.getLatestCustomer CustomerReceived model.filter )
 
     FilterChanged str ->
-      ( { model | filter = str }, CHttp.getLatest CustomerReceived str )
+      ( { model | filter = str }, Db.getLatestCustomer CustomerReceived str )
 
     CustomerReceived (Ok c) ->
       let model_ =

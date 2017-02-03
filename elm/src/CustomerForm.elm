@@ -1,12 +1,11 @@
-module Customer_form exposing (..)
+module CustomerForm exposing (..)
 
 import Html exposing (Html)
 import Pure exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 
-import Customer_t exposing (Customer)
-import Customer_t as CType
+import Customer as C exposing (Customer)
 
 -- MODEL
 
@@ -18,7 +17,7 @@ init customer =
 
 initEmpty : () -> Model
 initEmpty =
-  CType.empty
+  C.empty
 
 -- UPDATE
 
