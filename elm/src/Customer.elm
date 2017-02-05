@@ -5,6 +5,8 @@ import Json.Decode.Pipeline as Pipeline
 import Json.Encode as Encode
 import Json.Encode.Extra as EncodeX
 
+import Booking as B exposing (Booking)
+
 type alias Customer = {
   customer_id      : Maybe Int,
 
@@ -35,7 +37,9 @@ type alias Customer = {
   web              : String,
 
   keyword          : String,
-  note             : String
+  note             : String,
+
+  bookings         : List Booking
 }
 
 
@@ -52,6 +56,8 @@ jsonDecoder =
   let nullable = Decode.nullable in
   let int      = Decode.int in
   let string   = Decode.string in
+  let list     = Decode.list in
+  let booking  = B.jsonDecoder in
   Pipeline.decode Customer
     |> required "customer_id"      (nullable int)
 
@@ -83,6 +89,8 @@ jsonDecoder =
 
     |> optional "keyword"          string    ""
     |> optional "note"             string    ""
+
+    |> optional "bookings"         (list booking) []
 
 
 jsonEncode : Customer -> Encode.Value
@@ -130,4 +138,5 @@ empty : () -> Customer
 empty () =
   Customer Nothing
     "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+    []
 
