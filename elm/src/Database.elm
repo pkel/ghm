@@ -17,6 +17,9 @@ import Customer as C exposing (Customer)
 customersUri : String
 customersUri = Config.apiUrl ++ "/customers"
 
+customerSelect : String
+customerSelect = "&select=*,bookings{*,booked_individuals{*},booked_rooms{*}}"
+
 
 ---------------
 -- Customers --
@@ -28,6 +31,7 @@ getCustomerById encap id =
       = customersUri
       ++ "?customer_id=eq."
       ++ (toString id)
+      ++ customerSelect
   in
   Http.send encap (Http.get uri C.jsonDecoderFirst)
 
@@ -37,6 +41,7 @@ getPrevCustomerById encap filter id =
       = customersUri
       ++ "?customer_id=lt."
       ++ (toString id)
+      ++ customerSelect
       ++ "&order=customer_id.desc"
       ++ "&limit=1"
   in
@@ -49,6 +54,7 @@ getNextCustomerById encap filter id =
       = customersUri
       ++ "?customer_id=gt."
       ++ (toString id)
+      ++ customerSelect
       ++ "&order=customer_id.asc"
       ++ "&limit=1"
   in
@@ -60,6 +66,7 @@ getLatestCustomer encap filter =
   let uri
       = customersUri
       ++ "?order=customer_id.desc"
+      ++ customerSelect
       ++ "&limit=1"
   in
   let uri_ = appendKeywordFilter uri filter in
