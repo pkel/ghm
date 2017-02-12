@@ -3,6 +3,7 @@ module Pure exposing (..)
 import Html as H exposing (Html, Attribute)
 import Html.Attributes as A
 import Html.Events as E
+import Table
 
 addClass : (List (Attribute msg) -> List (Html msg) -> Html msg) ->
   String -> List (Attribute msg) -> List (Html msg) -> Html msg

@@ -1,7 +1,7 @@
 .PHONY: all clean distclean dep
 
 all:
-	elm-make src/Main.elm --output elm.js 2>&1 | vimpager
+	elm-make src/Main.elm --output elm.js
 
 min: all
 	closure-compiler --js elm.js > elm.min.js

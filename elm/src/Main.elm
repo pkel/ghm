@@ -3,11 +3,13 @@ module Main exposing (..)
 import Html exposing (Html)
 import Pure exposing (..)
 import Buttons
-import Html.Attributes exposing (..)
+import Table
+import Html.Attributes  exposing (..)
 import Html.Events exposing (..)
 
 
 import Customer as C exposing (Customer)
+import Booking  as B exposing (Booking)
 
 import CustomerForm as CForm
 import Database as Db
@@ -16,7 +18,7 @@ import Http
 
 main =
   Html.program
-  { init = init 1151
+  { init = init
   , view = view
   , update = update
   , subscriptions = subscriptions }
@@ -27,11 +29,13 @@ type alias Model =
   { customerId : Maybe Int
   , customerForm : CForm.Model
   , filter : String
+  , bookingsTableState : Table.State
+  , bookings : List LocalBooking
   }
 
-init : Int -> (Model, Cmd Msg)
-init id =
-  ( Model Nothing (CForm.initEmpty ()) ""
+init : (Model, Cmd Msg)
+init =
+  ( Model Nothing (CForm.initEmpty ()) "" (Table.initialSort "ID") []
   , Db.getLatestCustomer CustomerReceived "" )
 
 
@@ -46,6 +50,9 @@ type Msg =
   | Last
   | FilterChanged String
   | CustomerReceived (Result Http.Error Customer)
+  | BookingsTableSetState Table.State
+
+type alias LocalBooking = (Int, Booking)
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -98,16 +105,24 @@ update msg model =
       ( { model | filter = str }, Db.getLatestCustomer CustomerReceived str )
 
     CustomerReceived (Ok c) ->
-      let model_ =
-        { model
-        | customerForm = CForm.init c
-        , customerId = c.customer_id
-        }
+      let f booking pre =
+              ((List.length pre + 1) , booking) :: pre
+          bookings =
+              List.foldl f [] c.bookings
+          model_ =
+              { model
+              | customerForm = CForm.init c
+              , customerId = c.customer_id
+              , bookings = bookings
+              }
       in
       ( model_ , Cmd.none )
 
     CustomerReceived (Err _) ->
       ( model , Cmd.none )
+
+    BookingsTableSetState newState ->
+        ( { model | bookingsTableState = newState } , Cmd.none )
 
 
 -- VIEW
@@ -117,6 +132,7 @@ view model =
   div []
   [ controls model
   , CForm.view CustomerFormMsg model.customerForm
+  , bookingsTable model
   ]
 
 controls : Model -> Html Msg
@@ -147,6 +163,24 @@ controls model =
         ]
   in
   Pure.form [] [bar]
+
+bookingsTableConfig : Table.Config LocalBooking Msg
+bookingsTableConfig =
+    let defaults = Table.defaultCustomizations in
+    Table.customConfig
+        { toId = \t -> toString(Tuple.first t)
+        , toMsg = BookingsTableSetState
+        , columns =
+            [ Table.intColumn "ID" (\t -> (Tuple.first t)) ]
+        , customizations =
+            { defaults
+            | tableAttrs = [ class "pure-table" ]
+            }
+        }
+
+bookingsTable : Model -> Html Msg
+bookingsTable model =
+    Table.view bookingsTableConfig model.bookingsTableState model.bookings
 
 
 -- SUBSCRIPTIONS

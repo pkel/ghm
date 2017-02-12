@@ -113,6 +113,8 @@ viewForm : Model -> Html Msg
 viewForm model =
     let tf = Pure.titledTextfield
 
+--- Customer Details
+
         title_fields =
             [ tf     "Anrede"       Title           model.title
             , tf     "Anrede Brief" Title_letter    model.title_letter
@@ -183,5 +185,6 @@ viewForm model =
 
         note =
             titled_fieldset "Sonstiges" additional_fields
+
     in
         Pure.form [] [details, note]
