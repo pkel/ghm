@@ -63,7 +63,7 @@ jsonDecoder =
         int      = Decode.int
         string   = Decode.string
         list     = Decode.list
-        booking  = B.jsonDecoder
+        booking  = B.decode
     in
         Pipeline.decode Customer
             |> required "customer_id"      (nullable int)
