@@ -1,4 +1,4 @@
-module JsonHelpers exposing (..)
+module Helpers.Json exposing (..)
 
 import Date exposing (Date)
 import Json.Decode as Decode exposing (Decoder)

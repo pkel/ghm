@@ -11,8 +11,13 @@ import Json.Decode.Pipeline as Pipeline
 import Json.Encode as Encode
 import Json.Encode.Extra as EncodeX
 
-import JsonHelpers
+import Helpers.List as ListH
+import Helpers.Json as JsonH
+
 import Date exposing (Date)
+
+
+-- Types
 
 type alias BookedIndividual =
     { given         : String
@@ -31,8 +36,8 @@ type alias BookedRoom =
     , description   : String
     , breakfast     : Bool
     , note          : String
-    , from_date     : Maybe Date
-    , to_date       : Maybe Date
+    , from          : Maybe Date
+    , to            : Maybe Date
     }
 
 type alias Booking =
@@ -45,6 +50,28 @@ type alias Booking =
     , individuals      : List BookedIndividual
     , rooms            : List BookedRoom
     }
+
+type alias Summary =
+    { from      : Maybe Date
+    , to        : Maybe Date
+    , n_rooms   : Int
+    , n_beds    : Int
+    }
+
+
+-- Functions
+
+-- Maximal Time Frame and sum of beds/rooms
+summary : Booking -> Summary
+summary b =
+    let f a b   = Maybe.map Date.toTime (a b)
+        from    = List.map (f .from) b.rooms |> ListH.minimumNotNothing
+        to      = List.map (f .to)   b.rooms |> ListH.maximumNotNothing
+        n_rooms = List.length b.rooms
+        n_beds  = List.map .beds b.rooms |> List.foldl (+) 0
+        conv    = Maybe.map Date.fromTime
+    in
+        Summary (conv from) (conv to) n_rooms n_beds
 
 
 -- Json
@@ -93,7 +120,7 @@ decodeRoom =
         float    = Decode.float
         bool     = Decode.bool
         int      = Decode.int
-        date     = JsonHelpers.decodeDate
+        date     = JsonH.decodeDate
         string   = Decode.string
     in
         -- TODO: Read defaults from config / database
@@ -105,8 +132,8 @@ decodeRoom =
             |> optional "description"   string ""
             |> optional "breakfast"     bool True
             |> optional "note"          string ""
-            |> optional "from_date"     (nullable date) Nothing
-            |> optional "to_date"       (nullable date) Nothing
+            |> optional "from"          (nullable date) Nothing
+            |> optional "to"            (nullable date) Nothing
 
 
 -- Constructors
