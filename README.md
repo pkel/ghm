@@ -12,14 +12,14 @@ Todo
       - Kundennr, Kategorie: Bemerkung/Sideinfo -> Notiz
       - Plzp, Postfach: Kommentar/2te Adresse -> Notiz
       - Geburtsdaten
+  * Combit import seems to use same date on from/to
 
 Next steps
 ----------
 
-  * Build elm Type for Booking
-  * Parse type from json
-  * fetch booking for each customer from db
-  * show data in FE
-  * Build form to edit booking
+  * select booking from list
+  * show complete booking information
+  * editing
   * Insert new bookings for existing customers
+  * saving
 

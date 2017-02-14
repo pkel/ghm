@@ -180,6 +180,7 @@ bookingsTableConfig =
         , toMsg = BookingsTableSetState
         , columns =
             [ Table.intColumn "ID" fst
+            -- TODO: Make this sorting correctly
             , Table.stringColumn "von" (\t -> viewMaybeDate (snd t).from)
             , Table.stringColumn "bis" (\t -> viewMaybeDate (snd t).to)
             , Table.intColumn "Zimmer" (\t -> (snd t).n_rooms)
