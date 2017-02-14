@@ -2,6 +2,8 @@ module Booking exposing
     ( Booking
     , BookedIndividual
     , BookedRoom
+    , Summary
+    , summary
     , decode
     , empty
     )

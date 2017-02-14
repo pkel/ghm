@@ -30,8 +30,10 @@ type alias Model =
   , customerForm : CForm.Model
   , filter : String
   , bookingsTableState : Table.State
-  , bookings : List LocalBooking
+  , bookingSummary : List LocalBooking
   }
+
+type alias LocalBooking = (Int, B.Summary)
 
 init : (Model, Cmd Msg)
 init =
@@ -51,8 +53,6 @@ type Msg =
   | FilterChanged String
   | CustomerReceived (Result Http.Error Customer)
   | BookingsTableSetState Table.State
-
-type alias LocalBooking = (Int, Booking)
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -105,15 +105,16 @@ update msg model =
       ( { model | filter = str }, Db.getLatestCustomer CustomerReceived str )
 
     CustomerReceived (Ok c) ->
-      let f booking pre =
-              ((List.length pre + 1) , booking) :: pre
-          bookings =
-              List.foldl f [] c.bookings
+      let f x pre =
+              ((List.length pre + 1) , x) :: pre
+          summaries  = List.map B.summary c.bookings
+          summaries_ =
+              List.foldl f [] summaries
           model_ =
               { model
               | customerForm = CForm.init c
               , customerId = c.customer_id
-              , bookings = bookings
+              , bookingSummary = summaries_
               }
       in
       ( model_ , Cmd.none )
@@ -166,12 +167,22 @@ controls model =
 
 bookingsTableConfig : Table.Config LocalBooking Msg
 bookingsTableConfig =
-    let defaults = Table.defaultCustomizations in
+    let defaults = Table.defaultCustomizations
+        viewMaybeDate a =
+            Maybe.withDefault "" (Maybe.map toString a)
+        fst = Tuple.first
+        snd = Tuple.second
+    in
     Table.customConfig
-        { toId = \t -> toString(Tuple.first t)
+        { toId = \t -> toString (fst t)
         , toMsg = BookingsTableSetState
         , columns =
-            [ Table.intColumn "ID" (\t -> (Tuple.first t)) ]
+            [ Table.intColumn "ID" fst
+            , Table.stringColumn "von" (\t -> viewMaybeDate (snd t).from)
+            , Table.stringColumn "bis" (\t -> viewMaybeDate (snd t).to)
+            , Table.intColumn "Zimmer" (\t -> (snd t).n_rooms)
+            , Table.intColumn "Betten" (\t -> (snd t).n_beds)
+            ]
         , customizations =
             { defaults
             | tableAttrs = [ class "pure-table" ]
@@ -180,7 +191,7 @@ bookingsTableConfig =
 
 bookingsTable : Model -> Html Msg
 bookingsTable model =
-    Table.view bookingsTableConfig model.bookingsTableState model.bookings
+    Table.view bookingsTableConfig model.bookingsTableState model.bookingSummary
 
 
 -- SUBSCRIPTIONS
