@@ -134,8 +134,8 @@ decodeRoom =
             |> optional "description"   string ""
             |> optional "breakfast"     bool True
             |> optional "note"          string ""
-            |> optional "from"          (nullable date) Nothing
-            |> optional "to"            (nullable date) Nothing
+            |> optional "from_date"     (nullable date) Nothing
+            |> optional "to_date"       (nullable date) Nothing
 
 
 -- Constructors

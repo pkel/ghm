@@ -11,6 +11,8 @@ import Html.Events exposing (..)
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
 
+import Helpers.Date as DateH
+
 import CustomerForm as CForm
 import Database as Db
 import Http
@@ -169,7 +171,7 @@ bookingsTableConfig : Table.Config LocalBooking Msg
 bookingsTableConfig =
     let defaults = Table.defaultCustomizations
         viewMaybeDate a =
-            Maybe.withDefault "" (Maybe.map toString a)
+            Maybe.withDefault "" (Maybe.map DateH.print a)
         fst = Tuple.first
         snd = Tuple.second
     in
