@@ -3,7 +3,6 @@ module Main exposing (..)
 import Html exposing (Html)
 import Pure exposing (..)
 import Buttons
-import Table
 import Html.Attributes  exposing (..)
 import Html.Events exposing (..)
 
@@ -30,28 +29,20 @@ main =
 
 type alias Model =
   { customerId : Maybe Int
+  , customer : Customer
   , customerForm : CForm.Model
   , filter : String
-  , bookingsTableState : Table.State
-  , bookings : List LocalBooking
   , bookingForm : BForm.Model
   , focusedBooking : Maybe Booking
   }
-
-type alias LocalBooking =
-    { id : Int
-    , summary : B.Summary
-    , data : B.Booking
-    }
 
 init : (Model, Cmd Msg)
 init =
   ( Model
         Nothing
+        (C.empty ())
         (CForm.initEmpty ())
         ""
-        (Table.initialSort "ID")
-        []
         (BForm.initEmpty ())
         Nothing
   , Db.getLatestCustomer CustomerReceived "" )
@@ -69,8 +60,7 @@ type Msg
     | Last
     | FilterChanged String
     | CustomerReceived (Result Http.Error Customer)
-    | BookingTableSetState Table.State
-    | BookingTableClicked LocalBooking
+    | SelectBooking Booking
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -126,15 +116,11 @@ update msg model =
       ( { model | filter = str }, Db.getLatestCustomer CustomerReceived str )
 
     CustomerReceived (Ok c) ->
-      let f x pre =
-              (LocalBooking (List.length pre + 1) (B.summary x)  x) :: pre
-          bookings_ =
-              List.foldl f [] c.bookings
-          model_ =
+      let model_ =
               { model
-              | customerForm = CForm.init c
+              | customer = c
+--              , customerForm = CForm.init c
               , customerId = c.customer_id
-              , bookings = bookings_
               , focusedBooking = List.head c.bookings
               }
       in
@@ -143,27 +129,29 @@ update msg model =
     CustomerReceived (Err _) ->
       ( model , Cmd.none )
 
-    BookingTableSetState newState ->
-        ( { model | bookingsTableState = newState } , Cmd.none )
-
-    BookingTableClicked localBooking ->
-        ( { model | focusedBooking = Just localBooking.data } , Cmd.none )
+    SelectBooking booking->
+        ( { model | focusedBooking = Just booking } , Cmd.none )
 
 -- VIEW
 
 view : Model -> Html Msg
 view model =
-    let bookingDetail =
-            case model.focusedBooking of
-                Nothing -> div [] []
-                Just b -> B.view b
+    let customerDetail = C.view model.customer
+
+        f b = div [onClick (SelectBooking b)] [B.viewSummary b]
+
+        bookings = List.map f model.customer.bookings
+
+        booking = B.view model.focusedBooking
+
+        data =
+            Pure.group2 24
+                [ ([customerDetail], 7)
+                , ( bookings, 6)
+                , ([booking], 11)
+                ]
     in
-  div []
-  [ controls model
-  , CForm.view CustomerFormMsg model.customerForm
-  , bookingsTable model
-  , bookingDetail
-  ]
+        div [] [controls model, data]
 
 controls : Model -> Html Msg
 controls model =
@@ -193,36 +181,6 @@ controls model =
         ]
   in
   Pure.form [] [bar]
-
-bookingsTableConfig : Table.Config LocalBooking Msg
-bookingsTableConfig =
-    let defaults = Table.defaultCustomizations
-        viewMaybeDate a =
-            Maybe.withDefault "" (Maybe.map DateH.print a)
-        fst = Tuple.first
-        snd = Tuple.second
-    in
-    Table.customConfig
-        { toId = \t -> toString t.id
-        , toMsg = BookingTableSetState
-        , columns =
-            [ Table.intColumn "ID" .id
-            -- TODO: Make this sorting correctly
-            , Table.stringColumn "von" (\t -> viewMaybeDate t.summary.from)
-            , Table.stringColumn "bis" (\t -> viewMaybeDate t.summary.to)
-            , Table.intColumn "Zimmer" (\t -> t.summary.n_rooms)
-            , Table.intColumn "Betten" (\t -> t.summary.n_beds)
-            ]
-        , customizations =
-            { defaults
-            | tableAttrs = [ class "pure-table" ]
-            , rowAttrs = \t -> [ onClick (BookingTableClicked t) ]
-            }
-        }
-
-bookingsTable : Model -> Html Msg
-bookingsTable model =
-    Table.view bookingsTableConfig model.bookingsTableState model.bookings
 
 
 -- SUBSCRIPTIONS

@@ -5,6 +5,7 @@ module Booking exposing
     , Summary
     , summary
     , view
+    , viewSummary
     , decode
     , empty
     )
@@ -18,8 +19,11 @@ import Helpers.List as ListH
 import Helpers.Json as JsonH
 
 import Date exposing (Date)
+import Helpers.Date as DateH
 
 import Html exposing (..)
+import Html.Attributes exposing (..)
+import Html.Events exposing (..)
 
 
 -- Types
@@ -84,6 +88,21 @@ summary b =
 view : a -> Html msg
 view a =
     div [] [text (toString a)]
+
+viewSummary : Booking -> Html msg
+viewSummary booking =
+    let s = summary booking
+        date d = text ( Maybe.withDefault "-" (Maybe.map DateH.print d) )
+    in
+        div []
+        -- TODO: Build function in Helpers.Date to print timespans
+            [ strong [] [date s.from]
+            , text " bis ", strong [] [date s.to]
+            , br [] []
+            , text "Zimmer: ", text (toString s.n_rooms)
+            , br [] []
+            , text "Betten: ", text (toString s.n_beds)
+            ]
 
 
 -- Json
