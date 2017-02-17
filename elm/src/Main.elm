@@ -14,6 +14,7 @@ import Booking  as B exposing (Booking)
 import Helpers.Date as DateH
 
 import CustomerForm as CForm
+import BookingForm  as BForm
 import Database as Db
 import Http
 
@@ -32,35 +33,52 @@ type alias Model =
   , customerForm : CForm.Model
   , filter : String
   , bookingsTableState : Table.State
-  , bookingSummary : List LocalBooking
+  , bookings : List LocalBooking
+  , bookingForm : BForm.Model
+  , focusedBooking : Maybe Booking
   }
 
-type alias LocalBooking = (Int, B.Summary)
+type alias LocalBooking =
+    { id : Int
+    , summary : B.Summary
+    , data : B.Booking
+    }
 
 init : (Model, Cmd Msg)
 init =
-  ( Model Nothing (CForm.initEmpty ()) "" (Table.initialSort "ID") []
+  ( Model
+        Nothing
+        (CForm.initEmpty ())
+        ""
+        (Table.initialSort "ID")
+        []
+        (BForm.initEmpty ())
+        Nothing
   , Db.getLatestCustomer CustomerReceived "" )
 
 
 -- UPDATE
 
-type Msg =
-    CustomerFormMsg CForm.Msg
-  | Save
-  | New
-  | Previous
-  | Next
-  | Last
-  | FilterChanged String
-  | CustomerReceived (Result Http.Error Customer)
-  | BookingsTableSetState Table.State
+type Msg
+    = CustomerFormMsg CForm.Msg
+    | BookingFormMsg  BForm.Msg
+    | Save
+    | New
+    | Previous
+    | Next
+    | Last
+    | FilterChanged String
+    | CustomerReceived (Result Http.Error Customer)
+    | BookingsTableSetState Table.State
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     CustomerFormMsg msg ->
       ( { model | customerForm = CForm.update msg model.customerForm } , Cmd.none )
+
+    BookingFormMsg msg ->
+      ( { model | bookingForm = BForm.update msg model.bookingForm } , Cmd.none )
 
     Save ->
       -- trigger put/post
@@ -108,15 +126,15 @@ update msg model =
 
     CustomerReceived (Ok c) ->
       let f x pre =
-              ((List.length pre + 1) , x) :: pre
-          summaries  = List.map B.summary c.bookings
-          summaries_ =
-              List.foldl f [] summaries
+              (LocalBooking (List.length pre + 1) (B.summary x)  x) :: pre
+          bookings_ =
+              List.foldl f [] c.bookings
           model_ =
               { model
               | customerForm = CForm.init c
               , customerId = c.customer_id
-              , bookingSummary = summaries_
+              , bookings = bookings_
+              , focusedBooking = List.head c.bookings
               }
       in
       ( model_ , Cmd.none )
@@ -132,10 +150,16 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
+    let bookingDetail =
+            case model.focusedBooking of
+                Nothing -> div [] []
+                Just b -> B.view b
+    in
   div []
   [ controls model
   , CForm.view CustomerFormMsg model.customerForm
   , bookingsTable model
+  , bookingDetail
   ]
 
 controls : Model -> Html Msg
@@ -176,15 +200,15 @@ bookingsTableConfig =
         snd = Tuple.second
     in
     Table.customConfig
-        { toId = \t -> toString (fst t)
+        { toId = \t -> toString t.id
         , toMsg = BookingsTableSetState
         , columns =
-            [ Table.intColumn "ID" fst
+            [ Table.intColumn "ID" .id
             -- TODO: Make this sorting correctly
-            , Table.stringColumn "von" (\t -> viewMaybeDate (snd t).from)
-            , Table.stringColumn "bis" (\t -> viewMaybeDate (snd t).to)
-            , Table.intColumn "Zimmer" (\t -> (snd t).n_rooms)
-            , Table.intColumn "Betten" (\t -> (snd t).n_beds)
+            , Table.stringColumn "von" (\t -> viewMaybeDate t.summary.from)
+            , Table.stringColumn "bis" (\t -> viewMaybeDate t.summary.to)
+            , Table.intColumn "Zimmer" (\t -> t.summary.n_rooms)
+            , Table.intColumn "Betten" (\t -> t.summary.n_beds)
             ]
         , customizations =
             { defaults
@@ -194,7 +218,7 @@ bookingsTableConfig =
 
 bookingsTable : Model -> Html Msg
 bookingsTable model =
-    Table.view bookingsTableConfig model.bookingsTableState model.bookingSummary
+    Table.view bookingsTableConfig model.bookingsTableState model.bookings
 
 
 -- SUBSCRIPTIONS

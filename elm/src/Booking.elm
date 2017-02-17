@@ -4,6 +4,7 @@ module Booking exposing
     , BookedRoom
     , Summary
     , summary
+    , view
     , decode
     , empty
     )
@@ -17,6 +18,8 @@ import Helpers.List as ListH
 import Helpers.Json as JsonH
 
 import Date exposing (Date)
+
+import Html exposing (..)
 
 
 -- Types
@@ -74,6 +77,13 @@ summary b =
         conv    = Maybe.map Date.fromTime
     in
         Summary (conv from) (conv to) n_rooms n_beds
+
+
+-- Html representation
+
+view : a -> Html msg
+view a =
+    div [] [text (toString a)]
 
 
 -- Json
