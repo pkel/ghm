@@ -174,12 +174,16 @@ viewForm model =
             [ titled_fieldset "Kontakt" contact_fields
             ]
 
+        indent x = Pure.group2 24
+            [ ([], 1)
+            , (x , 22)
+            , ([], 1)
+            ]
+
         details =
             Pure.group2 24
                 [ (left,   7)
-                , ([],     1)
-                , (middle, 7)
-                , ([],     1)
+                , ([indent middle], 9)
                 , (right,  8)
                 ]
 
