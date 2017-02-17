@@ -13,6 +13,7 @@ Todo
       - Plzp, Postfach: Kommentar/2te Adresse -> Notiz
       - Geburtsdaten
   * Combit import seems to use same date on from/to
+  * Delete all phone/fax numbers ending in /
 
 Next steps
 ----------
