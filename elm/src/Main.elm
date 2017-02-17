@@ -69,7 +69,8 @@ type Msg
     | Last
     | FilterChanged String
     | CustomerReceived (Result Http.Error Customer)
-    | BookingsTableSetState Table.State
+    | BookingTableSetState Table.State
+    | BookingTableClicked LocalBooking
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -142,9 +143,11 @@ update msg model =
     CustomerReceived (Err _) ->
       ( model , Cmd.none )
 
-    BookingsTableSetState newState ->
+    BookingTableSetState newState ->
         ( { model | bookingsTableState = newState } , Cmd.none )
 
+    BookingTableClicked localBooking ->
+        ( { model | focusedBooking = Just localBooking.data } , Cmd.none )
 
 -- VIEW
 
@@ -201,7 +204,7 @@ bookingsTableConfig =
     in
     Table.customConfig
         { toId = \t -> toString t.id
-        , toMsg = BookingsTableSetState
+        , toMsg = BookingTableSetState
         , columns =
             [ Table.intColumn "ID" .id
             -- TODO: Make this sorting correctly
@@ -213,6 +216,7 @@ bookingsTableConfig =
         , customizations =
             { defaults
             | tableAttrs = [ class "pure-table" ]
+            , rowAttrs = \t -> [ onClick (BookingTableClicked t) ]
             }
         }
 
