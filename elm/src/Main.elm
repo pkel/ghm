@@ -142,13 +142,15 @@ view model =
 
         bookings = List.map f model.customer.bookings
 
-        booking = B.view model.focusedBooking
+        booking = case model.focusedBooking of
+            Nothing -> []
+            Just b -> [B.view b]
 
         data =
             Pure.group2 24
                 [ ([customerDetail], 7)
                 , ( bookings, 6)
-                , ([booking], 11)
+                , ( booking, 11)
                 ]
     in
         div [] [controls model, data]

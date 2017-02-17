@@ -29,12 +29,12 @@ import Html.Events exposing (..)
 -- Types
 
 type alias BookedIndividual =
-    { given         : String
-    , second        : String
-    , family        : String
-    , year_of_birth : Maybe Int
-    , month_of_bith : Maybe Int
-    , day_of_bith   : Maybe Int
+    { given          : String
+    , second         : String
+    , family         : String
+    , year_of_birth  : Maybe Int
+    , month_of_birth : Maybe Int
+    , day_of_birth   : Maybe Int
     }
 
 type alias BookedRoom =
@@ -85,9 +85,55 @@ summary b =
 
 -- Html representation
 
-view : a -> Html msg
-view a =
-    div [] [text (toString a)]
+view : Booking -> Html msg
+view booking =
+    let individuals =
+            div [class "persons"] (List.map viewIndividual booking.individuals)
+        rooms =
+            div [class "rooms"] (List.map viewRoom booking.rooms)
+    in
+    div [class "booking" ] [individuals, rooms]
+
+viewIndividual : BookedIndividual -> Html msg
+viewIndividual individual =
+    let i = individual
+        g = Maybe.withDefault ""
+        h = Maybe.map toString
+        j = Maybe.map (\s -> s ++ ".")
+        birthday =
+            String.join "" ( List.map g
+                [ j (h i.day_of_birth)
+                , j (h i.month_of_birth)
+                , h i.year_of_birth
+                ] )
+        name =
+            String.join " "
+                [ i.given
+                , i.second
+                , i.family
+                ]
+    in
+        div [ class "person" ]
+            [ span [class "name"] [text name]
+            , span [class "birthday"] [text birthday]
+            ]
+
+viewRoom : BookedRoom -> Html msg
+viewRoom room =
+    let r = room
+        num = Maybe.withDefault "" (Maybe.map toString r.room)
+        price_ = toString r.price_per_bed ++ "€"
+        factor = toString (round (r.factor * 100)) ++ "%"
+        price = price_ ++ " (" ++ factor ++ ")"
+    in
+        div [ class "room" ]
+            [ text ("Nummer:" ++ num) -- TODO: Fetch room details
+            , br [] []
+            , text r.description
+            , br [] []
+            , text price
+            , p [] [text r.note]
+            ]
 
 viewSummary : Booking -> Html msg
 viewSummary booking =
