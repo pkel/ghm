@@ -16,7 +16,7 @@ import Material.Textfield as Textfield
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
 
-import Helpers.Date as DateH
+import Date.Format as DateF
 
 import Database as Db
 import Http
@@ -131,7 +131,7 @@ bookingSelectionCard select model =
     let bookings = model.customer.bookings
         summaries = List.map B.summary bookings
 
-        date d = Maybe.withDefault "" (Maybe.map DateH.short d)
+        date d = Maybe.withDefault "" (Maybe.map (DateF.format "%d.%m.%y") d)
         range f t = text (date f ++ " bis " ++ date t)
         int  i = text (toString i)
 
