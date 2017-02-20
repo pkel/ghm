@@ -10,10 +10,13 @@ import Material.Icon as Icon
 import Material.Grid exposing (grid, cell, size, Device(..))
 import Material.Layout as Layout
 import Material.Options as Options
+import Material.Table as Table
 import Material.Textfield as Textfield
 
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
+
+import Helpers.Date as DateH
 
 import Database as Db
 import Http
@@ -123,15 +126,48 @@ customerCard c =
         , Card.actions [ Card.border ] [ text "not yet"]
         ]
 
-bookingSummaryCard : Booking -> (Booking -> Msg) -> Html Msg
-bookingSummaryCard b action =
-    let s = B.summary b
+bookingSelectionCard : (Booking -> Msg) -> Model -> Html Msg
+bookingSelectionCard select model =
+    let bookings = model.customer.bookings
+        summaries = List.map B.summary bookings
+
+        date d = Maybe.withDefault "" (Maybe.map DateH.short d)
+        range f t = text (date f ++ " bis " ++ date t)
+        int  i = text (toString i)
+
+        c = Options.css "text-align" "center"
+
+        same a b =
+            case a of
+                Nothing -> False
+                Just c -> c == b
+
+        row booking summary =
+            Table.tr
+                [ Options.onClick (select booking)
+                , Table.selected
+                    |> Options.when (same model.focusedBooking booking)
+                ]
+                [ Table.td [c] [range summary.from summary.to]
+                , Table.td [c] [int summary.n_beds]
+                , Table.td [c] [int summary.n_rooms]
+                ]
+
+        table =
+            Table.table []
+                [ Table.thead []
+                    [ Table.tr []
+                        [ Table.th [c] [Icon.i "date_range"]
+                        , Table.th [c] [Icon.i "hotel"]
+                        , Table.th [c] [Icon.i "vpn_key"]
+                        ]
+                    ]
+                , Table.tbody [] (List.map2 row bookings summaries)
+                ]
     in
-        Card.view
-            [ Options.onClick (action b)
-            ]
-            [ Card.title [] [ text "Buchung" ]
-            , Card.text [] [ B.viewSummary b ]
+        Card.view []
+            [ Card.title [] [ text "Buchungen" ]
+            , Card.actions [ Options.center ] [ table ]
             ]
 
 -- VIEW
@@ -149,17 +185,15 @@ viewBody : Model -> Html Msg
 viewBody model =
     let customer = customerCard model.customer
 
-        f b = bookingSummaryCard b SelectBooking
-
-        bookings = List.map f model.customer.bookings
+        selection = bookingSelectionCard SelectBooking model
 
         booking = case model.focusedBooking of
             Nothing -> []
             Just b -> [B.view b]
     in
         grid []
-            [ cell [ size All 4 ] [ customer ]
-            , cell [ size All 4 ] bookings
+            [ cell [ size All 4 ] [ customer, selection ]
+            -- , cell [ size All 4 ] bookings
             ]
 
 controls : Model -> Html Msg
