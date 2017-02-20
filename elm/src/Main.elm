@@ -7,7 +7,8 @@ import Material
 import Material.Button as Button
 import Material.Card as Card
 import Material.Icon as Icon
-import Material.Grid exposing (grid, cell, size, Device(..))
+import Material.Elevation as Elevation
+import Material.Grid as Grid exposing (grid, cell, size, Device(..))
 import Material.Layout as Layout
 import Material.Options as Options
 import Material.Table as Table
@@ -120,7 +121,9 @@ update msg model =
 customerCard : Customer -> Html Msg
 customerCard c =
     Card.view
-        [ ]
+        [ Elevation.e2
+        , Options.css "margin" "0.5em"
+        ]
         [ Card.title [] [ text c.keyword ]
         , Card.text [] [ C.view c ]
         , Card.actions [ Card.border ] [ text "not yet"]
@@ -137,10 +140,7 @@ bookingSelectionCard select model =
 
         c = Options.css "text-align" "center"
 
-        same a b =
-            case a of
-                Nothing -> False
-                Just c -> c == b
+        same a b = Maybe.withDefault False (Maybe.map ((==) b) a)
 
         row booking summary =
             Table.tr
@@ -165,7 +165,10 @@ bookingSelectionCard select model =
                 , Table.tbody [] (List.map2 row bookings summaries)
                 ]
     in
-        Card.view []
+        Card.view
+            [ Elevation.e2
+            , Options.css "margin" "0.5em"
+            ]
             [ Card.title [] [ text "Buchungen" ]
             , Card.actions [ Options.center ] [ table ]
             ]
@@ -191,7 +194,9 @@ viewBody model =
             Nothing -> []
             Just b -> [B.view b]
     in
-        grid []
+        grid
+            [ Grid.noSpacing
+            ]
             [ cell [ size All 4 ] [ customer, selection ]
             -- , cell [ size All 4 ] bookings
             ]
