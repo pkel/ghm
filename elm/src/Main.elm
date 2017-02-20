@@ -1,19 +1,20 @@
 module Main exposing (..)
 
-import Html exposing (Html)
-import Pure exposing (..)
-import Buttons
-import Html.Attributes  exposing (..)
+import Html exposing (..)
 import Html.Events exposing (..)
 
+import Material
+import Material.Button as Button
+import Material.Card as Card
+import Material.Icon as Icon
+import Material.Grid exposing (grid, cell, size, Device(..))
+import Material.Layout as Layout
+import Material.Options as Options
+import Material.Textfield as Textfield
 
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
 
-import Helpers.Date as DateH
-
-import CustomerForm as CForm
-import BookingForm  as BForm
 import Database as Db
 import Http
 
@@ -27,13 +28,14 @@ main =
 
 -- MODEL
 
+type alias Mdl = Material.Model
+
 type alias Model =
   { customerId : Maybe Int
   , customer : Customer
-  , customerForm : CForm.Model
   , filter : String
-  , bookingForm : BForm.Model
   , focusedBooking : Maybe Booking
+  , mdl : Mdl
   }
 
 init : (Model, Cmd Msg)
@@ -41,55 +43,31 @@ init =
   ( Model
         Nothing
         (C.empty ())
-        (CForm.initEmpty ())
         ""
-        (BForm.initEmpty ())
         Nothing
+        Material.model
   , Db.getLatestCustomer CustomerReceived "" )
 
 
 -- UPDATE
 
 type Msg
-    = CustomerFormMsg CForm.Msg
-    | BookingFormMsg  BForm.Msg
-    | Save
-    | New
+    = New
     | Previous
     | Next
     | Last
     | FilterChanged String
     | CustomerReceived (Result Http.Error Customer)
     | SelectBooking Booking
+    | Mdl (Material.Msg Msg)
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    CustomerFormMsg msg ->
-      ( { model | customerForm = CForm.update msg model.customerForm } , Cmd.none )
-
-    BookingFormMsg msg ->
-      ( { model | bookingForm = BForm.update msg model.bookingForm } , Cmd.none )
-
-    Save ->
-      -- trigger put/post
-      case CForm.extract model.customerForm of
-        Just c ->
-          case model.customerId of
-            Just i ->
-              ( model, Db.saveCustomer CustomerReceived c i )
-            Nothing ->
-              ( model, Db.newCustomer CustomerReceived c)
-
-        Nothing ->
-          -- Invalid state in form
-          ( model, Cmd.none )
-
     New ->
       let model_ =
         { model
-        | customerForm = CForm.initEmpty ()
-        , customerId = Nothing
+        | customerId = Nothing
         , filter = ""
        }
       in
@@ -119,7 +97,6 @@ update msg model =
       let model_ =
               { model
               | customer = c
---              , customerForm = CForm.init c
               , customerId = c.customer_id
               , focusedBooking = List.head c.bookings
               }
@@ -129,60 +106,92 @@ update msg model =
     CustomerReceived (Err _) ->
       ( model , Cmd.none )
 
-    SelectBooking booking->
+    SelectBooking booking ->
         ( { model | focusedBooking = Just booking } , Cmd.none )
+
+    Mdl msg_ -> Material.update Mdl msg_ model
+
+
+-- CARDS
+
+customerCard : Customer -> Html Msg
+customerCard c =
+    Card.view
+        [ ]
+        [ Card.title [] [ text c.keyword ]
+        , Card.text [] [ C.view c ]
+        , Card.actions [ Card.border ] [ text "not yet"]
+        ]
+
+bookingSummaryCard : Booking -> (Booking -> Msg) -> Html Msg
+bookingSummaryCard b action =
+    let s = B.summary b
+    in
+        Card.view
+            [ Options.onClick (action b)
+            ]
+            [ Card.title [] [ text "Buchung" ]
+            , Card.text [] [ B.viewSummary b ]
+            ]
 
 -- VIEW
 
 view : Model -> Html Msg
 view model =
-    let customerDetail = C.view model.customer
+    Layout.render Mdl model.mdl [ Layout.fixedHeader ]
+        { header = [ controls model ]
+        , drawer = []
+        , tabs = ( [], [] )
+        , main = [ viewBody model ]
+        }
 
-        f b = div [onClick (SelectBooking b)] [B.viewSummary b]
+viewBody : Model -> Html Msg
+viewBody model =
+    let customer = customerCard model.customer
+
+        f b = bookingSummaryCard b SelectBooking
 
         bookings = List.map f model.customer.bookings
 
         booking = case model.focusedBooking of
             Nothing -> []
             Just b -> [B.view b]
-
-        data =
-            Pure.group2 24
-                [ ([customerDetail], 7)
-                , ( bookings, 6)
-                , ( booking, 11)
-                ]
     in
-        div [] [controls model, data]
+        grid []
+            [ cell [ size All 4 ] [ customer ]
+            , cell [ size All 4 ] bookings
+            ]
 
 controls : Model -> Html Msg
 controls model =
-  let left =
-    Pure.textfield "Suche" FilterChanged model.filter
-  in
-  let middle =
-    div [style [("text-align","center")]]
-        [ Buttons.prev Previous
-        , Buttons.next Next
-        , Buttons.last Last
-        , Buttons.add  New
-        ]
-  in
-  let right =
-    div [style [("text-align","right")]]
-        [ Buttons.save Save
-        ]
-  in
-  let bar =
-    Pure.group2 24
-        [ ([left], 7)
-        , ([], 1)
-        , ([middle], 7)
-        , ([], 1)
-        , ([right], 8)
-        ]
-  in
-  Pure.form [] [bar]
+    let filter =
+            -- Pure.textfield "Suche" FilterChanged model.filter
+            Textfield.render Mdl [0] model.mdl
+                [ Textfield.label "Suche"
+                , Textfield.text_
+                , Textfield.value model.filter
+                , Options.onInput (FilterChanged)
+                ] []
+
+        filterIcon =
+            Icon.i "search"
+
+        btn action icon =
+            Button.render Mdl [0] model.mdl
+                [ Button.icon
+                , Options.onClick action
+                ]
+                [ Icon.i icon]
+    in
+        Layout.row []
+            [ filter
+            , Layout.spacer
+            , btn Previous "chevron_left"
+            , btn Next "chevron_right"
+            , btn Last "last_page"
+            , Layout.spacer
+            , btn New "library_add"
+            ]
 
 
 -- SUBSCRIPTIONS
