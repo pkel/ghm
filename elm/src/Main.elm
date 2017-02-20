@@ -118,15 +118,31 @@ update msg model =
 
 -- CARDS
 
-customerCard : Customer -> Html Msg
-customerCard c =
-    Card.view
+defaultCardOptions : Options.Property c m
+defaultCardOptions =
+    Options.many
         [ Elevation.e2
         , Options.css "margin" "0.5em"
         ]
+
+customerCard : Model -> Html Msg
+customerCard model =
+    let c = model.customer
+    in
+    Card.view
+        [ defaultCardOptions ]
         [ Card.title [] [ text c.keyword ]
         , Card.text [] [ C.view c ]
-        , Card.actions [ Card.border ] [ text "not yet"]
+        , Card.actions
+            [ Card.border
+            , Options.center
+            ]
+            [ Button.render Mdl [0] model.mdl
+                [ Button.colored
+                , Button.minifab
+                ]
+                [ Icon.i "mode_edit" ]
+            ]
         ]
 
 bookingSelectionCard : (Booking -> Msg) -> Model -> Html Msg
@@ -166,12 +182,33 @@ bookingSelectionCard select model =
                 ]
     in
         Card.view
-            [ Elevation.e2
-            , Options.css "margin" "0.5em"
+            [ defaultCardOptions ]
+            [ Card.title [ Options.center ] [ table ]
             ]
-            [ Card.title [] [ text "Buchungen" ]
-            , Card.actions [ Options.center ] [ table ]
-            ]
+
+bookingCard : Booking -> Html Msg
+bookingCard booking =
+    Card.view
+        [ defaultCardOptions ]
+        [ Card.title [] [ text "Buchung" ]
+        , Card.actions [] []
+        ]
+
+individualsCard: List B.BookedIndividual -> Html Msg
+individualsCard list =
+    Card.view
+        [ defaultCardOptions ]
+        [ Card.title [] [ text "Personen" ]
+        , Card.actions [] []
+        ]
+
+roomCard : B.BookedRoom -> Html Msg
+roomCard room =
+    Card.view
+        [ defaultCardOptions ]
+        [ Card.title [] [ text "Zimmer" ]
+        , Card.actions [] []
+        ]
 
 -- VIEW
 
@@ -186,19 +223,24 @@ view model =
 
 viewBody : Model -> Html Msg
 viewBody model =
-    let customer = customerCard model.customer
+    let customer = customerCard model
 
         selection = bookingSelectionCard SelectBooking model
 
-        booking = case model.focusedBooking of
-            Nothing -> []
-            Just b -> [B.view b]
+        bookingCards b =  List.concat
+            [ [ bookingCard b ]
+            , [ individualsCard b.individuals ]
+            , List.map roomCard b.rooms
+            ]
     in
         grid
             [ Grid.noSpacing
             ]
             [ cell [ size All 4 ] [ customer, selection ]
-            -- , cell [ size All 4 ] bookings
+            , cell [ size All 4 ]
+                ( Maybe.withDefault []
+                    ( Maybe.map bookingCards model.focusedBooking )
+                )
             ]
 
 controls : Model -> Html Msg
