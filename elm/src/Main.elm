@@ -231,7 +231,7 @@ bookingCard booking =
 
 individualsCard: Mdl -> List B.BookedIndividual -> Html Msg
 individualsCard mdl individuals =
-    let birth i = text "n/a"
+    let birth i = text (B.birthday i)
         given i = text i.given
         family i = text i.family
 

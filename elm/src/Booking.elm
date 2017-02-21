@@ -4,6 +4,7 @@ module Booking exposing
     , BookedRoom
     , Summary
     , summary
+    , birthday
     , view
     , decode
     , empty
@@ -79,6 +80,16 @@ summary b =
         conv    = Maybe.map Date.fromTime
     in
         Summary (conv from) (conv to) n_rooms n_beds
+
+birthday : BookedIndividual -> String
+birthday i =
+    let f x = Maybe.withDefault ""  (Maybe.map toString x)
+    in
+    case (i.day_of_birth, i.month_of_birth, i.year_of_birth) of
+        (Nothing, Nothing, Nothing) -> "n/a"
+        (d, m, y) ->
+            String.join "."
+                ( List.map f [d, m, y] )
 
 
 -- Html representation
