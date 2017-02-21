@@ -11,7 +11,6 @@ Todo
   * Migrate missing fields from combit to ghm
       - Kundennr, Kategorie: Bemerkung/Sideinfo -> Notiz
       - Plzp, Postfach: Kommentar/2te Adresse -> Notiz
-  * Combit import seems to use same date on from/to
 
 Next steps
 ----------

@@ -161,7 +161,7 @@ update combit set aeing = NULL where aeing < 0;
 
 /* fill in date from "Stammdaten", where nothing else provided */
 update combit set avon = coalesce(avon, anreise);
-update combit set abis = coalesce(avon, abreise);
+update combit set abis = coalesce(abis, abreise);
 
 /* Combit prefilled telefon&co with <vorwahl>/ */
 update combit set telefon  = '' where trim(telefon ) like '%/';
