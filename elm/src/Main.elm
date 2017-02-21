@@ -69,6 +69,8 @@ type Msg
     | CustomerReceived (Result Http.Error Customer)
     | SelectBooking Booking
     | Ignore
+    | DeleteCustomerNote
+    | DeleteBookingNote
     | Mdl (Material.Msg Msg)
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -121,6 +123,25 @@ update msg model =
 
     Ignore ->
         (model , Cmd.none)
+
+    DeleteCustomerNote ->
+        let deleteNote c = { c | note = "" }
+        in
+            ( { model | customer = deleteNote model.customer }, Cmd.none )
+
+    DeleteBookingNote ->
+        let deleteNote c = { c | note = "" }
+            model_ =
+                { model
+                -- TODO: Löschen wir hier nur in focusedBooking oder auch in
+                -- bookings? Ersteres, da nach delete Markierung in Selection
+                -- flöten geht. Focused und markiert sind nicht mehr gleich.
+                -- FocusedBooking muss vermutlich umgebaut werden.
+                -- Single Source of Truth violated !
+                | focusedBooking = Maybe.map deleteNote model.focusedBooking
+                }
+        in
+            (model_ , Cmd.none )
 
     Mdl msg_ -> Material.update Mdl msg_ model
 
@@ -177,14 +198,16 @@ customerCard mdl c =
         , Card.actions [ defaultActions ] actions
         ]
 
-noteCard : Mdl -> String -> String -> Html Msg
-noteCard mdl title note =
-    let actions =
-            [ defaultButton mdl "mode_edit" Ignore
-            , defaultButton mdl "delete" Ignore
-            ]
+type alias NoteCardConfig =
+    { mdl          : Mdl
+    , title        : String
+    , deleteAction : Msg
+    , editAction   : Msg
+    }
 
-        mdDefaults = Markdown.defaultOptions
+noteCard : NoteCardConfig -> String -> Html Msg
+noteCard cfg note =
+    let mdDefaults = Markdown.defaultOptions
 
         mdOptions =
             { mdDefaults
@@ -196,13 +219,23 @@ noteCard mdl title note =
         mdToHtml =
             Markdown.toHtmlWith mdOptions
                 [ Attributes.class "ghm_md_note" ]
+
+        cardContent =
+            case note of
+                "" ->
+                    [ Card.actions [ Options.center ]
+                        [ defaultButton cfg.mdl "note_add" cfg.editAction ]
+                    ]
+                _  ->
+                    [ Card.title [ defaultCardTitle ] [ text cfg.title ]
+                    , Card.text [] [ mdToHtml note ]
+                    , Card.actions [ defaultActions ]
+                        [ defaultButton cfg.mdl "mode_edit" cfg.editAction
+                        , defaultButton cfg.mdl "delete" cfg.deleteAction
+                        ]
+                    ]
     in
-        Card.view
-            [ defaultCard ]
-            [ Card.title [ defaultCardTitle ] [ text title ]
-            , Card.text [] [ mdToHtml note ]
-            , Card.actions [ defaultActions ] actions
-            ]
+        Card.view [ defaultCard ] cardContent
 
 bookingSelectionCard : Mdl -> (Booking -> Msg) -> List Booking
           -> Maybe Booking -> Html Msg
@@ -326,7 +359,10 @@ viewBody model =
     let mdl = model.mdl
 
         customer = customerCard mdl model.customer
-        customerNote = noteCard mdl "Kundennotiz" model.customer.note
+
+        customerNoteConfig =
+            NoteCardConfig mdl "Kundennotiz" DeleteCustomerNote Ignore
+        customerNote = noteCard customerNoteConfig model.customer.note
 
         selection = bookingSelectionCard mdl SelectBooking
             model.customer.bookings model.focusedBooking
@@ -340,7 +376,10 @@ viewBody model =
             , List.map roomCard b.rooms
             ]
 
-        bookingCards2 b = [ noteCard mdl "Buchungsnotiz" b.note ]
+        bookingNoteConfig =
+            NoteCardConfig mdl "Buchungsnotiz" DeleteBookingNote Ignore
+
+        bookingCards2 b = [ noteCard bookingNoteConfig b.note ]
     in
         grid
             [ Grid.noSpacing
