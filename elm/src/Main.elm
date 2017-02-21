@@ -142,8 +142,10 @@ defaultActionsOptions =
 defaultActionsButton mdl icon action =
     Button.render Mdl [0] mdl
         [ Button.colored
+        , Button.raised
         , Button.minifab
         , Options.onClick action
+        , Options.css "margin" "0 4px 0 4px"
         ]
         [ Icon.i icon ]
 
@@ -315,7 +317,9 @@ controls model =
             Button.render Mdl [0] model.mdl
                 [ Button.minifab
                 , Button.colored
+                , Button.raised
                 , Options.onClick action
+                , Options.css "margin" "0 4px 0 4px"
                 ]
                 [ Icon.i icon ]
     in
