@@ -64,6 +64,7 @@ type Msg
     | FilterChanged String
     | CustomerReceived (Result Http.Error Customer)
     | SelectBooking Booking
+    | Ignore
     | Mdl (Material.Msg Msg)
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -114,6 +115,9 @@ update msg model =
     SelectBooking booking ->
         ( { model | focusedBooking = Just booking } , Cmd.none )
 
+    Ignore ->
+        (model , Cmd.none)
+
     Mdl msg_ -> Material.update Mdl msg_ model
 
 
@@ -124,32 +128,43 @@ defaultCardOptions =
     Options.many
         [ Elevation.e2
         , Options.css "margin" "0.5em"
+        , Options.css "width" "auto"
         ]
 
-customerCard : Model -> Html Msg
-customerCard model =
-    let c = model.customer
+defaultActionsOptions : Options.Property () m
+defaultActionsOptions =
+    Options.many
+        [ Options.center
+        , Card.border
+        ]
+
+-- defaultActionsButton : String -> Html
+defaultActionsButton mdl icon action =
+    Button.render Mdl [0] mdl
+        [ Button.colored
+        , Button.minifab
+        , Options.onClick action
+        ]
+        [ Icon.i icon ]
+
+
+customerCard : Mdl -> Customer -> Html Msg
+customerCard mdl c =
+    let actions =
+            [ defaultActionsButton mdl "mode_edit" Ignore
+            ]
     in
     Card.view
         [ defaultCardOptions ]
         [ Card.title [] [ text c.keyword ]
         , Card.text [] [ C.view c ]
-        , Card.actions
-            [ Card.border
-            , Options.center
-            ]
-            [ Button.render Mdl [0] model.mdl
-                [ Button.colored
-                , Button.minifab
-                ]
-                [ Icon.i "mode_edit" ]
-            ]
+        , Card.actions [ defaultActionsOptions ] actions
         ]
 
-bookingSelectionCard : (Booking -> Msg) -> Model -> Html Msg
-bookingSelectionCard select model =
-    let bookings = model.customer.bookings
-        summaries = List.map B.summary bookings
+bookingSelectionCard : Mdl -> (Booking -> Msg) -> List Booking
+          -> Maybe Booking -> Html Msg
+bookingSelectionCard mdl select bookings focused =
+    let summaries = List.map B.summary bookings
 
         date d = Maybe.withDefault "" (Maybe.map (DateF.format "%d.%m.%y") d)
         range f t = text (date f ++ " bis " ++ date t)
@@ -163,7 +178,7 @@ bookingSelectionCard select model =
             Table.tr
                 [ Options.onClick (select booking)
                 , Table.selected
-                    |> Options.when (same model.focusedBooking booking)
+                    |> Options.when (same focused booking)
                 ]
                 [ Table.td [c] [range summary.from summary.to]
                 , Table.td [c] [int summary.n_beds]
@@ -181,10 +196,14 @@ bookingSelectionCard select model =
                     ]
                 , Table.tbody [] (List.map2 row bookings summaries)
                 ]
+
+        actions =
+            [ defaultActionsButton mdl "add" Ignore ]
     in
         Card.view
             [ defaultCardOptions ]
             [ Card.title [ Options.center ] [ table ]
+            , Card.actions [ defaultActionsOptions ] actions
             ]
 
 bookingCard : Booking -> Html Msg
@@ -195,13 +214,44 @@ bookingCard booking =
         , Card.actions [] []
         ]
 
-individualsCard: List B.BookedIndividual -> Html Msg
-individualsCard list =
-    Card.view
-        [ defaultCardOptions ]
-        [ Card.title [] [ text "Personen" ]
-        , Card.actions [] []
-        ]
+individualsCard: Mdl -> List B.BookedIndividual -> Html Msg
+individualsCard mdl individuals =
+    let birth i = text "n/a"
+        given i = text i.given
+        family i = text i.family
+
+        left = Options.css "text-align" "left"
+        right = Options.css "text-align" "right"
+
+        row i =
+            Table.tr []
+                [ Table.td [left ] [given i]
+                , Table.td [left ] [family i]
+                , Table.td [right] [birth i]
+                ]
+
+        table =
+            Table.table []
+                [ Table.thead []
+                    [ Table.tr []
+                        [ Table.th [left ] [text "Vorname"]
+                        , Table.th [left ] [text "Name"]
+                        , Table.th [right] [text "Geburtsdatum"]
+                        ]
+                    ]
+                , Table.tbody [] (List.map row individuals)
+                ]
+
+        actions =
+            [ defaultActionsButton mdl "add" Ignore
+            , defaultActionsButton mdl "mode_edit" Ignore
+            ]
+    in
+        Card.view
+            [ defaultCardOptions ]
+            [ Card.title [ Options.center ] [ table ]
+            , Card.actions [ defaultActionsOptions ] actions
+            ]
 
 roomCard : B.BookedRoom -> Html Msg
 roomCard room =
@@ -224,13 +274,16 @@ view model =
 
 viewBody : Model -> Html Msg
 viewBody model =
-    let customer = customerCard model
+    let mdl = model.mdl
 
-        selection = bookingSelectionCard SelectBooking model
+        customer = customerCard mdl model.customer
+
+        selection = bookingSelectionCard mdl SelectBooking
+            model.customer.bookings model.focusedBooking
 
         bookingCards b =  List.concat
             [ [ bookingCard b ]
-            , [ individualsCard b.individuals ]
+            , [ individualsCard mdl b.individuals ]
             , List.map roomCard b.rooms
             ]
     in
