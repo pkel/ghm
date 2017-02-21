@@ -6,6 +6,7 @@ import Html.Events exposing (..)
 import Material
 import Material.Button as Button
 import Material.Card as Card
+import Material.Color as Color
 import Material.Icon as Icon
 import Material.Elevation as Elevation
 import Material.Grid as Grid exposing (grid, cell, size, Device(..))
@@ -254,18 +255,23 @@ controls model =
                 , Options.onInput (FilterChanged)
                 ] []
 
-        filterIcon =
-            Icon.i "search"
+        filterIcon = Icon.view "search"
+            [ Options.css "margin-right" "5px" ]
 
         btn action icon =
             Button.render Mdl [0] model.mdl
-                [ Button.icon
+                [ Button.minifab
+                , Button.colored
                 , Options.onClick action
                 ]
-                [ Icon.i icon]
+                [ Icon.i icon ]
     in
-        Layout.row []
-            [ filter
+        Layout.row
+            [ Color.background Color.accent
+            , Color.text Color.primary
+            ]
+            [ filterIcon
+            , filter
             , Layout.spacer
             , btn Previous "chevron_left"
             , btn Next "chevron_right"
