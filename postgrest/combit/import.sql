@@ -228,7 +228,7 @@ select distinct on (groupid)
   telefon2              as phone2,
   mobiltel              as mobile,
   telefax               as fax,
-  telefon2              as fax2,
+  telefax2              as fax2,
   email                 as mail,
   email2                as mail2,
   internet              as web

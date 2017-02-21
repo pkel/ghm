@@ -20,3 +20,10 @@ Next steps
   * Insert new bookings for existing customers
   * saving
 
+Gui Tuning
+----------
+
+  * Calculate number of nights for booking selection
+  * Calculate number of persons for booking selection
+  * Use (editable) list instead of tables
+
