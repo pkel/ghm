@@ -92,8 +92,6 @@ create table booked_individuals (
     given             text not null default '',
     second            text not null default '',
     family            text not null default '',
-    year_of_birth     int,
-    month_of_birth    int,
-    day_of_birth      int
+    date_of_birth     date
 );
 

@@ -197,9 +197,7 @@ create view booked_individuals as select
     given,
     second,
     family,
-    year_of_birth,
-    month_of_birth,
-    day_of_birth
+    date_of_birth
   from internal.booked_individuals;
 
 /*

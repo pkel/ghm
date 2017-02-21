@@ -131,6 +131,12 @@ alter table combit
   alter column abis type date using to_date(nullif(abis,''),'DD.MM.YYYY'),
   alter column anreise type date using to_date(nullif(anreise,''),'DD.MM.YYYY'),
   alter column abreise type date using to_date(nullif(abreise,''),'DD.MM.YYYY'),
+  alter column geb_dat01 type date using to_date(nullif(geb_dat01,''),'DD.MM.YYYY'),
+  alter column geb_dat02 type date using to_date(nullif(geb_dat02,''),'DD.MM.YYYY'),
+  alter column geb_dat03 type date using to_date(nullif(geb_dat03,''),'DD.MM.YYYY'),
+  alter column geb_dat04 type date using to_date(nullif(geb_dat04,''),'DD.MM.YYYY'),
+  alter column geb_dat05 type date using to_date(nullif(geb_dat05,''),'DD.MM.YYYY'),
+  alter column geb_dat06 type date using to_date(nullif(geb_dat06,''),'DD.MM.YYYY'),
   alter column preis1 type numeric using replace(preis1,',','.')::numeric,
   alter column preis2 type numeric using replace(preis2,',','.')::numeric,
   alter column preis3 type numeric using replace(preis3,',','.')::numeric,
@@ -248,16 +254,14 @@ from combit;
 insert into booked_individuals (
   booking_id,
   given,
-  family
-  /* year_of_birth, */
-  /* month_of_birth, */
-  /* day_of_birth */
+  family,
+  date_of_birth
   )
 select
   recordid,
   vorname,
-  name
-  /* TODO: geb_dat01, extract year, month, day. This way, year can be used alone*/
+  name,
+  geb_dat01
 from combit;
 
 /* TODO: andere teilnehmer der Buchung */
