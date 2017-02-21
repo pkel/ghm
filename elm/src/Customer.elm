@@ -52,7 +52,7 @@ type alias Customer =
     }
 
 
--- Html representation
+-- Html representation TODO: Replace!
 
 view : Customer -> Html msg
 view a =
@@ -93,11 +93,8 @@ view a =
 
         contact = div []
             (List.concat (List.map2 f contact_labels contact_fields))
-
-        note = div [] [text a.note]
-
     in
-        div [] [main, company, contact, note]
+        div [] [ main, company, contact ]
 
 
 -- Json

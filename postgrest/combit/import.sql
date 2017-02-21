@@ -184,6 +184,27 @@ alter table combit
 
 /* TODO: old revisions are ignores here. */
 
+create function customerNote(text, text, text, text)
+  returns text
+  as $$
+  declare
+    a text;
+    b text;
+    c text;
+    d text;
+    note text;
+  begin
+    select case when trim($1) like '' then NULL else concat('**Kunden-Nr.:** ' , $1, '  ') end into a;
+    select case when trim($2) like '' then NULL else concat('**Kategorie:** '  , $2, '  ') end into b;
+    select case when trim($3) like '' then NULL else concat('**Plzp:** '       , $3, '  ') end into c;
+    select case when trim($4) like '' then NULL else concat('**Fach:** '       , $4, '  ') end into d;
+    select concat_ws (E'\n', a , b, c, d) into note;
+    select case when trim(note) like '' then '' else
+      concat_ws (E'\n', '###### Zusatzfelder (Combit)', note) end into note;
+    return note;
+  end;
+  $$ language plpgsql;
+
 insert into customers (
   customer_id,
   title,
@@ -206,7 +227,8 @@ insert into customers (
   fax2,
   mail,
   mail2,
-  web
+  web,
+  note
   )
 select distinct on (groupid)
 /* the following lines are reference. use copy and paste to fill the above */
@@ -231,13 +253,33 @@ select distinct on (groupid)
   telefax2              as fax2,
   email                 as mail,
   email2                as mail2,
-  internet              as web
+  internet              as web,
+  customerNote(kundennr, kategorie, plzp, postfach)
+                        as note
 from combit
 order by combit.groupid asc, combit.recordid desc;
 
 /*
  * bookings
  */
+
+create function bookingNote(int)
+  returns text
+  as $$
+  declare
+    note text;
+  begin
+    select case when trim(bemaufe) like '' then '' else
+      concat_ws(E'\n'
+        ,'###### Bemerkung Aufenthalt (Combit)'
+        , replace(bemaufe,E'\n',E'\n\n')
+      )
+      end
+      from combit where recordid = $1
+      into note;
+    return note;
+  end;
+  $$ language plpgsql;
 
 insert into bookings (
   booking_id,
@@ -253,7 +295,7 @@ select
   3,
   agef,
   aeing,
-  bemaufe /* Bemerkung Aufenthalt ?? Sonst ist die Bemerkung hier falsch */
+  bookingNote(recordid)
 from combit;
 
 /* individuals */

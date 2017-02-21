@@ -1,7 +1,7 @@
 module Main exposing (..)
 
-import Html exposing (..)
-import Html.Events exposing (..)
+import Html exposing (Html, text)
+import Html.Attributes as Attributes
 
 import Material
 import Material.Button as Button
@@ -18,6 +18,8 @@ import Material.Typography as Typography
 
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
+
+import Markdown
 
 import Date.Format as DateF
 
@@ -175,6 +177,33 @@ customerCard mdl c =
         , Card.actions [ defaultActions ] actions
         ]
 
+noteCard : Mdl -> String -> String -> Html Msg
+noteCard mdl title note =
+    let actions =
+            [ defaultButton mdl "mode_edit" Ignore
+            , defaultButton mdl "delete" Ignore
+            ]
+
+        mdDefaults = Markdown.defaultOptions
+
+        mdOptions =
+            { mdDefaults
+            | githubFlavored = Just { tables = True, breaks = False }
+            , sanitize = True
+            , smartypants = True
+            }
+
+        mdToHtml =
+            Markdown.toHtmlWith mdOptions
+                [ Attributes.class "ghm_md_note" ]
+    in
+        Card.view
+            [ defaultCard ]
+            [ Card.title [ defaultCardTitle ] [ text title ]
+            , Card.text [] [ mdToHtml note ]
+            , Card.actions [ defaultActions ] actions
+            ]
+
 bookingSelectionCard : Mdl -> (Booking -> Msg) -> List Booking
           -> Maybe Booking -> Html Msg
 bookingSelectionCard mdl select bookings focused =
@@ -297,24 +326,30 @@ viewBody model =
     let mdl = model.mdl
 
         customer = customerCard mdl model.customer
+        customerNote = noteCard mdl "Kundennotiz" model.customer.note
 
         selection = bookingSelectionCard mdl SelectBooking
             model.customer.bookings model.focusedBooking
+
+        -- TODO: Helpers.Maybe
+        maybeMapDefault default f x = Maybe.map f x |> Maybe.withDefault default
 
         bookingCards b =  List.concat
             [ [ bookingCard b ]
             , [ individualsCard mdl b.individuals ]
             , List.map roomCard b.rooms
             ]
+
+        bookingCards2 b = [ noteCard mdl "Buchungsnotiz" b.note ]
     in
         grid
             [ Grid.noSpacing
             ]
-            [ cell [ size All 4 ] [ customer, selection ]
+            [ cell [ size All 4 ] [ customer, customerNote, selection ]
             , cell [ size All 4 ]
-                ( Maybe.withDefault []
-                    ( Maybe.map bookingCards model.focusedBooking )
-                )
+                ( maybeMapDefault [] bookingCards model.focusedBooking )
+            , cell [ size All 4 ]
+                ( maybeMapDefault [] bookingCards2 model.focusedBooking )
             ]
 
 controls : Model -> Html Msg
