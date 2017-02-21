@@ -163,6 +163,13 @@ update combit set aeing = NULL where aeing < 0;
 update combit set avon = coalesce(avon, anreise);
 update combit set abis = coalesce(avon, abreise);
 
+/* Combit prefilled telefon&co with <vorwahl>/ */
+update combit set telefon  = '' where trim(telefon ) like '%/';
+update combit set telefon2 = '' where trim(telefon2) like '%/';
+update combit set telefax  = '' where trim(telefax ) like '%/';
+update combit set telefax2 = '' where trim(telefax2) like '%/';
+update combit set mobiltel = '' where trim(mobiltel) like '%/';
+
 /*
  * sanity on ids
  */
@@ -264,10 +271,99 @@ select
   geb_dat01
 from combit;
 
-/* TODO: andere teilnehmer der Buchung */
+insert into booked_individuals (
+  booking_id,
+  given,
+  family,
+  date_of_birth
+  )
+select
+  recordid,
+  p_vorname,
+  p_name,
+  geb_dat02
+from combit
+where trim ( concat (
+  p_vorname,
+  p_name,
+  geb_dat02
+) ) not like '' ;
+
+insert into booked_individuals (
+  booking_id,
+  given,
+  family,
+  date_of_birth
+  )
+select
+  recordid,
+  p_vorname3,
+  p_name3,
+  geb_dat03
+from combit
+where trim ( concat (
+  p_vorname3,
+  p_name3,
+  geb_dat03
+) ) not like '' ;
+
+insert into booked_individuals (
+  booking_id,
+  given,
+  family,
+  date_of_birth
+  )
+select
+  recordid,
+  p_vorname4,
+  p_name4,
+  geb_dat04
+from combit
+where trim ( concat (
+  p_vorname4,
+  p_name4,
+  geb_dat04
+) ) not like '' ;
+
+insert into booked_individuals (
+  booking_id,
+  given,
+  family,
+  date_of_birth
+  )
+select
+  recordid,
+  p_vorname5,
+  p_name5,
+  geb_dat05
+from combit
+where trim ( concat (
+  p_vorname5,
+  p_name5,
+  geb_dat05
+) ) not like '' ;
+
+insert into booked_individuals (
+  booking_id,
+  given,
+  family,
+  date_of_birth
+  )
+select
+  recordid,
+  p_vorname6,
+  p_name6,
+  geb_dat06
+from combit
+where trim ( concat (
+  p_vorname6,
+  p_name6,
+  geb_dat06
+) ) not like '' ;
 
 /*
  * Now lets try to contruct stuff which is not given explicitly.
+ * TODO: Comparing with number of persons, could yield better results
  */
 alter table combit add column beds1 int;
 alter table combit add column beds2 int;
