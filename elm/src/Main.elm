@@ -231,7 +231,11 @@ bookingCard booking =
 
 individualsCard: Mdl -> List B.BookedIndividual -> Html Msg
 individualsCard mdl individuals =
-    let birth i = text (B.birthday i)
+    let birth i = text
+            ( Maybe.withDefault "n/a"
+                ( Maybe.map (DateF.format "%d.%m.%Y") i.date_of_birth)
+            )
+
         given i = text i.given
         family i = text i.family
 

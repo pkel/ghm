@@ -4,8 +4,6 @@ module Booking exposing
     , BookedRoom
     , Summary
     , summary
-    , birthday
-    , view
     , decode
     , empty
     )
@@ -31,9 +29,7 @@ type alias BookedIndividual =
     { given          : String
     , second         : String
     , family         : String
-    , year_of_birth  : Maybe Int
-    , month_of_birth : Maybe Int
-    , day_of_birth   : Maybe Int
+    , date_of_birth  : Maybe Date
     }
 
 type alias BookedRoom =
@@ -81,69 +77,6 @@ summary b =
     in
         Summary (conv from) (conv to) n_rooms n_beds
 
-birthday : BookedIndividual -> String
-birthday i =
-    let f x = Maybe.withDefault ""  (Maybe.map toString x)
-    in
-    case (i.day_of_birth, i.month_of_birth, i.year_of_birth) of
-        (Nothing, Nothing, Nothing) -> "n/a"
-        (d, m, y) ->
-            String.join "."
-                ( List.map f [d, m, y] )
-
-
--- Html representation
--- TODO: Get rid of these
-
-view : Booking -> Html msg
-view booking =
-    let individuals =
-            div [class "persons"] (List.map viewIndividual booking.individuals)
-        rooms =
-            div [class "rooms"] (List.map viewRoom booking.rooms)
-    in
-    div [class "booking" ] [individuals, rooms]
-
-viewIndividual : BookedIndividual -> Html msg
-viewIndividual individual =
-    let i = individual
-        g = Maybe.withDefault ""
-        h = Maybe.map toString
-        j = Maybe.map (\s -> s ++ ".")
-        birthday =
-            String.join "" ( List.map g
-                [ j (h i.day_of_birth)
-                , j (h i.month_of_birth)
-                , h i.year_of_birth
-                ] )
-        name =
-            String.join " "
-                [ i.given
-                , i.second
-                , i.family
-                ]
-    in
-        div [ class "person" ]
-            [ span [class "name"] [text name]
-            , span [class "birthday"] [text birthday]
-            ]
-
-viewRoom : BookedRoom -> Html msg
-viewRoom room =
-    let r = room
-        num = Maybe.withDefault "" (Maybe.map toString r.room)
-        price_ = toString r.price_per_bed ++ "€"
-        factor = toString (round (r.factor * 100)) ++ "%"
-        price = price_ ++ " (" ++ factor ++ ")"
-    in
-        div [ class "room" ]
-            [ text ("Nummer:" ++ num) -- TODO: Fetch room details
-            , br [] []
-            , text r.description
-            , br [] []
-            , text price
-            , p [] [text r.note]
-            ]
 
 -- Json
 
@@ -173,16 +106,14 @@ decodeIndividual : Decoder BookedIndividual
 decodeIndividual =
     let optional = Pipeline.optional
         nullable = Decode.nullable
-        int      = Decode.int
+        date     = JsonH.decodeDate
         string   = Decode.string
     in
         Pipeline.decode BookedIndividual
             |> optional "given"         string ""
             |> optional "second"        string ""
             |> optional "family"        string ""
-            |> optional "year_of_birth" (nullable int) Nothing
-            |> optional "month_of_bith" (nullable int) Nothing
-            |> optional "day_of_bith"   (nullable int) Nothing
+            |> optional "date_of_birth" (nullable date) Nothing
 
 decodeRoom : Decoder BookedRoom
 decodeRoom =
@@ -211,7 +142,7 @@ decodeRoom =
 
 emptyIndividual : () -> BookedIndividual
 emptyIndividual () =
-    BookedIndividual "" "" "" Nothing Nothing Nothing
+    BookedIndividual "" "" "" Nothing
 
 -- TODO: Read default from config / database
 emptyRoom : () -> BookedRoom
