@@ -14,6 +14,7 @@ import Material.Layout as Layout
 import Material.Options as Options
 import Material.Table as Table
 import Material.Textfield as Textfield
+import Material.Typography as Typography
 
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
@@ -30,6 +31,7 @@ main =
   , view = view
   , update = update
   , subscriptions = subscriptions }
+
 
 -- MODEL
 
@@ -121,25 +123,25 @@ update msg model =
     Mdl msg_ -> Material.update Mdl msg_ model
 
 
--- CARDS
+-- DEFAULT ELEMENTS
 
-defaultCardOptions : Options.Property c m
-defaultCardOptions =
+defaultCard : Options.Property c m
+defaultCard =
     Options.many
         [ Elevation.e2
         , Options.css "margin" "0.5em"
         , Options.css "width" "auto"
         ]
 
-defaultActionsOptions : Options.Property () m
-defaultActionsOptions =
+defaultActions : Options.Property () m
+defaultActions =
     Options.many
         [ Options.center
         , Card.border
         ]
 
--- defaultActionsButton : String -> Html
-defaultActionsButton mdl icon action =
+defaultButton : Mdl -> String -> Msg -> Html Msg
+defaultButton mdl icon action =
     Button.render Mdl [0] mdl
         [ Button.colored
         , Button.raised
@@ -149,18 +151,28 @@ defaultActionsButton mdl icon action =
         ]
         [ Icon.i icon ]
 
+defaultCardTitle : Options.Property c m
+defaultCardTitle =
+    Options.many
+        [ Typography.title
+        -- , Options.center
+        -- , Color.text Color.primaryDark
+        ]
+
+
+-- CARDS
 
 customerCard : Mdl -> Customer -> Html Msg
 customerCard mdl c =
     let actions =
-            [ defaultActionsButton mdl "mode_edit" Ignore
+            [ defaultButton mdl "mode_edit" Ignore
             ]
     in
     Card.view
-        [ defaultCardOptions ]
-        [ Card.title [] [ text c.keyword ]
+        [ defaultCard ]
+        [ Card.title [ defaultCardTitle ] [ text c.keyword ]
         , Card.text [] [ C.view c ]
-        , Card.actions [ defaultActionsOptions ] actions
+        , Card.actions [ defaultActions ] actions
         ]
 
 bookingSelectionCard : Mdl -> (Booking -> Msg) -> List Booking
@@ -200,19 +212,20 @@ bookingSelectionCard mdl select bookings focused =
                 ]
 
         actions =
-            [ defaultActionsButton mdl "add" Ignore ]
+            [ defaultButton mdl "add" Ignore ]
     in
         Card.view
-            [ defaultCardOptions ]
-            [ Card.title [ Options.center ] [ table ]
-            , Card.actions [ defaultActionsOptions ] actions
+            [ defaultCard ]
+            [ Card.title [ defaultCardTitle ] [ text "Buchungen" ]
+            , Card.title [ Options.center ] [ table ]
+            , Card.actions [ defaultActions ] actions
             ]
 
 bookingCard : Booking -> Html Msg
 bookingCard booking =
     Card.view
-        [ defaultCardOptions ]
-        [ Card.title [] [ text "Buchung" ]
+        [ defaultCard ]
+        [ Card.title [ defaultCardTitle] [ text "Buchung" ]
         , Card.actions [] []
         ]
 
@@ -245,21 +258,22 @@ individualsCard mdl individuals =
                 ]
 
         actions =
-            [ defaultActionsButton mdl "add" Ignore
-            , defaultActionsButton mdl "mode_edit" Ignore
+            [ defaultButton mdl "add" Ignore
+            , defaultButton mdl "mode_edit" Ignore
             ]
     in
         Card.view
-            [ defaultCardOptions ]
-            [ Card.title [ Options.center ] [ table ]
-            , Card.actions [ defaultActionsOptions ] actions
+            [ defaultCard ]
+            [ Card.title [ defaultCardTitle ] [ text "Gäste" ]
+            , Card.title [ Options.center ] [ table ]
+            , Card.actions [ defaultActions ] actions
             ]
 
 roomCard : B.BookedRoom -> Html Msg
 roomCard room =
     Card.view
-        [ defaultCardOptions ]
-        [ Card.title [] [ text "Zimmer" ]
+        [ defaultCard ]
+        [ Card.title [ defaultCardTitle ] [ text "Zimmer" ]
         , Card.actions [] []
         ]
 
@@ -302,7 +316,6 @@ viewBody model =
 controls : Model -> Html Msg
 controls model =
     let filter =
-            -- Pure.textfield "Suche" FilterChanged model.filter
             Textfield.render Mdl [0] model.mdl
                 [ Textfield.label "Suche"
                 , Textfield.text_
@@ -313,15 +326,7 @@ controls model =
         filterIcon = Icon.view "search"
             [ Options.css "margin-right" "5px" ]
 
-        btn action icon =
-            Button.render Mdl [0] model.mdl
-                [ Button.minifab
-                , Button.colored
-                , Button.raised
-                , Options.onClick action
-                , Options.css "margin" "0 4px 0 4px"
-                ]
-                [ Icon.i icon ]
+        btn action icon = defaultButton model.mdl icon action
     in
         Layout.row
             [ Color.background Color.accent
