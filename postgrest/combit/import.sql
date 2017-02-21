@@ -268,6 +268,10 @@ create function bookingNote(int)
   as $$
   declare
     note text;
+    a text;
+    b text;
+    c text;
+    d text;
   begin
     select case when trim(bemaufe) like '' then '' else
       concat_ws(E'\n'
@@ -277,6 +281,33 @@ create function bookingNote(int)
       end
       from combit where recordid = $1
       into note;
+    select
+      case when concat(trim(art1),preis1) like '0.00' then Null else
+        concat('  - ', anzahl1, 'x ', art1, ' à ', preis1, '€ (', proz1, '%)')
+      end
+      from combit where recordid = $1
+      into a;
+    select
+      case when concat(trim(art2),preis2) like '0.00' then Null else
+        concat('  - ', anzahl2, 'x ', art2, ' à ', preis2, '€ (', proz2, '%)')
+      end
+      from combit where recordid = $1
+      into b;
+    select
+      case when concat(trim(art3),preis3) like '0.00' then Null else
+        concat('  - ', anzahl1, 'x ', art3, ' à ', preis3, '€ (', proz3, '%)')
+      end
+      from combit where recordid = $1
+      into c;
+    select
+      case when concat(trim(art4),preis4) like '0.00' then Null else
+        concat('  - ', anzahl4, 'x ', art4, ' à ', preis4, '€ (', proz4, '%)')
+      end
+      from combit where recordid = $1
+      into d;
+    select case when trim(concat(a,b,c,d)) like '' then note else
+      concat_ws(E'\n',note,'', '###### Posten (Combit)', a, b, c, d)
+      end into note;
     return note;
   end;
   $$ language plpgsql;

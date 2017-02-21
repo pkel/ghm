@@ -8,10 +8,6 @@ Todo
 
   * Trim data on insert/update
   * Prevent inserts with higher id's than serial currently is
-  * Print non-logical Combit invoice tab to booking note as archive.
-    Semantic transfer needed for:
-      - Dates
-      - Number of Bookings
 
 Next steps
 ----------
@@ -19,6 +15,7 @@ Next steps
   * show complete booking information
   * editing
   * Insert new bookings for existing customers
+  * Customer generation
   * saving
 
 Gui Tuning
