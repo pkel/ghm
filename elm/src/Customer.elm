@@ -1,6 +1,5 @@
 module Customer exposing
     ( Customer
-    , view
     , jsonDecoder
     , jsonDecoderFirst
     , jsonEncode
@@ -50,51 +49,6 @@ type alias Customer =
 
     , bookings         : List Booking
     }
-
-
--- Html representation TODO: Replace!
-
-view : Customer -> Html msg
-view a =
-    let main = div []
-            [ text a.title
-            , br [] []
-            , text a.given
-            , text a.second
-            , text " "
-            , strong [] [text a.family]
-            , br [] []
-            , text a.street, text " ", text a.street_number
-            , br [] []
-            , text a.country_code, text "-"
-            , text a.postal_code, text " ", text a.city
-            , br [] []
-            , text a.country
-            ]
-
-        company = case String.trim (a.company ++ a.company_address) of
-            "" -> div [] []
-            str -> div []
-                [ text a.company
-                , br [] []
-                , text a.company_address
-                ]
-
-        f label value = case (label, value) of
-            (l, "") -> []
-            ("", v) -> [text v, br [] []]
-            (l, v) -> List.map text [v, " (", l, ")"] ++ [br [] []]
-
-        contact_fields = [a.phone, a.phone2, a.mobile, a.fax, a.fax2, a.mail
-                            , a.mail2, a.web]
-
-        contact_labels = ["Telefon", "Telefon", "Mobil", "Fax", "Fax", ""
-                            , "", ""]
-
-        contact = div []
-            (List.concat (List.map2 f contact_labels contact_fields))
-    in
-        div [] [ main, company, contact ]
 
 
 -- Json

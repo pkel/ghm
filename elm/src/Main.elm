@@ -1,6 +1,6 @@
 module Main exposing (..)
 
-import Html exposing (Html, text)
+import Html exposing (Html, text, br, strong)
 import Html.Attributes as Attributes
 
 import Material
@@ -189,14 +189,71 @@ customerCard : Mdl -> Customer -> Html Msg
 customerCard mdl c =
     let actions =
             [ defaultButton mdl "mode_edit" Ignore
+            , defaultButton mdl "delete" Ignore
             ]
+
+        -- TODO: export to Extra.List/String
+        nonEmpty str =
+            case String.trim str of
+                "" -> Nothing
+                str -> Just str
+
+        joinNonEmpty sep lst =
+            List.filterMap nonEmpty lst
+                |> String.join sep
+
+        append post pre =
+            pre ++ post
+
+        appendIfNotEmpty check post pre =
+            case nonEmpty check of
+                Nothing -> pre
+                Just _  -> append post pre
+
+        f str =
+            appendIfNotEmpty str [ text str, br [] [] ]
+
+        g = joinNonEmpty
+
+        main_ = []
+            |> f c.title
+            |> f (g " " [c.given, c.second, c.family])
+            |> f (g " " [c.street, c.street_number])
+            |> f (g " " [g "-" [c.country_code, c.postal_code], c.city])
+            |> f c.country
+
+        main = Card.text [] main_
+
+        company_ = []
+            |> f c.company
+            |> f c.company_address
+
+        company =
+            Card.text [] company_
+
+        contact_fields = [c.phone, c.phone2, c.mobile, c.fax, c.fax2, c.mail
+                            , c.mail2, c.web]
+
+        contact_labels = ["Telefon", "Telefon", "Mobil", "Fax", "Fax", ""
+                            , "", ""]
+
+        h label value = case (label, value) of
+            (l, "") -> []
+            ("", v) -> [text v, br [] []]
+            (l, v) -> List.map text [v, " (", l, ")"] ++ [br [] []]
+
+        contact = Card.text []
+            (List.concat (List.map2 h contact_labels contact_fields))
+
+        contents =
+            [ Card.title [ defaultCardTitle ] [ text c.keyword ]
+            , main ]
+            |> appendIfNotEmpty (c.company ++ c.company_address) [company]
+            |> appendIfNotEmpty (String.join "" contact_fields)  [contact]
+            |> append [ Card.actions [ defaultActions ] actions ]
+
     in
-    Card.view
-        [ defaultCard ]
-        [ Card.title [ defaultCardTitle ] [ text c.keyword ]
-        , Card.text [] [ C.view c ]
-        , Card.actions [ defaultActions ] actions
-        ]
+        Card.view [ defaultCard ] contents
 
 type alias NoteCardConfig =
     { mdl          : Mdl
