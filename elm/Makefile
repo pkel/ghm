@@ -6,6 +6,9 @@ all:
 min: all
 	closure-compiler --js elm.js > elm.min.js
 
+cloc:
+	cloc index.html src etc Makefile elm-package.json
+
 dep:
 	elm-package install
 
