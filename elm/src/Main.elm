@@ -143,9 +143,14 @@ update msg model =
         (model , Cmd.none)
 
     DeleteCustomerNote ->
-        let deleteNote c = { c | note = "" }
+        let customer_ = C.setNote model.customer ""
+            model_ =
+                { model
+                | customer = customer_
+                , customerNoteCard = NoteCard.show
+                }
         in
-            ( { model | customer = deleteNote model.customer }, Cmd.none )
+            ( model_ , Cmd.none )
 
     EditCustomerNote ->
         ( { model | customerNoteCard = NoteCard.edit model.customer.note }
@@ -166,6 +171,7 @@ update msg model =
         ( model_ , Cmd.none )
 
     DeleteBookingNote ->
+        -- TODO: See DeleteCustomerNote for editMode handling
         let deleteNote c = { c | note = "" }
             model_ =
                 { model
