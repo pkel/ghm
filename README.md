@@ -9,6 +9,7 @@ Todo
   * Trim data on insert/update
   * Prevent inserts with higher id's than serial currently is
   * Avoid empty bookings on import
+  * DB not available message
 
 Next steps
 ----------
