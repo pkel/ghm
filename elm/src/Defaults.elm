@@ -25,9 +25,14 @@ defaultActions =
         , Card.border
         ]
 
-defaultButton : (Material.Msg msg -> msg) -> Material.Model -> String -> msg -> Html msg
-defaultButton eMdl mdl icon action =
-    Button.render eMdl [0] mdl
+defaultButton : (Material.Msg msg -> msg)
+   -> Material.Model
+   -> List Int
+   -> String
+   -> msg
+   -> Html msg
+defaultButton eMdl mdl index icon action =
+    Button.render eMdl index mdl
         [ Button.colored
         , Button.raised
         , Button.minifab

@@ -30,6 +30,7 @@ type alias Cfg msg =
     { mdl        : Material.Model
     , mdlMessage : (Material.Msg msg -> msg)
     , msg        : Msg -> msg
+    , index      : List Int
     , title      : String
     , edit       : msg
     , done       : msg
@@ -70,8 +71,9 @@ update msg model =
 
 viewEdit : Cfg msg -> Model -> Html msg
 viewEdit cfg model =
-    let textfield =
-            Textfield.render cfg.mdlMessage [0] cfg.mdl
+    let i x = (x :: cfg.index)
+        textfield =
+            Textfield.render cfg.mdlMessage (i 1) cfg.mdl
                 [ Textfield.value model.cache
                 , Textfield.textarea
                 , Options.css "width" "100%"
@@ -81,9 +83,9 @@ viewEdit cfg model =
 
         defaultButton_ = defaultButton cfg.mdlMessage cfg.mdl
 
-        actions = [ defaultButton_ "done" cfg.done
-                  , defaultButton_ "cancel" (cfg.msg Abort)
-                  , defaultButton_ "delete" cfg.delete
+        actions = [ defaultButton_ (i 2) "done" cfg.done
+                  , defaultButton_ (i 3) "cancel" (cfg.msg Abort)
+                  , defaultButton_ (i 4) "delete" cfg.delete
                   ]
 
         cardContent =
@@ -112,18 +114,20 @@ viewShow cfg model note =
 
         defaultButton_ = defaultButton cfg.mdlMessage cfg.mdl
 
+        i x = (x :: cfg.index)
+
         cardContent =
             case note of
                 "" ->
                     [ Card.actions [ Options.center ]
-                        [ defaultButton_ "note_add" cfg.edit ]
+                        [ defaultButton_ (i 5) "note_add" cfg.edit ]
                     ]
                 _  ->
                     [ Card.title [ defaultCardTitle ] [ text cfg.title ]
                     , Card.text [] [ mdToHtml note ]
                     , Card.actions [ defaultActions ]
-                        [ defaultButton_ "mode_edit" cfg.edit
-                        , defaultButton_ "delete" cfg.delete
+                        [ defaultButton_ (i 6) "mode_edit" cfg.edit
+                        , defaultButton_ (i 7) "delete" cfg.delete
                         ]
                     ]
     in

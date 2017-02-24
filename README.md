@@ -23,6 +23,7 @@ Next steps
 Gui Tuning
 ----------
 
+  * Markdown editing in monospace font
   * Calculate number of nights for booking selection
   * Calculate number of persons for booking selection
   * Use (editable) list instead of tables

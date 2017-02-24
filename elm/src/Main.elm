@@ -219,8 +219,8 @@ defaultButton = Defaults.defaultButton Mdl
 customerCard : Mdl -> Customer -> Html Msg
 customerCard mdl c =
     let actions =
-            [ defaultButton mdl "mode_edit" Ignore
-            , defaultButton mdl "delete" Ignore
+            [ defaultButton mdl [40] "mode_edit" Ignore
+            , defaultButton mdl [41] "delete" Ignore
             ]
 
         -- TODO: export to Extra.List/String
@@ -323,7 +323,7 @@ bookingSelectionCard mdl select bookings focused =
                 ]
 
         actions =
-            [ defaultButton mdl "add" Ignore ]
+            [ defaultButton mdl [30] "add" Ignore ]
     in
         Card.view
             [ defaultCard ]
@@ -373,8 +373,8 @@ individualsCard mdl individuals =
                 ]
 
         actions =
-            [ defaultButton mdl "add" Ignore
-            , defaultButton mdl "mode_edit" Ignore
+            [ defaultButton mdl [10] "add" Ignore
+            , defaultButton mdl [11] "mode_edit" Ignore
             ]
     in
         Card.view
@@ -413,6 +413,7 @@ viewBody model =
             { mdl        = model.mdl
             , mdlMessage = Mdl
             , msg        = CustomerNoteCardMessage
+            , index      = [1]
             , title      = "Kundennotiz"
             , delete     = DeleteCustomerNote
             , edit       = EditCustomerNote
@@ -440,6 +441,7 @@ viewBody model =
         bookingNoteConfig =
             { customerNoteConfig
             | msg = BookingNoteCardMessage
+            , index = [2]
             , title = "Buchungsnotiz"
             , delete = DeleteBookingNote
             , edit = EditBookingNote
@@ -477,7 +479,7 @@ controls model =
         filterIcon = Icon.view "search"
             [ Options.css "margin-right" "5px" ]
 
-        btn action icon = defaultButton model.mdl icon action
+        btn i action icon = defaultButton model.mdl i icon action
     in
         Layout.row
             [ Color.background Color.accent
@@ -486,11 +488,11 @@ controls model =
             [ filterIcon
             , filter
             , Layout.spacer
-            , btn Previous "chevron_left"
-            , btn Next "chevron_right"
-            , btn Last "last_page"
+            , btn [1] Previous "chevron_left"
+            , btn [2] Next "chevron_right"
+            , btn [3] Last "last_page"
             , Layout.spacer
-            , btn New "library_add"
+            , btn [4] New "library_add"
             ]
 
 
