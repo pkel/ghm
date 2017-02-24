@@ -19,7 +19,9 @@ import Material.Typography as Typography
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
 
-import Markdown
+import Defaults exposing (..)
+
+import Cards.Note as NoteCard
 
 import Date.Format as DateF
 
@@ -44,17 +46,25 @@ type alias Model =
   , customer : Customer
   , filter : String
   , focusedBooking : Maybe Booking
+  , customerNoteCard : NoteCard.Model
+  , bookingNoteCard : NoteCard.Model
   , mdl : Mdl
   }
 
+model : Model
+model =
+    { customerId = Nothing
+    , customer = C.empty ()
+    , filter = ""
+    , customerNoteCard = NoteCard.show
+    , bookingNoteCard = NoteCard.show
+    , focusedBooking = Nothing
+    , mdl = Material.model
+    }
+
 init : (Model, Cmd Msg)
 init =
-  ( Model
-        Nothing
-        (C.empty ())
-        ""
-        Nothing
-        Material.model
+  ( model
   , Db.getLatestCustomer CustomerReceived "" )
 
 
@@ -70,7 +80,13 @@ type Msg
     | SelectBooking Booking
     | Ignore
     | DeleteCustomerNote
+    | EditCustomerNote
+    | EditCustomerNoteDone
     | DeleteBookingNote
+    | EditBookingNote
+    | EditBookingNoteDone
+    | CustomerNoteCardMessage NoteCard.Msg
+    | BookingNoteCardMessage NoteCard.Msg
     | Mdl (Material.Msg Msg)
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -110,6 +126,8 @@ update msg model =
               { model
               | customer = c
               , customerId = c.customer_id
+              , customerNoteCard = NoteCard.show
+              , bookingNoteCard = NoteCard.show
               , focusedBooking = List.head c.bookings
               }
       in
@@ -129,6 +147,24 @@ update msg model =
         in
             ( { model | customer = deleteNote model.customer }, Cmd.none )
 
+    EditCustomerNote ->
+        ( { model | customerNoteCard = NoteCard.edit model.customer.note }
+        , Cmd.none )
+
+    EditCustomerNoteDone ->
+        let customer_ =
+                NoteCard.extract model.customerNoteCard
+                    |> Maybe.map (C.setNote model.customer)
+                    |> Maybe.withDefault model.customer
+
+            model_ =
+                { model
+                | customerNoteCard = NoteCard.show
+                , customer = customer_
+                }
+        in
+        ( model_ , Cmd.none )
+
     DeleteBookingNote ->
         let deleteNote c = { c | note = "" }
             model_ =
@@ -143,47 +179,42 @@ update msg model =
         in
             (model_ , Cmd.none )
 
+    EditBookingNote ->
+        let noteCard_ =
+                Maybe.map .note model.focusedBooking
+                    |> Maybe.map NoteCard.edit
+                    |> Maybe.withDefault NoteCard.show
+        in
+        ( { model | bookingNoteCard = noteCard_ }
+        , Cmd.none )
+
+    EditBookingNoteDone ->
+        -- TODO : Compare EditCustomerNoteDone, but see note on
+        -- DeleteBookingNote  first.
+        ( { model | bookingNoteCard = NoteCard.show }
+        , Cmd.none )
+
+    CustomerNoteCardMessage msg_ ->
+        let ( model_, cmd_) = NoteCard.update msg_ model.customerNoteCard
+        in
+            ( { model | customerNoteCard = model_ }
+            , Cmd.map CustomerNoteCardMessage cmd_
+            )
+
+    BookingNoteCardMessage msg_ ->
+        let ( model_, cmd_) = NoteCard.update msg_ model.bookingNoteCard
+        in
+            ( { model | bookingNoteCard = model_ }
+            , Cmd.map BookingNoteCardMessage cmd_
+            )
+
     Mdl msg_ -> Material.update Mdl msg_ model
 
 
--- DEFAULT ELEMENTS
-
-defaultCard : Options.Property c m
-defaultCard =
-    Options.many
-        [ Elevation.e2
-        , Options.css "margin" "0.5em"
-        , Options.css "width" "auto"
-        ]
-
-defaultActions : Options.Property () m
-defaultActions =
-    Options.many
-        [ Options.center
-        , Card.border
-        ]
-
-defaultButton : Mdl -> String -> Msg -> Html Msg
-defaultButton mdl icon action =
-    Button.render Mdl [0] mdl
-        [ Button.colored
-        , Button.raised
-        , Button.minifab
-        , Options.onClick action
-        , Options.css "margin" "0 4px 0 4px"
-        ]
-        [ Icon.i icon ]
-
-defaultCardTitle : Options.Property c m
-defaultCardTitle =
-    Options.many
-        [ Typography.title
-        -- , Options.center
-        -- , Color.text Color.primaryDark
-        ]
-
-
 -- CARDS
+
+-- TODO: remove this hack as soon as all cards have their own module
+defaultButton = Defaults.defaultButton Mdl
 
 customerCard : Mdl -> Customer -> Html Msg
 customerCard mdl c =
@@ -254,45 +285,6 @@ customerCard mdl c =
 
     in
         Card.view [ defaultCard ] contents
-
-type alias NoteCardConfig =
-    { mdl          : Mdl
-    , title        : String
-    , deleteAction : Msg
-    , editAction   : Msg
-    }
-
-noteCard : NoteCardConfig -> String -> Html Msg
-noteCard cfg note =
-    let mdDefaults = Markdown.defaultOptions
-
-        mdOptions =
-            { mdDefaults
-            | githubFlavored = Just { tables = True, breaks = False }
-            , sanitize = True
-            , smartypants = True
-            }
-
-        mdToHtml =
-            Markdown.toHtmlWith mdOptions
-                [ Attributes.class "ghm_md_note" ]
-
-        cardContent =
-            case note of
-                "" ->
-                    [ Card.actions [ Options.center ]
-                        [ defaultButton cfg.mdl "note_add" cfg.editAction ]
-                    ]
-                _  ->
-                    [ Card.title [ defaultCardTitle ] [ text cfg.title ]
-                    , Card.text [] [ mdToHtml note ]
-                    , Card.actions [ defaultActions ]
-                        [ defaultButton cfg.mdl "mode_edit" cfg.editAction
-                        , defaultButton cfg.mdl "delete" cfg.deleteAction
-                        ]
-                    ]
-    in
-        Card.view [ defaultCard ] cardContent
 
 bookingSelectionCard : Mdl -> (Booking -> Msg) -> List Booking
           -> Maybe Booking -> Html Msg
@@ -418,8 +410,20 @@ viewBody model =
         customer = customerCard mdl model.customer
 
         customerNoteConfig =
-            NoteCardConfig mdl "Kundennotiz" DeleteCustomerNote Ignore
-        customerNote = noteCard customerNoteConfig model.customer.note
+            { mdl        = model.mdl
+            , mdlMessage = Mdl
+            , msg        = CustomerNoteCardMessage
+            , title      = "Kundennotiz"
+            , delete     = DeleteCustomerNote
+            , edit       = EditCustomerNote
+            , done       = EditCustomerNoteDone
+            }
+
+        customerNote =
+            NoteCard.view
+                customerNoteConfig
+                model.customerNoteCard
+                model.customer.note
 
         selection = bookingSelectionCard mdl SelectBooking
             model.customer.bookings model.focusedBooking
@@ -434,9 +438,21 @@ viewBody model =
             ]
 
         bookingNoteConfig =
-            NoteCardConfig mdl "Buchungsnotiz" DeleteBookingNote Ignore
+            { customerNoteConfig
+            | msg = BookingNoteCardMessage
+            , title = "Buchungsnotiz"
+            , delete = DeleteBookingNote
+            , edit = EditBookingNote
+            , done = EditBookingNoteDone
+            }
 
-        bookingCards2 b = [ noteCard bookingNoteConfig b.note ]
+        bookingNoteCard b =
+            NoteCard.view
+                bookingNoteConfig
+                model.bookingNoteCard
+                b.note
+
+        bookingCards2 b = [ bookingNoteCard b ]
     in
         grid
             [ Grid.noSpacing

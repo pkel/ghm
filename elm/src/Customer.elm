@@ -4,6 +4,7 @@ module Customer exposing
     , jsonDecoderFirst
     , jsonEncode
     , empty
+    , setNote
     )
 
 import Json.Decode as Decode exposing (Decoder)
@@ -50,6 +51,12 @@ type alias Customer =
     , bookings         : List Booking
     }
 
+
+-- Setter
+
+setNote : Customer -> String -> Customer
+setNote customer note =
+    { customer | note = note }
 
 -- Json
 
