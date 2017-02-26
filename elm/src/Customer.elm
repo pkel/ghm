@@ -4,6 +4,7 @@ module Customer exposing
     , jsonDecoderFirst
     , jsonEncode
     , empty
+    , setBookings
     , setNote
     )
 
@@ -53,6 +54,11 @@ type alias Customer =
 
 
 -- Setter
+
+setBookings : Customer -> List Booking -> Customer
+setBookings customer bookings =
+    { customer | bookings = bookings }
+
 
 setNote : Customer -> String -> Customer
 setNote customer note =

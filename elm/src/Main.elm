@@ -21,6 +21,8 @@ import Booking  as B exposing (Booking)
 
 import Defaults exposing (..)
 
+import List.Extra as ListX
+
 import Cards.Note as NoteCard
 
 import Date.Format as DateF
@@ -45,7 +47,7 @@ type alias Model =
   { customerId : Maybe Int
   , customer : Customer
   , filter : String
-  , focusedBooking : Maybe Booking
+  , focusedBooking : Int
   , customerNoteCard : NoteCard.Model
   , bookingNoteCard : NoteCard.Model
   , mdl : Mdl
@@ -58,7 +60,7 @@ model =
     , filter = ""
     , customerNoteCard = NoteCard.show
     , bookingNoteCard = NoteCard.show
-    , focusedBooking = Nothing
+    , focusedBooking = -1
     , mdl = Material.model
     }
 
@@ -77,7 +79,7 @@ type Msg
     | Last
     | FilterChanged String
     | CustomerReceived (Result Http.Error Customer)
-    | SelectBooking Booking
+    | SelectBooking Int
     | Ignore
     | DeleteCustomerNote
     | EditCustomerNote
@@ -122,22 +124,22 @@ update msg model =
       ( { model | filter = str }, Db.getLatestCustomer CustomerReceived str )
 
     CustomerReceived (Ok c) ->
-      let model_ =
-              { model
-              | customer = c
-              , customerId = c.customer_id
-              , customerNoteCard = NoteCard.show
-              , bookingNoteCard = NoteCard.show
-              , focusedBooking = List.head c.bookings
-              }
-      in
-      ( model_ , Cmd.none )
+        let model_ =
+                { model
+                | customer = c
+                , customerId = c.customer_id
+                , customerNoteCard = NoteCard.show
+                , bookingNoteCard = NoteCard.show
+                , focusedBooking = 0
+                }
+        in
+            ( model_ , Cmd.none )
 
     CustomerReceived (Err _) ->
       ( model , Cmd.none )
 
-    SelectBooking booking ->
-        ( { model | focusedBooking = Just booking } , Cmd.none )
+    SelectBooking index ->
+        ( { model | focusedBooking = index } , Cmd.none )
 
     Ignore ->
         (model , Cmd.none)
@@ -171,23 +173,27 @@ update msg model =
         ( model_ , Cmd.none )
 
     DeleteBookingNote ->
-        -- TODO: See DeleteCustomerNote for editMode handling
-        let deleteNote c = { c | note = "" }
+        let setNote note_ booking =
+                { booking | note = note_ }
+
+            bookings = model.customer.bookings
+
+            bookings_ =
+                ListX.updateAt model.focusedBooking (setNote "") bookings
+                    |> Maybe.withDefault bookings
+
             model_ =
                 { model
-                -- TODO: Löschen wir hier nur in focusedBooking oder auch in
-                -- bookings? Ersteres, da nach delete Markierung in Selection
-                -- flöten geht. Focused und markiert sind nicht mehr gleich.
-                -- FocusedBooking muss vermutlich umgebaut werden.
-                -- Single Source of Truth violated !
-                | focusedBooking = Maybe.map deleteNote model.focusedBooking
+                | customer = C.setBookings model.customer bookings_
+                , bookingNoteCard = NoteCard.show
                 }
         in
             (model_ , Cmd.none )
 
     EditBookingNote ->
         let noteCard_ =
-                Maybe.map .note model.focusedBooking
+                ListX.getAt model.focusedBooking model.customer.bookings
+                    |> Maybe.map .note
                     |> Maybe.map NoteCard.edit
                     |> Maybe.withDefault NoteCard.show
         in
@@ -195,10 +201,28 @@ update msg model =
         , Cmd.none )
 
     EditBookingNoteDone ->
-        -- TODO : Compare EditCustomerNoteDone, but see note on
-        -- DeleteBookingNote  first.
-        ( { model | bookingNoteCard = NoteCard.show }
-        , Cmd.none )
+        let setNote note_ booking =
+                { booking | note = note_ }
+
+            bookings = model.customer.bookings
+
+            bookings_ =
+                NoteCard.extract model.bookingNoteCard
+                    |> Maybe.andThen ( \note ->
+                        ListX.updateAt
+                            model.focusedBooking
+                            (setNote note)
+                            bookings
+                        )
+                    |> Maybe.withDefault bookings
+
+            model_ =
+                { model
+                | customer = C.setBookings model.customer bookings_
+                , bookingNoteCard = NoteCard.show
+                }
+        in
+            (model_ , Cmd.none )
 
     CustomerNoteCardMessage msg_ ->
         let ( model_, cmd_) = NoteCard.update msg_ model.customerNoteCard
@@ -292,10 +316,11 @@ customerCard mdl c =
     in
         Card.view [ defaultCard ] contents
 
-bookingSelectionCard : Mdl -> (Booking -> Msg) -> List Booking
-          -> Maybe Booking -> Html Msg
+bookingSelectionCard : Mdl -> (Int -> Msg) -> List Booking
+          -> Int -> Html Msg
 bookingSelectionCard mdl select bookings focused =
     let summaries = List.map B.summary bookings
+        indeces = List.range 0 (List.length bookings - 1)
 
         date d = Maybe.withDefault "" (Maybe.map (DateF.format "%d.%m.%y") d)
         range f t = text (date f ++ " bis " ++ date t)
@@ -303,11 +328,14 @@ bookingSelectionCard mdl select bookings focused =
 
         c = Options.css "text-align" "center"
 
-        same a b = Maybe.withDefault False (Maybe.map ((==) b) a)
+        same index booking =
+            ListX.getAt focused bookings
+                |> Maybe.map ((==) booking)
+                |> Maybe.withDefault False
 
-        row booking summary =
+        row index booking summary =
             Table.tr
-                [ Options.onClick (select booking)
+                [ Options.onClick (select index)
                 , Table.selected
                     |> Options.when (same focused booking)
                 ]
@@ -325,7 +353,7 @@ bookingSelectionCard mdl select bookings focused =
                         , Table.th [c] [Icon.i "vpn_key"]
                         ]
                     ]
-                , Table.tbody [] (List.map2 row bookings summaries)
+                , Table.tbody [] (List.map3 row indeces bookings summaries)
                 ]
 
         actions =
@@ -460,6 +488,9 @@ viewBody model =
                 model.bookingNoteCard
                 b.note
 
+        booking =
+            ListX.getAt model.focusedBooking model.customer.bookings
+
         bookingCards2 b = [ bookingNoteCard b ]
     in
         grid
@@ -467,9 +498,9 @@ viewBody model =
             ]
             [ cell [ size All 4 ] [ customer, customerNote, selection ]
             , cell [ size All 4 ]
-                ( maybeMapDefault [] bookingCards model.focusedBooking )
+                ( maybeMapDefault [] bookingCards booking )
             , cell [ size All 4 ]
-                ( maybeMapDefault [] bookingCards2 model.focusedBooking )
+                ( maybeMapDefault [] bookingCards2 booking )
             ]
 
 controls : Model -> Html Msg
