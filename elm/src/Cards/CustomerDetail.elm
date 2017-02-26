@@ -11,6 +11,7 @@ module Cards.CustomerDetail exposing
 
 import Material
 import Material.Card as Card
+import Material.Tabs as Tabs
 import Material.Textfield as Textfield
 import Material.Options as Options
 
@@ -23,6 +24,7 @@ import Html.Attributes as Attributes
 
 type alias Model =
     { editMode : Bool
+    , editTab : Int
     , cache : Customer
     }
 
@@ -66,16 +68,19 @@ type Msg
     | Keyword         String
 
     | Abort
+    | SelectTab       Int
 
 show : Model
 show =
     { editMode = False
+    , editTab = 0
     , cache = Customer.empty
     }
 
 edit : Customer -> Model
 edit customer =
     { editMode = True
+    , editTab = 0
     , cache = customer
     }
 
@@ -158,20 +163,99 @@ update msg model =
             Abort ->
                 ( show, Cmd.none )
 
+            SelectTab i ->
+                let model_ =
+                        { model | editTab = i }
+                in
+                    ( model_, Cmd.none )
+
 
 viewEdit : Cfg msg -> Model -> Html msg
-viewEdit cfg model = viewShow cfg Customer.empty
+viewEdit cfg model =
+    let index x = (x :: cfg.index)
+
+        defaultButton_ i = defaultButton cfg.mdlMessage cfg.mdl (index i)
+
+        actions = [ defaultButton_ 1 "done" cfg.done
+                  , defaultButton_ 2 "cancel" (cfg.msg Abort)
+                  , defaultButton_ 3 "delete" cfg.delete
+                  ]
+
+        tab_labels =
+            [ "Name", "Adresse", "Kontakt" ]
+            |> List.map (\l ->
+                    Tabs.textLabel [ Options.center ] l )
+
+        tf i label value msg =
+            Textfield.render cfg.mdlMessage (index i) cfg.mdl
+                [ Textfield.value (value model.cache)
+                , Textfield.floatingLabel
+                , Textfield.label (label)
+                , Textfield.text_
+                , Options.onInput (\t -> cfg.msg (msg t))
+                ] ()
+
+        -- TODO: Build nice gridded forms
+        nameTab =
+            [ tf 5  "Kürzel"       .keyword      Keyword
+            , tf 6  "Anrede"       .title        Title
+            , tf 7  "Anrede Brief" .title_letter Title_letter
+            , tf 8  "Vorname"      .given        Given
+            , tf 9  "Zweitname"    .second       Second
+            , tf 10 "Nachname"     .family       Family
+            ]
+
+        addressTab =
+            [ tf 21 "Straße"       .street        Street
+            , tf 22 "Hausnummer"   .street_number Street_number
+            , tf 23 "Ort"          .city          City
+            , tf 24 "Postleitzahl" .postal_code   Postal_code
+            , tf 25 "Land"         .country       Country
+            , tf 26 "Ländercode"   .country_code  Country_code
+            ]
+
+        contactTab =
+            [ tf 41 "Telefon"      .phone  Phone
+            , tf 42 "Telefon"      .phone2 Phone2
+            , tf 43 "Mobiltelefon" .mobile Mobile
+            , tf 44 "Fax"          .fax    Fax
+            , tf 45 "Fax"          .fax2   Fax2
+            , tf 46 "Email"        .mail   Mail
+            , tf 47 "Email"        .mail2  Mail2
+            , tf 48 "Website"      .web    Web
+            ]
+
+        bundle = Html.div []
+
+        tabs = Tabs.render cfg.mdlMessage (index 4) cfg.mdl
+                [ Tabs.onSelectTab (\i -> cfg.msg (SelectTab i))
+                , Tabs.activeTab model.editTab
+                ]
+                tab_labels
+                [ case model.editTab of
+                    1 -> bundle addressTab
+                    2 -> bundle contactTab
+                    _ -> bundle nameTab
+                ]
+
+        cardContent =
+            [ Card.title [ defaultCardTitle ] [ text model.cache.keyword ]
+            , Card.text [] [ tabs ]
+            , Card.actions [ defaultActions ] actions
+            ]
+    in
+        Card.view [ defaultCard ] cardContent
 
 
 viewShow : Cfg msg -> Customer -> Html msg
 viewShow cfg customer =
     let i x = (x :: cfg.index)
 
-        defaultButton_ = defaultButton cfg.mdlMessage cfg.mdl
+        defaultButton_ x = defaultButton cfg.mdlMessage cfg.mdl (i x)
 
         actions =
-            [ defaultButton_ (i 1) "mode_edit" cfg.edit
-            , defaultButton_ (i 2) "delete"    cfg.delete
+            [ defaultButton_ 1 "mode_edit" cfg.edit
+            , defaultButton_ 2 "delete"    cfg.delete
             ]
 
         -- TODO: export to Extra.List/String

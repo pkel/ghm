@@ -164,12 +164,28 @@ update msg model =
         (model, Cmd.none)
 
     EditCustomer ->
-        (model, Cmd.none)
+        let model_ =
+                { model
+                | customerCard = CustomerCard.edit model.customer
+                }
+        in
+            (model_, Cmd.none)
 
     EditCustomerDone ->
-        (model, Cmd.none)
+        let customer_ =
+                CustomerCard.extract model.customerCard model.customer
+                    |> Maybe.withDefault model.customer
+
+            model_ =
+                { model
+                | customerCard = CustomerCard.show
+                , customer = customer_
+                }
+        in
+            (model_, Cmd.none)
 
     DeleteCustomer ->
+        -- TODO: Delete Customer does nothing
         (model, Cmd.none)
 
     DeleteCustomerNote ->
