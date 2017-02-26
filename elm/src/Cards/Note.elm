@@ -97,8 +97,8 @@ viewEdit cfg model =
     in
         Card.view [ defaultCard ] cardContent
 
-viewShow : Cfg msg -> Model -> String -> Html msg
-viewShow cfg model note =
+viewShow : Cfg msg -> String -> Html msg
+viewShow cfg note =
     let mdDefaults = Markdown.defaultOptions
 
         mdOptions =
@@ -137,5 +137,5 @@ view : Cfg msg -> Model -> String -> Html msg
 view cfg model note =
     case model.editMode of
         True -> viewEdit cfg model
-        False -> viewShow cfg model note
+        False -> viewShow cfg note
 

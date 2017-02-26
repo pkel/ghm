@@ -157,9 +157,39 @@ jsonEncode c =
 
 -- Constructors
 
-empty : () -> Customer
-empty () =
-    Customer Nothing
-    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
-        []
+empty : Customer
+empty =
+    { customer_id      = Nothing
+
+    , title            = ""
+    , title_letter     = ""
+
+    , given            = ""
+    , second           = ""
+    , family           = ""
+
+    , company          = ""
+    , company_address  = ""
+
+    , street           = ""
+    , street_number    = ""
+    , postal_code      = ""
+    , city             = ""
+    , country          = ""
+    , country_code     = ""
+
+    , phone            = ""
+    , phone2           = ""
+    , mobile           = ""
+    , fax              = ""
+    , fax2             = ""
+    , mail             = ""
+    , mail2            = ""
+    , web              = ""
+
+    , keyword          = ""
+    , note             = ""
+
+    , bookings         = []
+    }
 

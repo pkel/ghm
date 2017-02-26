@@ -24,6 +24,7 @@ import Defaults exposing (..)
 import List.Extra as ListX
 
 import Cards.Note as NoteCard
+import Cards.CustomerDetail as CustomerCard
 
 import Date.Format as DateF
 
@@ -48,6 +49,7 @@ type alias Model =
   , customer : Customer
   , filter : String
   , focusedBooking : Int
+  , customerCard : CustomerCard.Model
   , customerNoteCard : NoteCard.Model
   , bookingNoteCard : NoteCard.Model
   , mdl : Mdl
@@ -56,8 +58,9 @@ type alias Model =
 model : Model
 model =
     { customerId = Nothing
-    , customer = C.empty ()
+    , customer = C.empty
     , filter = ""
+    , customerCard = CustomerCard.show
     , customerNoteCard = NoteCard.show
     , bookingNoteCard = NoteCard.show
     , focusedBooking = -1
@@ -78,23 +81,39 @@ type Msg
     | Next
     | Last
     | FilterChanged String
+
     | CustomerReceived (Result Http.Error Customer)
+
     | SelectBooking Int
+
     | Ignore
-    | DeleteCustomerNote
+
+    | EditCustomer
+    | EditCustomerDone
+    | DeleteCustomer
+
     | EditCustomerNote
     | EditCustomerNoteDone
-    | DeleteBookingNote
+    | DeleteCustomerNote
+
     | EditBookingNote
     | EditBookingNoteDone
-    | CustomerNoteCardMessage NoteCard.Msg
-    | BookingNoteCardMessage NoteCard.Msg
+    | DeleteBookingNote
+
+    -- Pass through
+    | CustomerCardMsg     CustomerCard.Msg
+    | CustomerNoteCardMsg NoteCard.Msg
+    | BookingNoteCardMsg  NoteCard.Msg
+
+    -- Material Boilerplate
     | Mdl (Material.Msg Msg)
+
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     New ->
+        --TODO
       let model_ =
         { model
         | customerId = Nothing
@@ -142,7 +161,16 @@ update msg model =
         ( { model | focusedBooking = index } , Cmd.none )
 
     Ignore ->
-        (model , Cmd.none)
+        (model, Cmd.none)
+
+    EditCustomer ->
+        (model, Cmd.none)
+
+    EditCustomerDone ->
+        (model, Cmd.none)
+
+    DeleteCustomer ->
+        (model, Cmd.none)
 
     DeleteCustomerNote ->
         let customer_ = C.setNote model.customer ""
@@ -224,18 +252,25 @@ update msg model =
         in
             (model_ , Cmd.none )
 
-    CustomerNoteCardMessage msg_ ->
+    CustomerCardMsg msg_ ->
+        let ( model_, cmd_) = CustomerCard.update msg_ model.customerCard
+        in
+            ( { model | customerCard = model_ }
+            , Cmd.map CustomerCardMsg cmd_
+            )
+
+    CustomerNoteCardMsg msg_ ->
         let ( model_, cmd_) = NoteCard.update msg_ model.customerNoteCard
         in
             ( { model | customerNoteCard = model_ }
-            , Cmd.map CustomerNoteCardMessage cmd_
+            , Cmd.map CustomerNoteCardMsg cmd_
             )
 
-    BookingNoteCardMessage msg_ ->
+    BookingNoteCardMsg msg_ ->
         let ( model_, cmd_) = NoteCard.update msg_ model.bookingNoteCard
         in
             ( { model | bookingNoteCard = model_ }
-            , Cmd.map BookingNoteCardMessage cmd_
+            , Cmd.map BookingNoteCardMsg cmd_
             )
 
     Mdl msg_ -> Material.update Mdl msg_ model
@@ -245,76 +280,6 @@ update msg model =
 
 -- TODO: remove this hack as soon as all cards have their own module
 defaultButton = Defaults.defaultButton Mdl
-
-customerCard : Mdl -> Customer -> Html Msg
-customerCard mdl c =
-    let actions =
-            [ defaultButton mdl [40] "mode_edit" Ignore
-            , defaultButton mdl [41] "delete" Ignore
-            ]
-
-        -- TODO: export to Extra.List/String
-        nonEmpty str =
-            case String.trim str of
-                "" -> Nothing
-                str -> Just str
-
-        joinNonEmpty sep lst =
-            List.filterMap nonEmpty lst
-                |> String.join sep
-
-        append post pre =
-            pre ++ post
-
-        appendIfNotEmpty check post pre =
-            case nonEmpty check of
-                Nothing -> pre
-                Just _  -> append post pre
-
-        f str =
-            appendIfNotEmpty str [ text str, br [] [] ]
-
-        g = joinNonEmpty
-
-        main_ = []
-            |> f c.title
-            |> f (g " " [c.given, c.second, c.family])
-            |> f (g " " [c.street, c.street_number])
-            |> f (g " " [g "-" [c.country_code, c.postal_code], c.city])
-            |> f c.country
-
-        main = Card.text [] main_
-
-        company_ = []
-            |> f c.company
-            |> f c.company_address
-
-        company =
-            Card.text [] company_
-
-        contact_fields = [c.phone, c.phone2, c.mobile, c.fax, c.fax2, c.mail
-                            , c.mail2, c.web]
-
-        contact_labels = ["Telefon", "Telefon", "Mobil", "Fax", "Fax", ""
-                            , "", ""]
-
-        h label value = case (label, value) of
-            (l, "") -> []
-            ("", v) -> [text v, br [] []]
-            (l, v) -> List.map text [v, " (", l, ")"] ++ [br [] []]
-
-        contact = Card.text []
-            (List.concat (List.map2 h contact_labels contact_fields))
-
-        contents =
-            [ Card.title [ defaultCardTitle ] [ text c.keyword ]
-            , main ]
-            |> appendIfNotEmpty (c.company ++ c.company_address) [company]
-            |> appendIfNotEmpty (String.join "" contact_fields)  [contact]
-            |> append [ Card.actions [ defaultActions ] actions ]
-
-    in
-        Card.view [ defaultCard ] contents
 
 bookingSelectionCard : Mdl -> (Int -> Msg) -> List Booking
           -> Int -> Html Msg
@@ -441,13 +406,26 @@ viewBody : Model -> Html Msg
 viewBody model =
     let mdl = model.mdl
 
-        customer = customerCard mdl model.customer
-
-        customerNoteConfig =
+        customerCfg =
             { mdl        = model.mdl
             , mdlMessage = Mdl
-            , msg        = CustomerNoteCardMessage
+            , msg        = CustomerCardMsg
             , index      = [1]
+            , delete     = DeleteCustomer
+            , edit       = EditCustomer
+            , done       = EditCustomerDone
+            }
+
+        customer = CustomerCard.view
+            customerCfg
+            model.customerCard
+            model.customer
+
+        customerNoteCfg =
+            { mdl        = model.mdl
+            , mdlMessage = Mdl
+            , msg        = CustomerNoteCardMsg
+            , index      = [2]
             , title      = "Kundennotiz"
             , delete     = DeleteCustomerNote
             , edit       = EditCustomerNote
@@ -456,7 +434,7 @@ viewBody model =
 
         customerNote =
             NoteCard.view
-                customerNoteConfig
+                customerNoteCfg
                 model.customerNoteCard
                 model.customer.note
 
@@ -472,26 +450,26 @@ viewBody model =
             , List.map roomCard b.rooms
             ]
 
-        bookingNoteConfig =
-            { customerNoteConfig
-            | msg = BookingNoteCardMessage
-            , index = [2]
+        bookingNoteCfg =
+            { customerNoteCfg
+            | msg = BookingNoteCardMsg
+            , index = [3]
             , title = "Buchungsnotiz"
             , delete = DeleteBookingNote
             , edit = EditBookingNote
             , done = EditBookingNoteDone
             }
 
-        bookingNoteCard b =
+        bookingNote b =
             NoteCard.view
-                bookingNoteConfig
+                bookingNoteCfg
                 model.bookingNoteCard
                 b.note
 
         booking =
             ListX.getAt model.focusedBooking model.customer.bookings
 
-        bookingCards2 b = [ bookingNoteCard b ]
+        bookingCards2 b = [ bookingNote b ]
     in
         grid
             [ Grid.noSpacing
