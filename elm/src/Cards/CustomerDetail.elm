@@ -11,6 +11,7 @@ module Cards.CustomerDetail exposing
 
 import Material
 import Material.Card as Card
+import Material.Grid as Grid exposing (Device(..))
 import Material.Tabs as Tabs
 import Material.Textfield as Textfield
 import Material.Options as Options
@@ -56,7 +57,7 @@ type Msg
     | Country         String
     | Country_code    String
 
-    | Phone           String
+    | Phone1          String -- Naming conflict with Material.Grid Device Phone
     | Phone2          String
     | Mobile          String
     | Fax             String
@@ -149,7 +150,7 @@ update msg model =
             Country         s -> { c | country         = s } |> f
             Country_code    s -> { c | country_code    = s } |> f
 
-            Phone           s -> { c | phone           = s } |> f
+            Phone1          s -> { c | phone           = s } |> f
             Phone2          s -> { c | phone2          = s } |> f
             Mobile          s -> { c | mobile          = s } |> f
             Fax             s -> { c | fax             = s } |> f
@@ -184,7 +185,12 @@ viewEdit cfg model =
         tab_labels =
             [ "Name", "Adresse", "Kontakt" ]
             |> List.map (\l ->
-                    Tabs.textLabel [ Options.center ] l )
+                    Tabs.textLabel
+                        [ Options.center
+                        , Options.css "cursor" "pointer"
+                        ]
+                        l
+                        )
 
         tf i label value msg =
             Textfield.render cfg.mdlMessage (index i) cfg.mdl
@@ -192,40 +198,53 @@ viewEdit cfg model =
                 , Textfield.floatingLabel
                 , Textfield.label (label)
                 , Textfield.text_
+                , Options.css "width" "100%"
                 , Options.onInput (\t -> cfg.msg (msg t))
                 ] ()
 
         -- TODO: Build nice gridded forms
+
+        s        = Grid.size
+        full     = [ s Desktop 12, s Tablet 8, s Phone 4 ]
+        one4th   = [ s Desktop 3 , s Tablet 2, s Phone 1 ]
+        three4th = [ s Desktop 9 , s Tablet 6, s Phone 3 ]
+        half     = [ s Desktop 6 , s Tablet 4, s Phone 2 ]
+
+        f size i label value msg = Grid.cell size [ tf i label value msg ]
+
+        grid = Grid.grid [ Options.css "padding" "0" ]
+
         nameTab =
-            [ tf 5  "Kürzel"       .keyword      Keyword
-            , tf 6  "Anrede"       .title        Title
-            , tf 7  "Anrede Brief" .title_letter Title_letter
-            , tf 8  "Vorname"      .given        Given
-            , tf 9  "Zweitname"    .second       Second
-            , tf 10 "Nachname"     .family       Family
-            ]
+            grid
+                [ f full     5  "Kürzel"       .keyword      Keyword
+                , f one4th   6  "Anrede"       .title        Title
+                , f three4th 7  "Anrede Brief" .title_letter Title_letter
+                , f half     8  "Vorname"      .given        Given
+                , f half     9  "Zweitname"    .second       Second
+                , f full     10 "Nachname"     .family       Family
+                ]
 
         addressTab =
-            [ tf 21 "Straße"       .street        Street
-            , tf 22 "Hausnummer"   .street_number Street_number
-            , tf 23 "Ort"          .city          City
-            , tf 24 "Postleitzahl" .postal_code   Postal_code
-            , tf 25 "Land"         .country       Country
-            , tf 26 "Ländercode"   .country_code  Country_code
-            ]
+            grid
+                [ f three4th 21 "Straße"       .street        Street
+                , f one4th   22 "Hnr."         .street_number Street_number
+                , f one4th   24 "Postleitzahl" .postal_code   Postal_code
+                , f three4th 23 "Ort"          .city          City
+                , f three4th 25 "Land"         .country       Country
+                , f one4th   26 "Ländercode"   .country_code  Country_code
+                ]
 
         contactTab =
-            [ tf 41 "Telefon"      .phone  Phone
-            , tf 42 "Telefon"      .phone2 Phone2
-            , tf 43 "Mobiltelefon" .mobile Mobile
-            , tf 44 "Fax"          .fax    Fax
-            , tf 45 "Fax"          .fax2   Fax2
-            , tf 46 "Email"        .mail   Mail
-            , tf 47 "Email"        .mail2  Mail2
-            , tf 48 "Website"      .web    Web
-            ]
-
-        bundle = Html.div []
+            grid
+                [ f half 41 "Telefon"      .phone  Phone1
+                , f half 42 "Telefon"      .phone2 Phone2
+                , f full 43 "Mobiltelefon" .mobile Mobile
+                , f half 44 "Fax"          .fax    Fax
+                , f half 45 "Fax"          .fax2   Fax2
+                , f full 46 "Email"        .mail   Mail
+                , f full 47 "Email"        .mail2  Mail2
+                , f full 48 "Website"      .web    Web
+                ]
 
         tabs = Tabs.render cfg.mdlMessage (index 4) cfg.mdl
                 [ Tabs.onSelectTab (\i -> cfg.msg (SelectTab i))
@@ -233,9 +252,9 @@ viewEdit cfg model =
                 ]
                 tab_labels
                 [ case model.editTab of
-                    1 -> bundle addressTab
-                    2 -> bundle contactTab
-                    _ -> bundle nameTab
+                    1 -> addressTab
+                    2 -> contactTab
+                    _ -> nameTab
                 ]
 
         cardContent =
