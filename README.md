@@ -14,6 +14,8 @@ Todo
 Next steps
 ----------
 
+  * build editable list and use it for individuals and rooms
+  * move all cards from main to separate file
   * show complete booking information
   * editing
   * Insert new bookings for existing customers
