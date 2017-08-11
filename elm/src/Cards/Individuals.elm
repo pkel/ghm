@@ -51,8 +51,8 @@ initCacheItem x =
 
 type alias Model =
     { editMode : Bool
-    , focus : Int
-    , cache : Array CacheItem
+    , cache    : Array CacheItem
+    , lst      : List Individual
     }
 
 type alias Cfg msg =
@@ -77,30 +77,26 @@ type Msg msg
     | Done (List Individual -> msg)
     | Abort
 
-showMdl : Model
-showMdl =
+showMdl : List Individual -> Model
+showMdl lst =
     { editMode = False
-    , focus = 0
     , cache = Array.empty
+    , lst = lst
     }
 
-model : Model
+edit : Model -> Model
+edit model =
+    { model
+    | editMode = True
+    , cache = Array.fromList (List.map initCacheItem model.lst)
+    }
+
+model : List Individual -> Model
 model = showMdl
-
-editMdl : List Individual -> Model
-editMdl lst =
-    { editMode = True
-    , focus = 0
-    , cache = Array.fromList (List.map initCacheItem lst)
-    }
 
 -- TODO: This should check the data for errors
 extract : Model -> Maybe (List Individual)
-extract model =
-    case model.editMode of
-        True -> Just []
-        -- True -> Just (Array.toList model.cache)
-        False -> Nothing
+extract model = Just []
 
 updateItem : ItemMsg -> CacheItem -> CacheItem
 updateItem msg item =
@@ -134,27 +130,24 @@ update msg model =
         ItemAdd ->
             let cache_ =
                     Array.push (initCacheItem Booking.emptyIndividual) model.cache
-
-                focus_ = Array.length cache_
             in
-            ( { model | cache = cache_, focus = focus_ }, Cmd.none )
+            ( { model | cache = cache_ }, Cmd.none )
 
         Done cmd ->
             extract model |>
             Maybe.map (
-                \x -> Task.succeed x |>
-                \x -> (showMdl, Task.perform cmd x)
+                \x -> (showMdl x, Task.perform cmd (Task.succeed x) )
                 ) |>
             -- TODO: notify reason
             Maybe.withDefault (model, Cmd.none)
 
 
         Abort ->
-            ( showMdl , Cmd.none )
+            ( { model | editMode = False}  , Cmd.none )
 
         Edit lst ->
             -- Switch to edit mode
-            ( editMdl lst , Cmd.none )
+            ( edit model , Cmd.none )
 
 viewEdit : Cfg msg -> Model -> Html msg
 viewEdit cfg model =
@@ -223,9 +216,10 @@ viewEdit cfg model =
             , Card.actions [ defaultActions ] actions
             ]
 
-viewShow : Cfg msg -> List Individual -> Html msg
-viewShow cfg lst =
-    let birth i = text
+viewShow : Cfg msg -> Model -> Html msg
+viewShow cfg mdl =
+    let lst = mdl.lst
+        birth i = text
             ( Maybe.withDefault "n/a"
                 ( Maybe.map (DateF.format "%d.%m.%Y") i.date_of_birth)
             )
@@ -270,9 +264,9 @@ viewShow cfg lst =
             , Card.actions [ defaultActions ] actions
             ]
 
-view : Cfg msg -> Model -> List Individual -> Html msg
-view cfg model lst =
+view : Cfg msg -> Model -> Html msg
+view cfg model =
     case model.editMode of
         True -> viewEdit cfg model
-        False -> viewShow cfg lst
+        False -> viewShow cfg model
 

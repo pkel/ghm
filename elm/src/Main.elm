@@ -69,7 +69,7 @@ model =
     , customerCard = CustomerCard.show
     , customerNoteCard = NoteCard.show
     , bookingNoteCard = NoteCard.show
-    , individualsCard = Cards.Individuals.model
+    , individualsCard = Cards.Individuals.model []
     , focusedBooking = -1
     , mdl = Material.model
     }
@@ -153,17 +153,24 @@ update msg model =
       ( { model | filter = str }, Db.getLatestCustomer CustomerReceived str )
 
     CustomerReceived (Ok c) ->
-        let bookings = c.bookings
+        let b  = Array.fromList c.bookings
             c_ = { c | bookings = [] }
+
+            focus = 0
+
+            individuals = Array.get focus b
+                |> Maybe.map .individuals
+                |> Maybe.withDefault []
+
             model_ =
                 { model
                 | customer = c_
                 , customerId = c.customer_id
-                , bookings = Array.fromList bookings
+                , bookings = b
+                , focusedBooking = focus
                 , customerNoteCard = NoteCard.show
                 , bookingNoteCard = NoteCard.show
-                , individualsCard = Cards.Individuals.model
-                , focusedBooking = 0
+                , individualsCard = Cards.Individuals.model individuals
                 }
         in
             ( model_ , Cmd.none )
@@ -464,7 +471,7 @@ viewBody model =
             }
 
         individuals booking = Cards.Individuals.view individualsCfg
-            model.individualsCard booking.individuals
+            model.individualsCard
 
         -- cards related to selected booking (middle)
 
