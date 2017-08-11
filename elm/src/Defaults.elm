@@ -41,6 +41,21 @@ defaultButton eMdl mdl index icon action =
         ]
         [ Icon.i icon ]
 
+defaultButtonMini : (Material.Msg msg -> msg)
+   -> Material.Model
+   -> List Int
+   -> String
+   -> msg
+   -> Html msg
+defaultButtonMini eMdl mdl index icon action =
+    Button.render eMdl index mdl
+        [ Button.colored
+        , Button.icon
+        , Options.onClick action
+        , Options.css "margin" "0 4px 0 4px"
+        ]
+        [ Icon.i icon ]
+
 defaultCardTitle : Options.Property c m
 defaultCardTitle =
     Options.many

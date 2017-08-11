@@ -33,6 +33,7 @@ import Date.Format as DateF
 import Database as Db
 import Http
 
+import Debug exposing (log)
 
 main =
   Html.program
@@ -67,8 +68,8 @@ model =
     , filter = ""
     , customerCard = CustomerCard.show
     , customerNoteCard = NoteCard.show
-    , individualsCard = Cards.Individuals.show
     , bookingNoteCard = NoteCard.show
+    , individualsCard = Cards.Individuals.model
     , focusedBooking = -1
     , mdl = Material.model
     }
@@ -111,7 +112,7 @@ type Msg
     -- Pass through
     | CustomerCardMsg     CustomerCard.Msg
     | CustomerNoteCardMsg NoteCard.Msg
-    | IndividualsCardMsg  Cards.Individuals.Msg
+    | IndividualsCardMsg  (Cards.Individuals.Msg Msg)
     | BookingNoteCardMsg  NoteCard.Msg
 
     -- Material Boilerplate
@@ -152,13 +153,16 @@ update msg model =
       ( { model | filter = str }, Db.getLatestCustomer CustomerReceived str )
 
     CustomerReceived (Ok c) ->
-        let model_ =
+        let bookings = c.bookings
+            c_ = { c | bookings = [] }
+            model_ =
                 { model
-                | customer = c
+                | customer = c_
                 , customerId = c.customer_id
-                , bookings = Array.fromList c.bookings
+                , bookings = Array.fromList bookings
                 , customerNoteCard = NoteCard.show
                 , bookingNoteCard = NoteCard.show
+                , individualsCard = Cards.Individuals.model
                 , focusedBooking = 0
                 }
         in
@@ -274,14 +278,15 @@ update msg model =
             (model_ , Cmd.none )
 
     UpdatedIndividuals lst ->
-        let setInds individuals_ b =
-                { b | individuals = individuals_ }
+        let setInds b =
+                { b | individuals = lst }
+
+            _ = log "was" model.bookings
+            _ = log "edited" lst
         in
-        model.bookings |>
+        ArrayX.modify model.focusedBooking setInds model.bookings |>
         -- TODO: Save stuff to server
-        ArrayX.modify model.focusedBooking (setInds lst) |>
-        \x -> { model | bookings = x } |>
-        \x -> ( x , Cmd.none)
+        \x -> ( { model | bookings = x } , Cmd.none)
 
     CustomerCardMsg msg_ ->
         let ( model_, cmd_) = CustomerCard.update msg_ model.customerCard
@@ -302,7 +307,7 @@ update msg model =
                 Cards.Individuals.update msg_ model.individualsCard
         in
             ( { model | individualsCard = model_ }
-            , Cmd.map IndividualsCardMsg cmd_
+            , cmd_
             )
 
     BookingNoteCardMsg msg_ ->
