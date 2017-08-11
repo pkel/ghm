@@ -1,11 +1,13 @@
 module Booking exposing
     ( Booking
-    , BookedIndividual
-    , BookedRoom
+    , Individual
+    , Room
     , Summary
     , summary
     , decode
     , empty
+    , emptyIndividual
+    , emptyRoom
     )
 
 import Json.Decode as Decode exposing (Decoder)
@@ -25,14 +27,14 @@ import Html.Events exposing (..)
 
 -- Types
 
-type alias BookedIndividual =
+type alias Individual =
     { given          : String
     , second         : String
     , family         : String
     , date_of_birth  : Maybe Date
     }
 
-type alias BookedRoom =
+type alias Room =
     { room          : Maybe Int
     , beds          : Int
     , price_per_bed : Float
@@ -51,8 +53,8 @@ type alias Booking =
     , deposit_git      : Maybe Float
     , no_tax           : Bool
     , note             : String
-    , individuals      : List BookedIndividual
-    , rooms            : List BookedRoom
+    , individuals      : List Individual
+    , rooms            : List Room
     }
 
 type alias Summary =
@@ -102,20 +104,20 @@ decode =
             |> optional "booked_individuals" (list decodeIndividual) []
             |> optional "booked_rooms"       (list decodeRoom) []
 
-decodeIndividual : Decoder BookedIndividual
+decodeIndividual : Decoder Individual
 decodeIndividual =
     let optional = Pipeline.optional
         nullable = Decode.nullable
         date     = JsonH.decodeDate
         string   = Decode.string
     in
-        Pipeline.decode BookedIndividual
+        Pipeline.decode Individual
             |> optional "given"         string ""
             |> optional "second"        string ""
             |> optional "family"        string ""
             |> optional "date_of_birth" (nullable date) Nothing
 
-decodeRoom : Decoder BookedRoom
+decodeRoom : Decoder Room
 decodeRoom =
     let optional = Pipeline.optional
         nullable = Decode.nullable
@@ -126,7 +128,7 @@ decodeRoom =
         string   = Decode.string
     in
         -- TODO: Read defaults from config / database
-        Pipeline.decode BookedRoom
+        Pipeline.decode Room
             |> optional "room"          (nullable int) Nothing
             |> optional "beds"          int 2
             |> optional "price_per_bed" float 0.0
@@ -140,16 +142,16 @@ decodeRoom =
 
 -- Constructors
 
-emptyIndividual : () -> BookedIndividual
-emptyIndividual () =
-    BookedIndividual "" "" "" Nothing
+emptyIndividual :  Individual
+emptyIndividual =
+    Individual "" "" "" Nothing
 
 -- TODO: Read default from config / database
-emptyRoom : () -> BookedRoom
-emptyRoom () =
-    BookedRoom Nothing 2 0.0 1.0 "" True "" Nothing Nothing
+emptyRoom : Room
+emptyRoom =
+    Room Nothing 2 0.0 1.0 "" True "" Nothing Nothing
 
-empty : () -> Booking
-empty () =
+empty : Booking
+empty =
     Booking Nothing 0 Nothing Nothing False "" [] []
 

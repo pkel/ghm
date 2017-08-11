@@ -1,4 +1,4 @@
-module Cards.BookedIndividuals exposing
+module Cards.Individuals exposing
     ( Model
     , Cfg
     , Msg
@@ -13,13 +13,20 @@ import Material
 import Material.Card as Card
 import Material.Textfield as Textfield
 import Material.Options as Options
+import Material.Table as Table
 
-import Booking exposing (BookedIndividual)
+import Booking exposing (Individual)
 
 import Defaults exposing (..)
 
 import Html exposing (Html, text)
 import Html.Attributes as Attributes
+
+import Helpers.Array as ArrayX
+
+import Array exposing (Array)
+
+import Date.Format as DateF
 
 type alias CacheItem =
     { given         : String
@@ -34,7 +41,7 @@ emptyCacheItem =
     , date_of_birth = ""
     }
 
-initCacheItem : BookedIndividual -> CacheItem
+initCacheItem : Individual -> CacheItem
 initCacheItem x =
     { given         = x.given
     , family        = x.family
@@ -45,17 +52,16 @@ initCacheItem x =
 type alias Model =
     { editMode : Bool
     , focus : Int
-    , cache : IndexedList CacheItem
+    , cache : Array CacheItem
     }
 
 type alias Cfg msg =
-    { mdl        : Material.Model
-    , mdlMessage : (Material.Msg msg -> msg)
-    , msg        : Msg -> msg
-    , index      : List Int
-    , title      : String
-    , edit       : msg
-    , done       : msg
+    { mdl     : Material.Model
+    , mdlMsg  : Material.Msg msg -> msg
+    , msg     : Msg -> msg
+    , index   : List Int
+    , title   : String
+    , updated : List Booking.Individual -> msg
     }
 
 type ItemMsg
@@ -64,33 +70,35 @@ type ItemMsg
     | Date_of_birth String
 
 type Msg
-    = CacheItemChange Int ItemMsg
-    | CacheItemDelete Int
-    | CacheItemAdd
+    = ItemChange Int ItemMsg
+    | ItemDelete Int
+    | ItemAdd
+    | Edit
     | Abort
 
 show : Model
 show =
     { editMode = False
     , focus = 0
-    , cache = []
+    , cache = Array.empty
     }
 
-edit : List BookedIndividual -> Model
+edit : List Individual -> Model
 edit lst =
     { editMode = True
-    , focus = IndexedList.firstIndex
-    , cache = IndexedList.fromList (List.map initCacheItem lst)
+    , focus = 0
+    , cache = Array.fromList (List.map initCacheItem lst)
     }
 
 -- TODO: This should check the data for errors
-extract : Model -> Maybe String
+extract : Model -> Maybe (List Individual)
 extract model =
     case model.editMode of
-        True -> Just (IndexedList.toList model.cache)
+        True -> Just []
+        -- True -> Just (Array.toList model.cache)
         False -> Nothing
 
-updateItem : ItemMsg -> BookedIndividual -> BookedIndividual
+updateItem : ItemMsg -> CacheItem -> CacheItem
 updateItem msg item =
     case msg of
         Given str ->
@@ -104,32 +112,42 @@ updateItem msg item =
 update : Msg -> Model -> ( Model, Cmd msg )
 update msg model =
     case msg of
-        CacheItemChange index itemMsg ->
+        ItemChange index itemMsg ->
             let cache_ =
-                    IndexedList.updateAt index updateItem itemMsg
+                    Array.get index model.cache |>
+                    Maybe.map (\x -> updateItem itemMsg x) |>
+                    Maybe.map (\x -> Array.set index x model.cache) |>
+                    Maybe.withDefault model.cache
             in
             ( { model | cache = cache_ }, Cmd.none )
 
-        CacheItemDelete index ->
+        ItemDelete index ->
             let cache_ =
-                    IndexedList.delete index
+                    ArrayX.delete index model.cache
             in
             ( { model | cache = cache_ }, Cmd.none )
 
-        CacheItemAdd ->
-            let (focus_, cache_) =
-                    IndexedList.add BookedIndividual.empty
+        ItemAdd ->
+            let cache_ =
+                    Array.push (initCacheItem Booking.emptyIndividual) model.cache
+
+                focus_ = Array.length cache_
             in
             ( { model | cache = cache_, focus = focus_ }, Cmd.none )
 
         Abort ->
             ( show, Cmd.none )
 
+        Edit ->
+            -- Switch to edit mode
+            ( show, Cmd.none )
+
 viewEdit : Cfg msg -> Model -> Html msg
 viewEdit cfg model =
-    viewShow cfg (IndexedList.toList model.cache)
+    -- TODO: if focus is in range then make field editable
+    viewShow cfg []
 
-viewShow : Cfg msg -> List BookedIndividual -> Html msg
+viewShow : Cfg msg -> List Individual -> Html msg
 viewShow cfg lst =
     let birth i = text
             ( Maybe.withDefault "n/a"
@@ -139,7 +157,7 @@ viewShow cfg lst =
         given i = text i.given
         family i = text i.family
 
-        defaultButton_ = defaultButton cfg.mdlMessage cfg.mdl
+        defaultButton_ = defaultButton cfg.mdlMsg cfg.mdl
         i x = (x :: cfg.index)
 
         left  = Options.css "text-align" "left"
@@ -166,7 +184,7 @@ viewShow cfg lst =
 
         actions =
             -- [ defaultButton_ (i 101) "add"       (cfg.msg CacheItemAdd)
-            [ defaultButton_ (i 102) "mode_edit" cfg.edit
+            [ defaultButton_ (i 102) "mode_edit" (cfg.msg Edit)
             ]
     in
         Card.view
@@ -176,7 +194,7 @@ viewShow cfg lst =
             , Card.actions [ defaultActions ] actions
             ]
 
-view : Cfg msg -> Model -> List BookedIndividual -> Html msg
+view : Cfg msg -> Model -> List Individual -> Html msg
 view cfg model lst =
     case model.editMode of
         True -> viewEdit cfg model

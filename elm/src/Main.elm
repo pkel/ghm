@@ -25,6 +25,7 @@ import List.Extra as ListX
 
 import Cards.Note as NoteCard
 import Cards.CustomerDetail as CustomerCard
+import Cards.Individuals
 
 import Date.Format as DateF
 
@@ -51,6 +52,7 @@ type alias Model =
   , focusedBooking : Int
   , customerCard : CustomerCard.Model
   , customerNoteCard : NoteCard.Model
+  , individualsCard : Cards.Individuals.Model
   , bookingNoteCard : NoteCard.Model
   , mdl : Mdl
   }
@@ -62,6 +64,7 @@ model =
     , filter = ""
     , customerCard = CustomerCard.show
     , customerNoteCard = NoteCard.show
+    , individualsCard = Cards.Individuals.show
     , bookingNoteCard = NoteCard.show
     , focusedBooking = -1
     , mdl = Material.model
@@ -100,9 +103,12 @@ type Msg
     | EditBookingNoteDone
     | DeleteBookingNote
 
+    | UpdatedIndividuals (List B.Individual)
+
     -- Pass through
     | CustomerCardMsg     CustomerCard.Msg
     | CustomerNoteCardMsg NoteCard.Msg
+    | IndividualsCardMsg  Cards.Individuals.Msg
     | BookingNoteCardMsg  NoteCard.Msg
 
     -- Material Boilerplate
@@ -268,6 +274,19 @@ update msg model =
         in
             (model_ , Cmd.none )
 
+    UpdatedIndividuals lst ->
+        let setInds individuals_ booking =
+                { booking | individuals = individuals_ }
+        in
+        model.customer.bookings |>
+        -- TODO: List should be array
+        -- TODO: Save stuff to server
+        ListX.updateAt model.focusedBooking (setInds lst) |>
+        Maybe.map (C.setBookings model.customer) |>
+        Maybe.map (\x -> { model | customer = x }) |>
+        Maybe.withDefault model |>
+        \x -> (x, Cmd.none)
+
     CustomerCardMsg msg_ ->
         let ( model_, cmd_) = CustomerCard.update msg_ model.customerCard
         in
@@ -280,6 +299,14 @@ update msg model =
         in
             ( { model | customerNoteCard = model_ }
             , Cmd.map CustomerNoteCardMsg cmd_
+            )
+
+    IndividualsCardMsg msg_ ->
+        let ( model_, cmd_) =
+                Cards.Individuals.update msg_ model.individualsCard
+        in
+            ( { model | individualsCard = model_ }
+            , Cmd.map IndividualsCardMsg cmd_
             )
 
     BookingNoteCardMsg msg_ ->
@@ -355,51 +382,7 @@ bookingCard booking =
         , Card.actions [] []
         ]
 
-individualsCard: Mdl -> List B.BookedIndividual -> Html Msg
-individualsCard mdl individuals =
-    let birth i = text
-            ( Maybe.withDefault "n/a"
-                ( Maybe.map (DateF.format "%d.%m.%Y") i.date_of_birth)
-            )
-
-        given i = text i.given
-        family i = text i.family
-
-        left = Options.css "text-align" "left"
-        right = Options.css "text-align" "right"
-
-        row i =
-            Table.tr []
-                [ Table.td [left ] [given i]
-                , Table.td [left ] [family i]
-                , Table.td [right] [birth i]
-                ]
-
-        table =
-            Table.table []
-                [ Table.thead []
-                    [ Table.tr []
-                        [ Table.th [left ] [text "Vorname"]
-                        , Table.th [left ] [text "Name"]
-                        , Table.th [right] [text "Geburtsdatum"]
-                        ]
-                    ]
-                , Table.tbody [] (List.map row individuals)
-                ]
-
-        actions =
-            [ defaultButton mdl [10] "add" Ignore
-            , defaultButton mdl [11] "mode_edit" Ignore
-            ]
-    in
-        Card.view
-            [ defaultCard ]
-            [ Card.title [ defaultCardTitle ] [ text "Gäste" ]
-            , Card.title [ Options.center ] [ table ]
-            , Card.actions [ defaultActions ] actions
-            ]
-
-roomCard : B.BookedRoom -> Html Msg
+roomCard : B.Room -> Html Msg
 roomCard room =
     Card.view
         [ defaultCard ]
@@ -422,6 +405,11 @@ viewBody : Model -> Html Msg
 viewBody model =
     let mdl = model.mdl
 
+        -- TODO: Helpers.Maybe
+        maybeMapDefault default f x = Maybe.map f x |> Maybe.withDefault default
+
+        -- customer data
+
         customerCfg =
             { mdl        = model.mdl
             , mdlMessage = Mdl
@@ -436,6 +424,8 @@ viewBody model =
             customerCfg
             model.customerCard
             model.customer
+
+        -- customer note
 
         customerNoteCfg =
             { mdl        = model.mdl
@@ -454,47 +444,68 @@ viewBody model =
                 model.customerNoteCard
                 model.customer.note
 
+        -- booking list with booking selection
+
         selection = bookingSelectionCard mdl SelectBooking
             model.customer.bookings model.focusedBooking
 
-        -- TODO: Helpers.Maybe
-        maybeMapDefault default f x = Maybe.map f x |> Maybe.withDefault default
+        -- list of individuals, editable
 
-        bookingCards b =  List.concat
-            [ [ bookingCard b ]
-            , [ individualsCard mdl b.individuals ]
-            , List.map roomCard b.rooms
+        individualsCfg =
+            { mdl     = model.mdl
+            , mdlMsg  = Mdl
+            , msg     = IndividualsCardMsg
+            , index   = [3]
+            , title   = "Gäste"
+            -- TODO: Adapt NoteCards (and others) to fit this api
+            , updated = UpdatedIndividuals
+            }
+
+        individuals booking = Cards.Individuals.view individualsCfg
+            model.individualsCard booking.individuals
+
+        -- cards related to selected booking (middle)
+
+        bookingRelatedCardsL booking = List.concat
+            [ [ bookingCard booking, individuals booking ]
+            , List.map roomCard booking.rooms
             ]
+
+        -- cards related to selected booking (right)
 
         bookingNoteCfg =
             { customerNoteCfg
             | msg = BookingNoteCardMsg
-            , index = [3]
+            , index = [4]
             , title = "Buchungsnotiz"
             , delete = DeleteBookingNote
             , edit = EditBookingNote
             , done = EditBookingNoteDone
             }
 
-        bookingNote b =
+        bookingNote booking =
             NoteCard.view
                 bookingNoteCfg
                 model.bookingNoteCard
-                b.note
+                booking.note
+
+
+        bookingRelatedCardsR b = [ bookingNote b ]
+
+        -- selected booking (may be none)
 
         booking =
             ListX.getAt model.focusedBooking model.customer.bookings
 
-        bookingCards2 b = [ bookingNote b ]
     in
         grid
             [ Grid.noSpacing
             ]
             [ cell [ size All 4 ] [ customer, customerNote, selection ]
             , cell [ size All 4 ]
-                ( maybeMapDefault [] bookingCards booking )
+                ( maybeMapDefault [] bookingRelatedCardsL booking)
             , cell [ size All 4 ]
-                ( maybeMapDefault [] bookingCards2 booking )
+                ( maybeMapDefault [] bookingRelatedCardsR booking)
             ]
 
 controls : Model -> Html Msg
