@@ -119,11 +119,19 @@ type Msg
     | Mdl (Material.Msg Msg)
 
 
+-- TODO: These two functions should clean up the interface
+selectBooking : Int -> Model -> Model
+selectBooking i model =
+    resetEdit model
+
+resetEdit : Model -> Model
+resetEdit model =
+    model
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     New ->
-        -- TODO
       let model_ =
         { model
         | customerId = Nothing
@@ -152,6 +160,7 @@ update msg model =
     FilterChanged str ->
       ( { model | filter = str }, Db.getLatestCustomer CustomerReceived str )
 
+
     CustomerReceived (Ok c) ->
         let b  = Array.fromList c.bookings
             c_ = { c | bookings = [] }
@@ -178,8 +187,8 @@ update msg model =
     CustomerReceived (Err _) ->
       ( model , Cmd.none )
 
-    SelectBooking index ->
-        ( { model | focusedBooking = index } , Cmd.none )
+    SelectBooking i ->
+        ( selectBooking i model , Cmd.none )
 
     Ignore ->
         (model, Cmd.none)
