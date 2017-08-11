@@ -21,7 +21,8 @@ import Booking  as B exposing (Booking)
 
 import Defaults exposing (..)
 
-import List.Extra as ListX
+import Array exposing (Array)
+import Helpers.Array as ArrayX
 
 import Cards.Note as NoteCard
 import Cards.CustomerDetail as CustomerCard
@@ -48,6 +49,7 @@ type alias Mdl = Material.Model
 type alias Model =
   { customerId : Maybe Int
   , customer : Customer
+  , bookings : Array Booking
   , filter : String
   , focusedBooking : Int
   , customerCard : CustomerCard.Model
@@ -61,6 +63,7 @@ model : Model
 model =
     { customerId = Nothing
     , customer = C.empty
+    , bookings = Array.empty
     , filter = ""
     , customerCard = CustomerCard.show
     , customerNoteCard = NoteCard.show
@@ -119,7 +122,7 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     New ->
-        --TODO
+        -- TODO
       let model_ =
         { model
         | customerId = Nothing
@@ -153,6 +156,7 @@ update msg model =
                 { model
                 | customer = c
                 , customerId = c.customer_id
+                , bookings = Array.fromList c.bookings
                 , customerNoteCard = NoteCard.show
                 , bookingNoteCard = NoteCard.show
                 , focusedBooking = 0
@@ -223,18 +227,14 @@ update msg model =
         ( model_ , Cmd.none )
 
     DeleteBookingNote ->
-        let setNote note_ booking =
-                { booking | note = note_ }
-
-            bookings = model.customer.bookings
+        let f b = { b | note = "" }
 
             bookings_ =
-                ListX.updateAt model.focusedBooking (setNote "") bookings
-                    |> Maybe.withDefault bookings
+                ArrayX.modify model.focusedBooking f model.bookings
 
             model_ =
                 { model
-                | customer = C.setBookings model.customer bookings_
+                | bookings = bookings_
                 , bookingNoteCard = NoteCard.show
                 }
         in
@@ -242,7 +242,7 @@ update msg model =
 
     EditBookingNote ->
         let noteCard_ =
-                ListX.getAt model.focusedBooking model.customer.bookings
+                Array.get model.focusedBooking model.bookings
                     |> Maybe.map .note
                     |> Maybe.map NoteCard.edit
                     |> Maybe.withDefault NoteCard.show
@@ -254,38 +254,34 @@ update msg model =
         let setNote note_ booking =
                 { booking | note = note_ }
 
-            bookings = model.customer.bookings
-
             bookings_ =
                 NoteCard.extract model.bookingNoteCard
-                    |> Maybe.andThen ( \note ->
-                        ListX.updateAt
+                    |> Maybe.map (
+                        \note ->
+                        ArrayX.modify
                             model.focusedBooking
                             (setNote note)
-                            bookings
+                            model.bookings
                         )
-                    |> Maybe.withDefault bookings
+                    |> Maybe.withDefault model.bookings
 
             model_ =
                 { model
-                | customer = C.setBookings model.customer bookings_
+                | bookings = bookings_
                 , bookingNoteCard = NoteCard.show
                 }
         in
             (model_ , Cmd.none )
 
     UpdatedIndividuals lst ->
-        let setInds individuals_ booking =
-                { booking | individuals = individuals_ }
+        let setInds individuals_ b =
+                { b | individuals = individuals_ }
         in
-        model.customer.bookings |>
-        -- TODO: List should be array
+        model.bookings |>
         -- TODO: Save stuff to server
-        ListX.updateAt model.focusedBooking (setInds lst) |>
-        Maybe.map (C.setBookings model.customer) |>
-        Maybe.map (\x -> { model | customer = x }) |>
-        Maybe.withDefault model |>
-        \x -> (x, Cmd.none)
+        ArrayX.modify model.focusedBooking (setInds lst) |>
+        \x -> { model | bookings = x } |>
+        \x -> ( x , Cmd.none)
 
     CustomerCardMsg msg_ ->
         let ( model_, cmd_) = CustomerCard.update msg_ model.customerCard
@@ -324,11 +320,12 @@ update msg model =
 -- TODO: remove this hack as soon as all cards have their own module
 defaultButton = Defaults.defaultButton Mdl
 
-bookingSelectionCard : Mdl -> (Int -> Msg) -> List Booking
+bookingSelectionCard : Mdl -> (Int -> Msg) -> Array Booking
           -> Int -> Html Msg
 bookingSelectionCard mdl select bookings focused =
-    let summaries = List.map B.summary bookings
-        indeces = List.range 0 (List.length bookings - 1)
+    let bookingsLst = Array.toList bookings
+        summaries = List.map B.summary bookingsLst
+        indeces = List.range 0 (Array.length bookings - 1)
 
         date d = Maybe.withDefault "" (Maybe.map (DateF.format "%d.%m.%y") d)
         range f t = text (date f ++ " bis " ++ date t)
@@ -337,7 +334,7 @@ bookingSelectionCard mdl select bookings focused =
         c = Options.css "text-align" "center"
 
         same index booking =
-            ListX.getAt focused bookings
+            Array.get focused bookings
                 |> Maybe.map ((==) booking)
                 |> Maybe.withDefault False
 
@@ -361,7 +358,7 @@ bookingSelectionCard mdl select bookings focused =
                         , Table.th [c] [Icon.i "vpn_key"]
                         ]
                     ]
-                , Table.tbody [] (List.map3 row indeces bookings summaries)
+                , Table.tbody [] (List.map3 row indeces bookingsLst summaries)
                 ]
 
         actions =
@@ -447,7 +444,7 @@ viewBody model =
         -- booking list with booking selection
 
         selection = bookingSelectionCard mdl SelectBooking
-            model.customer.bookings model.focusedBooking
+            model.bookings model.focusedBooking
 
         -- list of individuals, editable
 
@@ -495,7 +492,7 @@ viewBody model =
         -- selected booking (may be none)
 
         booking =
-            ListX.getAt model.focusedBooking model.customer.bookings
+            Array.get model.focusedBooking model.bookings
 
     in
         grid
