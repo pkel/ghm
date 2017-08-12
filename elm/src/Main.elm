@@ -302,7 +302,6 @@ update msg model =
     IndividualsCardMsg msg_ ->
         liftCallback      .individualsCard
             (\m x -> { m | individualsCard = x })
-            IndividualsCardMsg
             Cards.Individuals.update
             msg_ model
 
