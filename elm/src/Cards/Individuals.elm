@@ -108,7 +108,6 @@ extractBirth str =
                 Ok date -> Ok (Just date)
                 Err err -> Err err
 
--- TODO: This should check the data for errors and trim
 extract : Model -> Maybe (List Individual)
 extract model =
     let birth str =
@@ -117,14 +116,19 @@ extract model =
                 Ok mbDate -> mbDate
 
         f el =
-            { given = el.given
-            , family = el.family
-            , date_of_birth = birth el.birth
-            }
+            extractBirth el.birth
+            |> Result.map ( \x ->
+                { given = String.trim el.given
+                , family = String.trim el.family
+                , date_of_birth = x
+                } )
+
+        fold el acc = Result.map2 (::) (f el) (acc)
     in
         Array.toList model.cache
-        |> List.map f
-        |> Just
+        |> List.foldl fold (Ok [])
+        |> Result.map List.reverse
+        |> Result.toMaybe
 
 
 updateItem : ItemMsg -> CacheItem -> CacheItem
