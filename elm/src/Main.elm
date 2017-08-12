@@ -302,7 +302,7 @@ update msg model =
     IndividualsCardMsg msg_ ->
         liftCallback      .individualsCard
             (\m x -> { m | individualsCard = x })
-            Cards.Individuals.update
+            (Cards.Individuals.update Mdl UpdatedIndividuals)
             msg_ model
 
     BookingNoteCardMsg msg_ ->
@@ -448,22 +448,14 @@ viewBody model =
 
         -- list of individuals, editable
 
-        individualsCfg =
-            { mdl    = model.mdl
-            , mdlMsg = Mdl
-            , mdlIdx = [3]
-            , msg    = IndividualsCardMsg
-            -- TODO: Adapt NoteCards (and others) to fit this api
-            , return = UpdatedIndividuals
-            }
-
-        individuals booking = Cards.Individuals.view individualsCfg
-            model.individualsCard
+        -- TODO: Adapt NoteCards (and others) to fit this api
+        individuals = Cards.Individuals.view IndividualsCardMsg
+            [3] model.mdl model.individualsCard
 
         -- cards related to selected booking (middle)
 
         bookingRelatedCardsL booking = List.concat
-            [ [ bookingCard booking, individuals booking ]
+            [ [ bookingCard booking, individuals ]
             , List.map roomCard booking.rooms
             ]
 
