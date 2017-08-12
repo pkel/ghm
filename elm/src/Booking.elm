@@ -29,7 +29,7 @@ import Html.Events exposing (..)
 
 type alias Individual =
     { given          : String
-    , second         : String
+--    , second         : String
     , family         : String
     , date_of_birth  : Maybe Date
     }
@@ -113,7 +113,7 @@ decodeIndividual =
     in
         Pipeline.decode Individual
             |> optional "given"         string ""
-            |> optional "second"        string ""
+            -- |> optional "second"        string ""
             |> optional "family"        string ""
             |> optional "date_of_birth" (nullable date) Nothing
 
@@ -144,7 +144,7 @@ decodeRoom =
 
 emptyIndividual :  Individual
 emptyIndividual =
-    Individual "" "" "" Nothing
+    Individual "" "" Nothing
 
 -- TODO: Read default from config / database
 emptyRoom : Room

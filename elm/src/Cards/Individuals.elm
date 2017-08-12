@@ -24,6 +24,7 @@ import Helpers.Array as ArrayX
 
 import Array exposing (Array)
 
+import Date
 import Date.Format as DateF
 
 import Task
@@ -94,9 +95,24 @@ edit model =
 model : List Individual -> Model
 model = showMdl
 
--- TODO: This should check the data for errors
+-- TODO: This should check the data for errors and trim
 extract : Model -> Maybe (List Individual)
-extract model = Just []
+extract model =
+    let dateFromString str =
+            case Date.fromString str of
+                Err err -> Nothing
+                Ok date -> Just date
+
+        f el =
+            { given = el.given
+            , family = el.family
+            , date_of_birth = dateFromString el.birth
+            }
+    in
+        Array.toList model.cache
+        |> List.map f
+        |> Just
+
 
 updateItem : ItemMsg -> CacheItem -> CacheItem
 updateItem msg item =
