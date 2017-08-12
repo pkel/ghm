@@ -470,13 +470,12 @@ viewBody model =
         -- list of individuals, editable
 
         individualsCfg =
-            { mdl     = model.mdl
-            , mdlMsg  = Mdl
-            , msg     = IndividualsCardMsg
-            , index   = [3]
-            , title   = "Gäste"
+            { mdl    = model.mdl
+            , mdlMsg = Mdl
+            , mdlIdx = [3]
+            , msg    = IndividualsCardMsg
             -- TODO: Adapt NoteCards (and others) to fit this api
-            , updated = UpdatedIndividuals
+            , return = UpdatedIndividuals
             }
 
         individuals booking = Cards.Individuals.view individualsCfg

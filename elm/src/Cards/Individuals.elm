@@ -57,12 +57,11 @@ type alias Model =
     }
 
 type alias Cfg msg =
-    { mdl     : Material.Model
-    , mdlMsg  : Material.Msg msg -> msg
-    , msg     : Msg msg -> msg
-    , index   : List Int
-    , title   : String
-    , updated : List Booking.Individual -> msg
+    { mdl    : Material.Model
+    , mdlMsg : Material.Msg msg -> msg
+    , mdlIdx : List Int
+    , msg    : Msg msg -> msg
+    , return : List Booking.Individual -> msg
     }
 
 type ItemMsg
@@ -75,8 +74,10 @@ type Msg msg
     | ItemDelete Int
     | ItemAdd
     | Edit (List Booking.Individual)
-    | Done (List Individual -> msg)
     | Abort
+    -- Callbacks
+    | Done (List Individual -> msg)
+    | Mdl  (Material.Msg msg -> msg) (Material.Msg msg)
 
 showMdl : List Individual -> Model
 showMdl lst =
@@ -165,14 +166,6 @@ update msg model =
             in
             ( { model | cache = cache_ }, Cmd.none )
 
-        Done cmd ->
-            extract model |>
-            Maybe.map (
-                \x -> (showMdl x, Task.perform cmd (Task.succeed x) )
-                ) |>
-            -- TODO: notify reason
-            Maybe.withDefault (model, Cmd.none)
-
 
         Abort ->
             ( { model | editMode = False}  , Cmd.none )
@@ -181,14 +174,28 @@ update msg model =
             -- Switch to edit mode
             ( edit model , Cmd.none )
 
-viewEdit : Cfg msg -> Model -> Html msg
+        -- callbacks
+
+        Done cmd ->
+            extract model |>
+            Maybe.map (
+                \x -> (showMdl x, Task.perform cmd (Task.succeed x) )
+                ) |>
+            -- TODO: notify reason
+            Maybe.withDefault (model, Cmd.none)
+
+        Mdl cmd msg -> (model, Task.perform cmd (Task.succeed msg))
+
+viewEdit : Cfg msg -> Model -> Html (Msg msg)
 viewEdit cfg model =
-    let id x = (x :: cfg.index)
+    let mdlMsg = Mdl cfg.mdlMsg
+
+        id x = (x :: cfg.mdlIdx)
 
         field i label up show check hint (nth,el) =
             let val = show el
                 props =
-                [ Options.onInput (\x -> cfg.msg (ItemChange nth (up x)))
+                [ Options.onInput (\x -> ItemChange nth (up x))
                 , Textfield.label label
                 , Textfield.value val
                 , Textfield.error hint |> Options.when (not <| check val)
@@ -198,7 +205,7 @@ viewEdit cfg model =
                 , Options.css "font-size" "13px"
                 ]
             in
-            Textfield.render cfg.mdlMsg (nth::(id i)) cfg.mdl
+            Textfield.render mdlMsg (nth::(id i)) cfg.mdl
                 props []
 
         true str = True
@@ -212,10 +219,10 @@ viewEdit cfg model =
         birth  = field 203 "" Birth  .birth  checkBirth dateFormatHint
 
         delete (i, _)  =
-            defaultButtonMini cfg.mdlMsg cfg.mdl (i::(id 204)) "delete"
-                (cfg.msg (ItemDelete i))
+            defaultButtonMini mdlMsg cfg.mdl (i::(id 204)) "delete"
+                (ItemDelete i)
 
-        defaultButton_ = defaultButton cfg.mdlMsg cfg.mdl
+        defaultButton_ = defaultButton mdlMsg cfg.mdl
 
         left  = Options.css "text-align" "left"
         right = Options.css "text-align" "right"
@@ -231,8 +238,7 @@ viewEdit cfg model =
         lst = model.cache |> Array.toIndexedList
 
         add =
-            defaultButtonMini cfg.mdlMsg cfg.mdl (id 100) "add"
-                (cfg.msg ItemAdd)
+            defaultButtonMini mdlMsg cfg.mdl (id 100) "add" ItemAdd
 
         table =
             Table.table []
@@ -248,20 +254,22 @@ viewEdit cfg model =
                 ]
 
         actions =
-            [ defaultButton_ (id 302) "cancel" (cfg.msg Abort)
-            , defaultButton_ (id 303) "done"   (cfg.msg (Done cfg.updated))
+            [ defaultButton_ (id 302) "cancel" Abort
+            , defaultButton_ (id 303) "done"   (Done cfg.return)
             ]
     in
         Card.view
             [ defaultCard ]
-            [ Card.title [ defaultCardTitle ] [ text cfg.title ]
-            , Card.title [ Options.center ] [ table ]
+            [ Card.title [ Options.center ] [ table ]
             , Card.actions [ defaultActions ] actions
             ]
 
-viewShow : Cfg msg -> Model -> Html msg
+viewShow : Cfg msg -> Model -> Html (Msg msg)
 viewShow cfg mdl =
-    let lst = mdl.lst
+    let mdlMsg = Mdl cfg.mdlMsg
+
+        lst = mdl.lst
+
         birth i = text
             ( Maybe.withDefault "n/a"
                 ( Maybe.map (DateF.format "%d.%m.%Y") i.date_of_birth)
@@ -270,8 +278,8 @@ viewShow cfg mdl =
         given i = text i.given
         family i = text i.family
 
-        defaultButton_ = defaultButton cfg.mdlMsg cfg.mdl
-        i x = (x :: cfg.index)
+        defaultButton_ = defaultButton mdlMsg cfg.mdl
+        i x = (x :: cfg.mdlIdx)
 
         left  = Options.css "text-align" "left"
         right = Options.css "text-align" "right"
@@ -296,20 +304,18 @@ viewShow cfg mdl =
                 ]
 
         actions =
-            -- [ defaultButton_ (i 101) "add"       (cfg.msg CacheItemAdd)
-            [ defaultButton_ (i 102) "mode_edit" (cfg.msg (Edit lst))
+            [ defaultButton_ (i 102) "mode_edit" (Edit lst)
             ]
     in
         Card.view
             [ defaultCard ]
-            [ Card.title [ defaultCardTitle ] [ text cfg.title ]
-            , Card.title [ Options.center ] [ table ]
+            [ Card.title [ Options.center ] [ table ]
             , Card.actions [ defaultActions ] actions
             ]
 
 view : Cfg msg -> Model -> Html msg
 view cfg model =
-    case model.editMode of
+    Html.map cfg.msg <| case model.editMode of
         True -> viewEdit cfg model
         False -> viewShow cfg model
 

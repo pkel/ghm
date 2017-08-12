@@ -25,7 +25,7 @@ defaultActions =
         , Card.border
         ]
 
-defaultButton : (Material.Msg msg -> msg)
+defaultButton : (Material.Msg a -> msg)
    -> Material.Model
    -> List Int
    -> String
@@ -41,7 +41,7 @@ defaultButton eMdl mdl index icon action =
         ]
         [ Icon.i icon ]
 
-defaultButtonMini : (Material.Msg msg -> msg)
+defaultButtonMini : (Material.Msg a -> msg)
    -> Material.Model
    -> List Int
    -> String
