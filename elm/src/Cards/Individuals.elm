@@ -24,7 +24,7 @@ import Helpers.Array as ArrayX
 
 import Array exposing (Array)
 
-import Date
+import Date exposing (Date)
 import Date.Format as DateF
 
 import Task
@@ -46,8 +46,8 @@ initCacheItem : Individual -> CacheItem
 initCacheItem x =
     { given  = x.given
     , family = x.family
-    -- TODO: day of birth editing
-    , birth  = ""
+    , birth  = Maybe.map (DateF.format "%Y-%m-%d") x.date_of_birth
+        |> Maybe.withDefault ""
     }
 
 type alias Model =
@@ -95,18 +95,31 @@ edit model =
 model : List Individual -> Model
 model = showMdl
 
+dateFormatHint : String
+dateFormatHint = "1995-04-15"
+
+extractBirth : String -> Result String (Maybe Date)
+extractBirth str =
+    let str_ = String.trim str in
+    case String.length str_ == 0 of
+        True -> Ok Nothing
+        False ->
+            case Date.fromString str_ of
+                Ok date -> Ok (Just date)
+                Err err -> Err err
+
 -- TODO: This should check the data for errors and trim
 extract : Model -> Maybe (List Individual)
 extract model =
-    let dateFromString str =
-            case Date.fromString str of
+    let birth str =
+            case extractBirth str of
                 Err err -> Nothing
-                Ok date -> Just date
+                Ok mbDate -> mbDate
 
         f el =
             { given = el.given
             , family = el.family
-            , date_of_birth = dateFromString el.birth
+            , date_of_birth = birth el.birth
             }
     in
         Array.toList model.cache
@@ -122,8 +135,7 @@ updateItem msg item =
         Family str ->
             { item | family = str }
         Birth str ->
-            -- TODO: date of birth editing
-            item
+            { item | birth = str }
 
 update : Msg msg -> Model -> ( Model, Cmd msg )
 update msg model =
@@ -169,20 +181,31 @@ viewEdit : Cfg msg -> Model -> Html msg
 viewEdit cfg model =
     let id x = (x :: cfg.index)
 
-        field i label up f (nth,el) =
-            Textfield.render cfg.mdlMsg (nth::(id i)) cfg.mdl
+        field i label up show check hint (nth,el) =
+            let val = show el
+                props =
                 [ Options.onInput (\x -> cfg.msg (ItemChange nth (up x)))
+                , Textfield.label label
+                , Textfield.value val
+                , Textfield.error hint |> Options.when (not <| check val)
                 , Options.css "width" "auto"
                 , Options.css "padding-top" "0"
-                , Options.css "padding-bottom" "0"
+                , Options.css "padding-bottom" "1"
                 , Options.css "font-size" "13px"
-                , Textfield.label label
-                , Textfield.value (f el)
-                ] []
+                ]
+            in
+            Textfield.render cfg.mdlMsg (nth::(id i)) cfg.mdl
+                props []
 
-        given  = field 201 ""           Given  .given
-        family = field 202 ""           Family .family
-        birth  = field 203 "__.__.____" Birth  .birth
+        true str = True
+
+        checkBirth str = case extractBirth str of
+            Ok _  -> True
+            Err _ -> False
+
+        given  = field 201 "" Given  .given  true       ""
+        family = field 202 "" Family .family true       ""
+        birth  = field 203 "" Birth  .birth  checkBirth dateFormatHint
 
         delete (i, _)  =
             defaultButtonMini cfg.mdlMsg cfg.mdl (i::(id 204)) "delete"
