@@ -1,13 +1,14 @@
 module Cards.Individuals exposing
     ( Model
-    , Cfg
     , Msg
     , view
-    , model
+    , init
     , update
     )
 
 import Material
+import Material.Helpers exposing (pure, effect, cmd)
+import Material.HelpersX exposing (callback)
 import Material.Card as Card
 import Material.Textfield as Textfield
 import Material.Options as Options
@@ -50,15 +51,14 @@ initCacheItem x =
         |> Maybe.withDefault ""
     }
 
-type alias Model =
-    { editMode : Bool
-    , cache    : Array CacheItem
-    , lst      : List Individual
-    }
+type alias Data = List Individual
+type alias MdlCb msg  = Material.Msg msg -> msg
+type alias DataCb msg = Data -> msg
 
-type alias Cfg =
-    { mdl    : Material.Model
-    , mdlIdx : List Int
+type alias Model =
+    { editing : Bool
+    , cache   : Array CacheItem
+    , data    : Data
     }
 
 type ItemMsg
@@ -70,28 +70,25 @@ type Msg msg
     = ItemChange Int ItemMsg
     | ItemDelete Int
     | ItemAdd
-    | Edit (List Booking.Individual)
+    | Edit
     | Abort
     -- Callbacks
     | Done
     | Mdl (Material.Msg msg)
 
-showMdl : List Individual -> Model
-showMdl lst =
-    { editMode = False
-    , cache = Array.empty
-    , lst = lst
+init : Data -> Model
+init data =
+    { editing = False
+    , cache   = Array.empty
+    , data    = data
     }
 
 edit : Model -> Model
 edit model =
     { model
-    | editMode = True
-    , cache = Array.fromList (List.map initCacheItem model.lst)
+    | editing = True
+    , cache   = Array.fromList (List.map initCacheItem model.data)
     }
-
-model : List Individual -> Model
-model = showMdl
 
 dateFormatHint : String
 dateFormatHint = "1995-04-15"
@@ -106,7 +103,7 @@ extractBirth str =
                 Ok date -> Ok (Just date)
                 Err err -> Err err
 
-extract : Model -> Maybe (List Individual)
+extract : Model -> Maybe Data
 extract model =
     let birth str =
             case extractBirth str of
@@ -129,6 +126,9 @@ extract model =
         |> Result.toMaybe
 
 
+-- Update
+
+
 updateItem : ItemMsg -> CacheItem -> CacheItem
 updateItem msg item =
     case msg of
@@ -139,53 +139,50 @@ updateItem msg item =
         Birth str ->
             { item | birth = str }
 
-update : (Material.Msg msg -> msg) -> (List Individual -> msg)
-        -> Msg msg -> Model -> ( Model, Cmd msg )
+update : MdlCb msg -> DataCb msg -> Msg msg -> Model -> ( Model, Cmd msg )
 update mdlCb dataCb msg model =
     case msg of
         ItemChange index itemMsg ->
             let cache_ =
-                    Array.get index model.cache |>
-                    Maybe.map (\x -> updateItem itemMsg x) |>
-                    Maybe.map (\x -> Array.set index x model.cache) |>
-                    Maybe.withDefault model.cache
+                    case Array.get index model.cache of
+                        Nothing -> model.cache
+                        Just el -> updateItem itemMsg el
+                            |> \x -> Array.set index x model.cache
             in
-            ( { model | cache = cache_ }, Cmd.none )
+            { model | cache = cache_ } |> pure
 
         ItemDelete index ->
             let cache_ =
                     ArrayX.delete index model.cache
             in
-            ( { model | cache = cache_ }, Cmd.none )
+            { model | cache = cache_ } |> pure
 
         ItemAdd ->
             let cache_ =
-                    Array.push (initCacheItem Booking.emptyIndividual) model.cache
+                    model.cache |>
+                    Array.push (initCacheItem Booking.emptyIndividual)
             in
-            ( { model | cache = cache_ }, Cmd.none )
-
+            { model | cache = cache_ } |> pure
 
         Abort ->
-            ( { model | editMode = False}  , Cmd.none )
+            { model | editing = False , cache = Array.empty } |> pure
 
-        Edit lst ->
-            -- Switch to edit mode
-            ( edit model , Cmd.none )
-
-        -- callbacks
+        Edit ->
+            edit model |> pure
 
         Done ->
-            extract model |>
-            Maybe.map (
-                \x -> (showMdl x, Task.perform dataCb (Task.succeed x) )
-                ) |>
-            -- TODO: notify reason
-            Maybe.withDefault (model, Cmd.none)
+            case extract model of
+                Nothing -> pure model
+                Just data -> init data |> callback dataCb data
 
-        Mdl msg -> (model, Task.perform mdlCb (Task.succeed msg))
+        Mdl msg -> model |> callback mdlCb msg
 
-viewEdit : Material.Model -> List Int -> Model -> Html (Msg msg)
-viewEdit   mdl               idx         model =
+
+-- View
+
+
+viewEdit : List Int -> Material.Model -> Model -> Html (Msg msg)
+viewEdit   idx         mdl               model =
     let id x = (x :: idx)
 
         field i label up show check hint (nth,el) =
@@ -260,11 +257,9 @@ viewEdit   mdl               idx         model =
             , Card.actions [ defaultActions ] actions
             ]
 
-viewShow : Material.Model -> List Int -> Model -> Html (Msg msg)
-viewShow   mdl               idx         model =
-    let lst = model.lst
-
-        birth i = text
+viewShow : List Int -> Material.Model -> Model -> Html (Msg msg)
+viewShow   idx         mdl               model =
+    let birth i = text
             ( Maybe.withDefault "n/a"
                 ( Maybe.map (DateF.format "%d.%m.%Y") i.date_of_birth)
             )
@@ -294,11 +289,11 @@ viewShow   mdl               idx         model =
                         , Table.th [right] [text "Geburtsdatum"]
                         ]
                     ]
-                , Table.tbody [] (List.map row lst)
+                , Table.tbody [] (List.map row model.data)
                 ]
 
         actions =
-            [ defaultButton_ (i 102) "mode_edit" (Edit lst)
+            [ defaultButton_ (i 102) "mode_edit" Edit
             ]
     in
         Card.view
@@ -309,8 +304,7 @@ viewShow   mdl               idx         model =
 
 view : (Msg msg -> msg) -> List Int -> Material.Model -> Model -> Html msg
 view   lift                idx         mdl               model =
-    Html.map lift
-    <| case model.editMode of
-        True  -> viewEdit mdl idx model
-        False -> viewShow mdl idx model
+    Html.map lift <| case model.editing of
+        True  -> viewEdit idx mdl model
+        False -> viewShow idx mdl model
 

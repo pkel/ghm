@@ -16,7 +16,7 @@ import Material.Table as Table
 import Material.Textfield as Textfield
 import Material.Typography as Typography
 import Material.Helpers exposing (pure, effect, lift)
-import Helpers.Material exposing (liftCallback)
+import Material.HelpersX exposing (liftCallback)
 
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
@@ -71,7 +71,7 @@ model =
     , customerCard = CustomerCard.show
     , customerNoteCard = NoteCard.show
     , bookingNoteCard = NoteCard.show
-    , individualsCard = Cards.Individuals.model []
+    , individualsCard = Cards.Individuals.init []
     , focusedBooking = -1
     , mdl = Material.model
     }
@@ -175,7 +175,7 @@ update msg model =
             , focusedBooking = focus
             , customerNoteCard = NoteCard.show
             , bookingNoteCard = NoteCard.show
-            , individualsCard = Cards.Individuals.model individuals
+            , individualsCard = Cards.Individuals.init individuals
             } |> pure
 
     CustomerReceived (Err _) ->
@@ -204,7 +204,7 @@ update msg model =
             } |> pure
 
     DeleteCustomer ->
-        -- TODO: Delete Customer does nothing
+        -- TODO: Implement Customer deletion
         pure model
 
     DeleteCustomerNote ->
@@ -530,6 +530,6 @@ controls model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Sub.none
+    Sub.none
 
 
