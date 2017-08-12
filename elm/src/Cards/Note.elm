@@ -2,14 +2,14 @@ module Cards.Note exposing
     ( Model
     , Cfg
     , Msg
+    , init
     , view
-    , edit
-    , show
-    , extract
     , update
     )
 
 import Material
+import Material.Helpers exposing (pure, effect, cmd)
+import Material.HelpersX exposing (callback)
 import Material.Card as Card
 import Material.Textfield as Textfield
 import Material.Options as Options
@@ -22,70 +22,90 @@ import Html exposing (Html, text)
 import Html.Attributes as Attributes
 
 type alias Model =
-    { editMode : Bool
-    , cache : String
+    { editing : Bool
+    , data    : String
+    , cache   : String
     }
 
 type alias Cfg msg =
-    { mdl        : Material.Model
-    , mdlMessage : (Material.Msg msg -> msg)
-    , msg        : Msg -> msg
-    , index      : List Int
-    , title      : String
-    , edit       : msg
-    , done       : msg
-    , delete     : msg
+    { title : String
+    , lift : Msg msg -> msg
+    , index : List Int
     }
 
-type Msg
-    = CacheChanged String
+type Msg msg
+    = Change String
+    | Edit
+    | Done
+    | Delete
     | Abort
+    | Mdl (Material.Msg msg)
 
-show : Model
-show =
-    { editMode = False
+type alias DataCb msg = String -> msg
+type alias MdlCb  msg = Material.Msg msg -> msg
+
+init : String -> Model
+init str =
+    { editing = False
     , cache = ""
+    , data = str
     }
 
-edit : String -> Model
-edit note =
-    { editMode = True
-    , cache = note
+edit : Model -> Model
+edit model =
+    { model
+    | cache = model.data
+    , editing = True
     }
 
-extract : Model -> Maybe String
-extract model =
-    case model.editMode of
-        True -> Just model.cache
-        False -> Nothing
-
-update : Msg -> Model -> ( Model, Cmd msg )
-update msg model =
+update : MdlCb m -> DataCb m -> Msg m -> Model -> ( Model, Cmd m )
+update mdlCb dataCb msg model =
     case msg of
-        CacheChanged cache_ ->
-            ( { model | cache = cache_ }, Cmd.none )
+        Change str ->
+            pure { model | cache = str }
 
         Abort ->
-            ( show, Cmd.none )
+            pure { model | editing = False }
+
+        Edit ->
+            edit model |> pure
+
+        Delete ->
+            init "" |> callback dataCb ""
+
+        Done ->
+            String.trim model.cache
+            |> (\x -> init x |> callback dataCb x)
+
+        Mdl msg ->
+            callback mdlCb msg model
+
+-- View
+
+view : Cfg msg -> Material.Model -> Model -> Html msg
+view cfg mdl model =
+    Html.map cfg.lift <| case model.editing of
+        True  -> viewEdit cfg mdl model
+        False -> viewShow cfg mdl model
 
 
-viewEdit : Cfg msg -> Model -> Html msg
-viewEdit cfg model =
+viewEdit : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
+viewEdit cfg mdl model =
     let i x = (x :: cfg.index)
         textfield =
-            Textfield.render cfg.mdlMessage (i 1) cfg.mdl
+            Textfield.render Mdl (i 1) mdl
                 [ Textfield.value model.cache
                 , Textfield.textarea
                 , Options.css "width" "100%"
                 , Textfield.rows (model.cache |> String.lines |> List.length)
-                , Options.onInput (\t -> cfg.msg (CacheChanged t))
+                , Options.onInput Change
                 ] ()
 
-        defaultButton_ = defaultButton cfg.mdlMessage cfg.mdl
+        defaultButton_ = defaultButton Mdl mdl
 
-        actions = [ defaultButton_ (i 2) "done" cfg.done
-                  , defaultButton_ (i 3) "cancel" (cfg.msg Abort)
-                  , defaultButton_ (i 4) "delete" cfg.delete
+        actions = [ defaultButton_ (i 2) "done"   Done
+                  , defaultButton_ (i 3) "cancel" Abort
+                  , defaultButton_ (i 4) "delete" Delete
                   ]
 
         cardContent =
@@ -97,45 +117,30 @@ viewEdit cfg model =
     in
         Card.view [ defaultCard ] cardContent
 
-viewShow : Cfg msg -> String -> Html msg
-viewShow cfg note =
-    let mdDefaults = Markdown.defaultOptions
-
-        mdOptions =
-            { mdDefaults
-            | githubFlavored = Just { tables = True, breaks = False }
-            , sanitize = True
-            , smartypants = True
-            }
-
-        mdToHtml =
-            Markdown.toHtmlWith mdOptions
+viewShow : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
+viewShow cfg mdl model =
+    let mdToHtml =
+            Markdown.toHtmlWith Defaults.markdown
                 [ Attributes.class "ghm_md_note" ]
 
-        defaultButton_ = defaultButton cfg.mdlMessage cfg.mdl
+        defaultButton_ = defaultButton Mdl mdl
 
         i x = (x :: cfg.index)
 
         cardContent =
-            case note of
+            case model.data of
                 "" ->
                     [ Card.actions [ Options.center ]
-                        [ defaultButton_ (i 5) "note_add" cfg.edit ]
+                        [ defaultButton_ (i 5) "note_add" Edit ]
                     ]
                 _  ->
                     [ Card.title [ defaultCardTitle ] [ text cfg.title ]
-                    , Card.text [] [ mdToHtml note ]
+                    , Card.text [] [ mdToHtml model.data ]
                     , Card.actions [ defaultActions ]
-                        [ defaultButton_ (i 6) "mode_edit" cfg.edit
-                        , defaultButton_ (i 7) "delete" cfg.delete
+                        [ defaultButton_ (i 6) "mode_edit" Edit
+                        , defaultButton_ (i 7) "delete" Delete
                         ]
                     ]
     in
         Card.view [ defaultCard ] cardContent
-
-view : Cfg msg -> Model -> String -> Html msg
-view cfg model note =
-    case model.editMode of
-        True -> viewEdit cfg model
-        False -> viewShow cfg note
 

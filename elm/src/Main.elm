@@ -69,10 +69,10 @@ empty =
     , bookings = Array.empty
     , filter = ""
     , customerCard = CustomerCard.show
-    , customerNoteCard = NoteCard.show
-    , bookingNoteCard = NoteCard.show
-    , individualsCard = Cards.Individuals.init []
-    , focusedBooking = -1
+    , customerNoteCard = NoteCard.init ""
+    , bookingNoteCard  = NoteCard.init ""
+    , individualsCard  = Cards.Individuals.init []
+    , focusedBooking   = -1
     , mdl = Material.model
     }
 
@@ -101,21 +101,15 @@ type Msg
     | EditCustomerDone
     | DeleteCustomer
 
-    | EditCustomerNote
-    | EditCustomerNoteDone
-    | DeleteCustomerNote
-
-    | EditBookingNote
-    | EditBookingNoteDone
-    | DeleteBookingNote
-
+    | UpdatedCustomerNote String
+    | UpdatedBookingNote  String
     | UpdatedIndividuals (List B.Individual)
 
     -- Pass through
     | CustomerCardMsg     CustomerCard.Msg
-    | CustomerNoteCardMsg NoteCard.Msg
+    | CustomerNoteCardMsg (NoteCard.Msg Msg)
+    | BookingNoteCardMsg  (NoteCard.Msg Msg)
     | IndividualsCardMsg  (Cards.Individuals.Msg Msg)
-    | BookingNoteCardMsg  NoteCard.Msg
 
     -- Material Boilerplate
     | Mdl (Material.Msg Msg)
@@ -130,7 +124,7 @@ selectBooking i model =
             { model
             | focusedBooking  = i
             , individualsCard = Cards.Individuals.init booking.individuals
-            , bookingNoteCard = NoteCard.show
+            , bookingNoteCard = NoteCard.init booking.note
             }
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -168,7 +162,7 @@ update msg model =
             { model
             | customer = c_
             , customerId = c.customer_id
-            , customerNoteCard = NoteCard.show
+            , customerNoteCard = NoteCard.init c.note
             , bookings = b
             }
             |> selectBooking 0
@@ -203,83 +197,28 @@ update msg model =
         -- TODO: Implement Customer deletion
         pure model
 
-    DeleteCustomerNote ->
-        let customer_ = C.setNote model.customer "" in
-            { model
-            | customer = customer_
-            , customerNoteCard = NoteCard.show
-            } |> pure
-
-    EditCustomerNote ->
-        { model
-        | customerNoteCard = NoteCard.edit model.customer.note
-        } |> pure
-
-    EditCustomerNoteDone ->
-        let customer_ =
-                NoteCard.extract model.customerNoteCard
-                    |> Maybe.map (C.setNote model.customer)
-                    |> Maybe.withDefault model.customer
+    UpdatedCustomerNote str ->
+        let mod c = { c | note = str }
         in
-            { model
-            | customerNoteCard = NoteCard.show
-            , customer = customer_
-            } |> pure
+            pure { model | customer = mod model.customer }
+            -- TODO: Save stuff to server
 
-    DeleteBookingNote ->
-        let f b = { b | note = "" }
-
+    UpdatedBookingNote str ->
+        let mod b = { b | note = str }
             bookings_ =
-                ArrayX.modify model.focusedBooking f model.bookings
+                ArrayX.modify model.focusedBooking mod model.bookings
         in
-            { model
-            | bookings = bookings_
-            , bookingNoteCard = NoteCard.show
-            } |> pure
-
-    EditBookingNote ->
-        let noteCard_ =
-                Array.get model.focusedBooking model.bookings
-                    |> Maybe.map .note
-                    |> Maybe.map NoteCard.edit
-                    |> Maybe.withDefault NoteCard.show
-        in
-        ( { model | bookingNoteCard = noteCard_ }
-        , Cmd.none )
-
-    EditBookingNoteDone ->
-        let setNote note_ booking =
-                { booking | note = note_ }
-
-            bookings_ =
-                NoteCard.extract model.bookingNoteCard
-                    |> Maybe.map (
-                        \note ->
-                        ArrayX.modify
-                            model.focusedBooking
-                            (setNote note)
-                            model.bookings
-                        )
-                    |> Maybe.withDefault model.bookings
-
-            model_ =
-                { model
-                | bookings = bookings_
-                , bookingNoteCard = NoteCard.show
-                }
-        in
-            (model_ , Cmd.none )
+            pure { model | bookings = bookings_ }
+            -- TODO: Save stuff to server
 
     UpdatedIndividuals lst ->
-        let setInds b =
+        let mod b =
                 { b | individuals = lst }
             bookings_ =
-                ArrayX.modify model.focusedBooking setInds model.bookings
+                ArrayX.modify model.focusedBooking mod model.bookings
         in
-        -- TODO: Save stuff to server
-        { model
-        | bookings = bookings_
-        } |> pure
+            pure { model | bookings = bookings_ }
+            -- TODO: Save stuff to server
 
     CustomerCardMsg msg_ ->
         lift              .customerCard
@@ -289,10 +228,9 @@ update msg model =
             msg_ model
 
     CustomerNoteCardMsg msg_ ->
-        lift              .customerNoteCard
+        liftCallback      .customerNoteCard
             (\m x -> { m | customerNoteCard = x })
-            CustomerNoteCardMsg
-            NoteCard.update
+            (NoteCard.update Mdl UpdatedCustomerNote)
             msg_ model
 
     IndividualsCardMsg msg_ ->
@@ -302,10 +240,9 @@ update msg model =
             msg_ model
 
     BookingNoteCardMsg msg_ ->
-        lift              .bookingNoteCard
+        liftCallback      .bookingNoteCard
             (\m x -> { m | bookingNoteCard = x })
-            BookingNoteCardMsg
-            NoteCard.update
+            (NoteCard.update Mdl UpdatedBookingNote)
             msg_ model
 
     Mdl msg_ -> Material.update Mdl msg_ model
@@ -394,15 +331,29 @@ view model =
         , main = [ viewBody model ]
         }
 
+customerNoteCfg : NoteCard.Cfg Msg
+customerNoteCfg =
+    { lift  = CustomerNoteCardMsg
+    , index = [800]
+    , title = "Kundennotiz"
+    }
+
+bookingNoteCfg : NoteCard.Cfg Msg
+bookingNoteCfg =
+    { lift  = BookingNoteCardMsg
+    , index = [801]
+    , title = "Buchungsnotiz"
+    }
+
+
 viewBody : Model -> Html Msg
 viewBody model =
-    let mdl = model.mdl
-
-        -- TODO: Helpers.Maybe
+    let -- TODO: Helpers.Maybe
         maybeMapDefault default f x = Maybe.map f x |> Maybe.withDefault default
 
         -- customer data
 
+        -- TODO: Adapt CustomerCard to fit others api
         customerCfg =
             { mdl        = model.mdl
             , mdlMessage = Mdl
@@ -420,76 +371,32 @@ viewBody model =
 
         -- customer note
 
-        customerNoteCfg =
-            { mdl        = model.mdl
-            , mdlMessage = Mdl
-            , msg        = CustomerNoteCardMsg
-            , index      = [2]
-            , title      = "Kundennotiz"
-            , delete     = DeleteCustomerNote
-            , edit       = EditCustomerNote
-            , done       = EditCustomerNoteDone
-            }
-
-        customerNote =
-            NoteCard.view
-                customerNoteCfg
-                model.customerNoteCard
-                model.customer.note
+        customerNote = NoteCard.view customerNoteCfg model.mdl
+            model.customerNoteCard
 
         -- booking list with booking selection
 
-        selection = bookingSelectionCard mdl SelectBooking
+        selection = bookingSelectionCard model.mdl SelectBooking
             model.bookings model.focusedBooking
 
         -- list of individuals, editable
 
-        -- TODO: Adapt NoteCards (and others) to fit this api
         individuals = Cards.Individuals.view IndividualsCardMsg
             [3] model.mdl model.individualsCard
 
-        -- cards related to selected booking (middle)
+        -- booking note
 
-        bookingRelatedCardsL booking = List.concat
-            [ [ bookingCard booking, individuals ]
-            , List.map roomCard booking.rooms
-            ]
+        bookingNote = NoteCard.view bookingNoteCfg model.mdl
+            model.bookingNoteCard
 
-        -- cards related to selected booking (right)
-
-        bookingNoteCfg =
-            { customerNoteCfg
-            | msg = BookingNoteCardMsg
-            , index = [4]
-            , title = "Buchungsnotiz"
-            , delete = DeleteBookingNote
-            , edit = EditBookingNote
-            , done = EditBookingNoteDone
-            }
-
-        bookingNote booking =
-            NoteCard.view
-                bookingNoteCfg
-                model.bookingNoteCard
-                booking.note
-
-
-        bookingRelatedCardsR b = [ bookingNote b ]
-
-        -- selected booking (may be none)
-
-        booking =
-            Array.get model.focusedBooking model.bookings
 
     in
         grid
             [ Grid.noSpacing
             ]
             [ cell [ size All 4 ] [ customer, customerNote, selection ]
-            , cell [ size All 4 ]
-                ( maybeMapDefault [] bookingRelatedCardsL booking)
-            , cell [ size All 4 ]
-                ( maybeMapDefault [] bookingRelatedCardsR booking)
+            , cell [ size All 4 ] [ individuals ]
+            , cell [ size All 4 ] [ bookingNote ]
             ]
 
 controls : Model -> Html Msg

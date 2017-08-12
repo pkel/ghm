@@ -8,7 +8,11 @@ import Material.Options as Options
 import Material.Typography as Typography
 import Material.Card as Card
 
+import Markdown
+
 import Html exposing (Html)
+
+-- TODO: Remove default prefixes in Defaults.elm
 
 defaultCard : Options.Property c m
 defaultCard =
@@ -63,5 +67,17 @@ defaultCardTitle =
         -- , Options.center
         -- , Color.text Color.primaryDark
         ]
+
+markdown : Markdown.Options
+markdown =
+    let factory = Markdown.defaultOptions
+    in
+        { factory
+        | githubFlavored = Just { tables = True, breaks = False }
+        , sanitize = True
+        , smartypants = True
+        }
+
+
 
 
