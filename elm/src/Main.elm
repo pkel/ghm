@@ -15,6 +15,8 @@ import Material.Options as Options
 import Material.Table as Table
 import Material.Textfield as Textfield
 import Material.Typography as Typography
+import Material.Helpers exposing (pure, effect, lift)
+import Helpers.Material exposing (liftCallback)
 
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
@@ -132,34 +134,29 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     New ->
-      let model_ =
         { model
         | customerId = Nothing
         , filter = ""
-       }
-      in
-      ( model_ , Cmd.none )
+        } |> pure
 
     Previous ->
-      case model.customerId of
-        Just i ->
-          ( model, Db.getPrevCustomerById CustomerReceived model.filter i)
-        Nothing ->
-          ( model, Db.getLatestCustomer CustomerReceived model.filter)
+        model |> case model.customerId of
+          Nothing -> pure
+          Just i  -> effect <|
+              Db.getPrevCustomerById CustomerReceived model.filter i
 
     Next ->
-      case model.customerId of
-        Just i ->
-          ( model, Db.getNextCustomerById CustomerReceived model.filter i)
-        Nothing ->
-          ( model, Cmd.none )
+        model |> case model.customerId of
+          Nothing -> pure
+          Just i  -> effect <|
+              Db.getNextCustomerById CustomerReceived model.filter i
 
     Last ->
-      ( model, Db.getLatestCustomer CustomerReceived model.filter )
+        model |> effect (Db.getLatestCustomer CustomerReceived model.filter)
 
     FilterChanged str ->
-      ( { model | filter = str }, Db.getLatestCustomer CustomerReceived str )
-
+        { model | filter = str} |>
+        effect (Db.getLatestCustomer CustomerReceived str)
 
     CustomerReceived (Ok c) ->
         let b  = Array.fromList c.bookings
@@ -170,95 +167,79 @@ update msg model =
             individuals = Array.get focus b
                 |> Maybe.map .individuals
                 |> Maybe.withDefault []
-
-            model_ =
-                { model
-                | customer = c_
-                , customerId = c.customer_id
-                , bookings = b
-                , focusedBooking = focus
-                , customerNoteCard = NoteCard.show
-                , bookingNoteCard = NoteCard.show
-                , individualsCard = Cards.Individuals.model individuals
-                }
         in
-            ( model_ , Cmd.none )
+            { model
+            | customer = c_
+            , customerId = c.customer_id
+            , bookings = b
+            , focusedBooking = focus
+            , customerNoteCard = NoteCard.show
+            , bookingNoteCard = NoteCard.show
+            , individualsCard = Cards.Individuals.model individuals
+            } |> pure
 
     CustomerReceived (Err _) ->
-      ( model , Cmd.none )
+        pure model
 
     SelectBooking i ->
-        ( selectBooking i model , Cmd.none )
+        selectBooking i model |> pure
 
     Ignore ->
-        (model, Cmd.none)
+        -- TODO: Where is this needed?
+        pure model
 
     EditCustomer ->
-        let model_ =
-                { model
-                | customerCard = CustomerCard.edit model.customer
-                }
-        in
-            (model_, Cmd.none)
+        { model
+        | customerCard = CustomerCard.edit model.customer
+        } |> pure
 
     EditCustomerDone ->
         let customer_ =
                 CustomerCard.extract model.customerCard model.customer
                     |> Maybe.withDefault model.customer
-
-            model_ =
-                { model
-                | customerCard = CustomerCard.show
-                , customer = customer_
-                }
         in
-            (model_, Cmd.none)
+            { model
+            | customerCard = CustomerCard.show
+            , customer = customer_
+            } |> pure
 
     DeleteCustomer ->
         -- TODO: Delete Customer does nothing
-        (model, Cmd.none)
+        pure model
 
     DeleteCustomerNote ->
-        let customer_ = C.setNote model.customer ""
-            model_ =
-                { model
-                | customer = customer_
-                , customerNoteCard = NoteCard.show
-                }
-        in
-            ( model_ , Cmd.none )
+        let customer_ = C.setNote model.customer "" in
+            { model
+            | customer = customer_
+            , customerNoteCard = NoteCard.show
+            } |> pure
 
     EditCustomerNote ->
-        ( { model | customerNoteCard = NoteCard.edit model.customer.note }
-        , Cmd.none )
+        { model
+        | customerNoteCard = NoteCard.edit model.customer.note
+        } |> pure
 
     EditCustomerNoteDone ->
         let customer_ =
                 NoteCard.extract model.customerNoteCard
                     |> Maybe.map (C.setNote model.customer)
                     |> Maybe.withDefault model.customer
-
-            model_ =
-                { model
-                | customerNoteCard = NoteCard.show
-                , customer = customer_
-                }
         in
-        ( model_ , Cmd.none )
+            { model
+            | customerNoteCard = NoteCard.show
+            , customer = customer_
+            } |> pure
 
     DeleteBookingNote ->
         let f b = { b | note = "" }
 
             bookings_ =
                 ArrayX.modify model.focusedBooking f model.bookings
-
-            model_ =
-                { model
-                | bookings = bookings_
-                , bookingNoteCard = NoteCard.show
-                }
         in
-            (model_ , Cmd.none )
+            { model
+            | bookings = bookings_
+            , bookingNoteCard = NoteCard.show
+            } |> pure
 
     EditBookingNote ->
         let noteCard_ =
@@ -296,42 +277,41 @@ update msg model =
     UpdatedIndividuals lst ->
         let setInds b =
                 { b | individuals = lst }
-
-            _ = log "was" model.bookings
-            _ = log "edited" lst
+            bookings_ =
+                ArrayX.modify model.focusedBooking setInds model.bookings
         in
-        ArrayX.modify model.focusedBooking setInds model.bookings |>
         -- TODO: Save stuff to server
-        \x -> ( { model | bookings = x } , Cmd.none)
+        { model
+        | bookings = bookings_
+        } |> pure
 
     CustomerCardMsg msg_ ->
-        let ( model_, cmd_) = CustomerCard.update msg_ model.customerCard
-        in
-            ( { model | customerCard = model_ }
-            , Cmd.map CustomerCardMsg cmd_
-            )
+        lift              .customerCard
+            (\m x -> { m | customerCard = x })
+            CustomerCardMsg
+            CustomerCard.update
+            msg_ model
 
     CustomerNoteCardMsg msg_ ->
-        let ( model_, cmd_) = NoteCard.update msg_ model.customerNoteCard
-        in
-            ( { model | customerNoteCard = model_ }
-            , Cmd.map CustomerNoteCardMsg cmd_
-            )
+        lift              .customerNoteCard
+            (\m x -> { m | customerNoteCard = x })
+            CustomerNoteCardMsg
+            NoteCard.update
+            msg_ model
 
     IndividualsCardMsg msg_ ->
-        let ( model_, cmd_) =
-                Cards.Individuals.update msg_ model.individualsCard
-        in
-            ( { model | individualsCard = model_ }
-            , cmd_
-            )
+        liftCallback      .individualsCard
+            (\m x -> { m | individualsCard = x })
+            IndividualsCardMsg
+            Cards.Individuals.update
+            msg_ model
 
     BookingNoteCardMsg msg_ ->
-        let ( model_, cmd_) = NoteCard.update msg_ model.bookingNoteCard
-        in
-            ( { model | bookingNoteCard = model_ }
-            , Cmd.map BookingNoteCardMsg cmd_
-            )
+        lift              .bookingNoteCard
+            (\m x -> { m | bookingNoteCard = x })
+            BookingNoteCardMsg
+            NoteCard.update
+            msg_ model
 
     Mdl msg_ -> Material.update Mdl msg_ model
 
