@@ -62,8 +62,8 @@ type alias Model =
   , mdl : Mdl
   }
 
-model : Model
-model =
+empty : Model
+empty =
     { customerId = Nothing
     , customer = C.empty
     , bookings = Array.empty
@@ -78,7 +78,7 @@ model =
 
 init : (Model, Cmd Msg)
 init =
-  ( model
+  ( empty
   , Db.getLatestCustomer CustomerReceived "" )
 
 
@@ -124,11 +124,14 @@ type Msg
 -- TODO: These two functions should clean up the interface
 selectBooking : Int -> Model -> Model
 selectBooking i model =
-    resetEdit model
-
-resetEdit : Model -> Model
-resetEdit model =
-    model
+    case Array.get i model.bookings of
+        Nothing -> model
+        Just booking ->
+            { model
+            | focusedBooking  = i
+            , individualsCard = Cards.Individuals.init booking.individuals
+            , bookingNoteCard = NoteCard.show
+            }
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -155,28 +158,21 @@ update msg model =
         model |> effect (Db.getLatestCustomer CustomerReceived model.filter)
 
     FilterChanged str ->
-        { model | filter = str} |>
+        { model | filter = str } |>
         effect (Db.getLatestCustomer CustomerReceived str)
 
     CustomerReceived (Ok c) ->
         let b  = Array.fromList c.bookings
             c_ = { c | bookings = [] }
-
-            focus = 0
-
-            individuals = Array.get focus b
-                |> Maybe.map .individuals
-                |> Maybe.withDefault []
         in
             { model
             | customer = c_
             , customerId = c.customer_id
-            , bookings = b
-            , focusedBooking = focus
             , customerNoteCard = NoteCard.show
-            , bookingNoteCard = NoteCard.show
-            , individualsCard = Cards.Individuals.init individuals
-            } |> pure
+            , bookings = b
+            }
+            |> selectBooking 0
+            |> pure
 
     CustomerReceived (Err _) ->
         pure model
