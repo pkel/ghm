@@ -27,7 +27,7 @@ import Array exposing (Array)
 import Helpers.Array as ArrayX
 
 import Cards.Note as NoteCard
-import Cards.CustomerDetail as CustomerCard
+import Cards.Customer as CustomerCard
 import Cards.Individuals
 
 import Date.Format as DateF
@@ -68,7 +68,7 @@ empty =
     , customer = C.empty
     , bookings = Array.empty
     , filter = ""
-    , customerCard = CustomerCard.show
+    , customerCard = CustomerCard.init C.empty
     , customerNoteCard = NoteCard.init ""
     , bookingNoteCard  = NoteCard.init ""
     , individualsCard  = Cards.Individuals.init []
@@ -97,16 +97,13 @@ type Msg
 
     | Ignore
 
-    | EditCustomer
-    | EditCustomerDone
-    | DeleteCustomer
-
+    | UpdatedCustomer Customer
     | UpdatedCustomerNote String
     | UpdatedBookingNote  String
     | UpdatedIndividuals (List B.Individual)
 
     -- Pass through
-    | CustomerCardMsg     CustomerCard.Msg
+    | CustomerCardMsg     (CustomerCard.Msg Msg)
     | CustomerNoteCardMsg (NoteCard.Msg Msg)
     | BookingNoteCardMsg  (NoteCard.Msg Msg)
     | IndividualsCardMsg  (Cards.Individuals.Msg Msg)
@@ -162,6 +159,7 @@ update msg model =
             { model
             | customer = c_
             , customerId = c.customer_id
+            , customerCard = CustomerCard.init c
             , customerNoteCard = NoteCard.init c.note
             , bookings = b
             }
@@ -169,6 +167,7 @@ update msg model =
             |> pure
 
     CustomerReceived (Err _) ->
+        -- TODO: notify
         pure model
 
     SelectBooking i ->
@@ -178,24 +177,9 @@ update msg model =
         -- TODO: Where is this needed?
         pure model
 
-    EditCustomer ->
-        { model
-        | customerCard = CustomerCard.edit model.customer
-        } |> pure
-
-    EditCustomerDone ->
-        let customer_ =
-                CustomerCard.extract model.customerCard model.customer
-                    |> Maybe.withDefault model.customer
-        in
-            { model
-            | customerCard = CustomerCard.show
-            , customer = customer_
-            } |> pure
-
-    DeleteCustomer ->
-        -- TODO: Implement Customer deletion
-        pure model
+    UpdatedCustomer c ->
+        pure { model | customer = c }
+        -- TODO: Save stuff to server
 
     UpdatedCustomerNote str ->
         let mod c = { c | note = str }
@@ -221,11 +205,15 @@ update msg model =
             -- TODO: Save stuff to server
 
     CustomerCardMsg msg_ ->
-        lift              .customerCard
+        let update =
+                { delete = Ignore -- TODO: implement customer deletion
+                , updated = UpdatedCustomer
+                , mdl = Mdl
+                } |> CustomerCard.update
+        in
+        liftCallback      .customerCard
             (\m x -> { m | customerCard = x })
-            CustomerCardMsg
-            CustomerCard.update
-            msg_ model
+            update msg_ model
 
     CustomerNoteCardMsg msg_ ->
         liftCallback      .customerNoteCard
@@ -345,6 +333,12 @@ bookingNoteCfg =
     , title = "Buchungsnotiz"
     }
 
+customerCfg: CustomerCard.Cfg Msg
+customerCfg =
+    { lift       = CustomerCardMsg
+    , index      = [802]
+    }
+
 
 viewBody : Model -> Html Msg
 viewBody model =
@@ -353,43 +347,39 @@ viewBody model =
 
         -- customer data
 
-        -- TODO: Adapt CustomerCard to fit others api
-        customerCfg =
-            { mdl        = model.mdl
-            , mdlMessage = Mdl
-            , msg        = CustomerCardMsg
-            , index      = [1]
-            , delete     = DeleteCustomer
-            , edit       = EditCustomer
-            , done       = EditCustomerDone
-            }
-
         customer = CustomerCard.view
             customerCfg
+            model.mdl
             model.customerCard
-            model.customer
 
         -- customer note
 
-        customerNote = NoteCard.view customerNoteCfg model.mdl
+        customerNote = NoteCard.view
+            customerNoteCfg
+            model.mdl
             model.customerNoteCard
 
         -- booking list with booking selection
 
-        selection = bookingSelectionCard model.mdl SelectBooking
-            model.bookings model.focusedBooking
+        selection = bookingSelectionCard
+            model.mdl
+            SelectBooking
+            model.bookings
+            model.focusedBooking
 
         -- list of individuals, editable
 
-        individuals = Cards.Individuals.view IndividualsCardMsg
-            [3] model.mdl model.individualsCard
+        individuals = Cards.Individuals.view
+            IndividualsCardMsg
+            [3] model.mdl
+            model.individualsCard
 
         -- booking note
 
-        bookingNote = NoteCard.view bookingNoteCfg model.mdl
+        bookingNote = NoteCard.view
+            bookingNoteCfg
+            model.mdl
             model.bookingNoteCard
-
-
     in
         grid
             [ Grid.noSpacing

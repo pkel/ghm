@@ -1,12 +1,12 @@
 module Material.HelpersX exposing (..)
 
-import Material.Helpers exposing (Update, effect)
+import Material.Helpers exposing (Update, effect, cmd)
 
 import Task
 
-callback : ( a -> msg ) -> a -> model -> ( model , Cmd msg )
-callback f msg =
-    effect (Task.perform f (Task.succeed msg))
+callback : msg -> model -> ( model , Cmd msg )
+callback msg =
+    cmd msg |> effect
 
 liftCallback : (model -> submodel) -- get
    -> (model -> submodel -> model) -- set

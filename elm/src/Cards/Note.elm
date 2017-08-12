@@ -8,7 +8,7 @@ module Cards.Note exposing
     )
 
 import Material
-import Material.Helpers exposing (pure, effect, cmd)
+import Material.Helpers exposing (pure, effect)
 import Material.HelpersX exposing (callback)
 import Material.Card as Card
 import Material.Textfield as Textfield
@@ -71,14 +71,14 @@ update mdlCb dataCb msg model =
             edit model |> pure
 
         Delete ->
-            init "" |> callback dataCb ""
+            init "" |> callback (dataCb "")
 
         Done ->
             String.trim model.cache
-            |> (\x -> init x |> callback dataCb x)
+            |> (\x -> init x |> callback (dataCb x))
 
         Mdl msg ->
-            callback mdlCb msg model
+            callback (mdlCb msg) model
 
 -- View
 

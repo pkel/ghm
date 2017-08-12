@@ -7,7 +7,7 @@ module Cards.Individuals exposing
     )
 
 import Material
-import Material.Helpers exposing (pure, effect, cmd)
+import Material.Helpers exposing (pure, effect)
 import Material.HelpersX exposing (callback)
 import Material.Card as Card
 import Material.Textfield as Textfield
@@ -27,8 +27,6 @@ import Array exposing (Array)
 
 import Date exposing (Date)
 import Date.Format as DateF
-
-import Task
 
 type alias CacheItem =
     { given  : String
@@ -72,7 +70,6 @@ type Msg msg
     | ItemAdd
     | Edit
     | Abort
-    -- Callbacks
     | Done
     | Mdl (Material.Msg msg)
 
@@ -173,9 +170,9 @@ update mdlCb dataCb msg model =
         Done ->
             case extract model of
                 Nothing -> pure model
-                Just data -> init data |> callback dataCb data
+                Just data -> init data |> callback (dataCb data)
 
-        Mdl msg -> model |> callback mdlCb msg
+        Mdl msg -> model |> callback (mdlCb msg)
 
 
 -- View

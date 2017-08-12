@@ -1,15 +1,17 @@
-module Cards.CustomerDetail exposing
+module Cards.Customer exposing
     ( Model
     , Cfg
+    , Callbacks
     , Msg
     , view
-    , edit
-    , show
-    , extract
+    , init
     , update
     )
 
 import Material
+import Material.Helpers  exposing (pure, effect)
+import Material.HelpersX exposing (callback)
+
 import Material.Card as Card
 import Material.Grid as Grid exposing (Device(..))
 import Material.Tabs as Tabs
@@ -24,22 +26,18 @@ import Html exposing (Html, text, br)
 import Html.Attributes as Attributes
 
 type alias Model =
-    { editMode : Bool
+    { editing : Bool
     , editTab : Int
     , cache : Customer
+    , data  : Customer
     }
 
 type alias Cfg msg =
-    { mdl        : Material.Model
-    , mdlMessage : (Material.Msg msg -> msg)
-    , index      : List Int
-    , msg        : Msg -> msg
-    , edit       : msg
-    , done       : msg
-    , delete     : msg
+    { index      : List Int
+    , lift       : Msg msg -> msg
     }
 
-type Msg
+type ChangeMsg
     = Title           String
     | Title_letter    String
 
@@ -68,118 +66,141 @@ type Msg
 
     | Keyword         String
 
-    | Abort
-    | SelectTab       Int
 
-show : Model
-show =
-    { editMode = False
-    , editTab = 0
-    , cache = Customer.empty
+type Msg msg
+    = Change ChangeMsg
+    | Edit
+    | Abort
+    | Delete
+    | Done
+    | SelectTab Int
+    | Mdl (Material.Msg msg)
+
+type alias Callbacks msg =
+    { delete  : msg
+    , updated : Customer -> msg
+    , mdl     : Material.Msg msg -> msg
     }
 
-edit : Customer -> Model
-edit customer =
-    { editMode = True
+init : Customer -> Model
+init c =
+    { editing = False
     , editTab = 0
-    , cache = customer
+    , cache   = Customer.empty
+    , data    = c
+    }
+
+edit : Model -> Model
+edit model =
+    { model
+    | editing = True
+    , editTab = 0
+    , cache = model.data
     }
 
 -- Update given Customer with editable fields from
 -- cache TODO: if form is ok.
-extract : Model -> Customer -> Maybe Customer
-extract model customer =
+extract : Model -> Maybe Customer
+extract model =
     let c = model.cache
+        was = model.data
     in
-        case model.editMode of
-            False -> Nothing
-            True -> Just
-                { customer
-                | title           = c.title
-                , title_letter    = c.title_letter
+        Just
+            { was
+            | title           = c.title
+            , title_letter    = c.title_letter
 
-                , given           = c.given
-                , second          = c.second
-                , family          = c.family
+            , given           = c.given
+            , second          = c.second
+            , family          = c.family
 
-                , company         = c.company
-                , company_address = c.company_address
+            , company         = c.company
+            , company_address = c.company_address
 
-                , street          = c.street
-                , street_number   = c.street_number
-                , city            = c.city
-                , postal_code     = c.postal_code
-                , country         = c.country
-                , country_code    = c.country_code
+            , street          = c.street
+            , street_number   = c.street_number
+            , city            = c.city
+            , postal_code     = c.postal_code
+            , country         = c.country
+            , country_code    = c.country_code
 
-                , phone           = c.phone
-                , phone2          = c.phone2
-                , mobile          = c.mobile
-                , fax             = c.fax
-                , fax2            = c.fax2
-                , mail            = c.mail
-                , mail2           = c.mail2
-                , web             = c.web
+            , phone           = c.phone
+            , phone2          = c.phone2
+            , mobile          = c.mobile
+            , fax             = c.fax
+            , fax2            = c.fax2
+            , mail            = c.mail
+            , mail2           = c.mail2
+            , web             = c.web
 
-                , keyword         = c.keyword
-                , note            = c.note
-                }
+            , keyword         = c.keyword
+            }
 
 
-update : Msg -> Model -> ( Model, Cmd msg )
-update msg model =
-    let c = model.cache
-        f c =
-            ( { model | cache = c } , Cmd.none )
-    in
-        case msg of
-            Title           s -> { c | title           = s } |> f
-            Title_letter    s -> { c | title_letter    = s } |> f
+update : Callbacks msg -> Msg msg -> Model -> ( Model, Cmd msg )
+update cb msg model =
+    case msg of
+        Change msg ->
+            pure { model | cache = updateCache msg model.cache }
 
-            Given           s -> { c | given           = s } |> f
-            Second          s -> { c | second          = s } |> f
-            Family          s -> { c | family          = s } |> f
+        Abort ->
+            pure { model | editing = False }
 
-            Company         s -> { c | company         = s } |> f
-            Company_address s -> { c | company_address = s } |> f
+        SelectTab i ->
+            pure { model | editTab = i }
 
-            Street          s -> { c | street          = s } |> f
-            Street_number   s -> { c | street_number   = s } |> f
-            City            s -> { c | city            = s } |> f
-            Postal_code     s -> { c | postal_code     = s } |> f
-            Country         s -> { c | country         = s } |> f
-            Country_code    s -> { c | country_code    = s } |> f
+        Edit ->
+            edit model |> pure
 
-            Phone1          s -> { c | phone           = s } |> f
-            Phone2          s -> { c | phone2          = s } |> f
-            Mobile          s -> { c | mobile          = s } |> f
-            Fax             s -> { c | fax             = s } |> f
-            Fax2            s -> { c | fax2            = s } |> f
-            Mail            s -> { c | mail            = s } |> f
-            Mail2           s -> { c | mail2           = s } |> f
-            Web             s -> { c | web             = s } |> f
+        Done -> case extract model of
+            Nothing -> pure model
+            Just c -> init c |> callback (cb.updated c)
 
-            Keyword         s -> { c | keyword         = s } |> f
+        Delete -> callback cb.delete model
 
-            Abort ->
-                ( show, Cmd.none )
+        Mdl msg -> callback (cb.mdl msg) model
 
-            SelectTab i ->
-                let model_ =
-                        { model | editTab = i }
-                in
-                    ( model_, Cmd.none )
+updateCache : ChangeMsg -> Customer -> Customer
+updateCache msg c =
+    case msg of
+        Title           s -> { c | title           = s }
+        Title_letter    s -> { c | title_letter    = s }
+
+        Given           s -> { c | given           = s }
+        Second          s -> { c | second          = s }
+        Family          s -> { c | family          = s }
+
+        Company         s -> { c | company         = s }
+        Company_address s -> { c | company_address = s }
+
+        Street          s -> { c | street          = s }
+        Street_number   s -> { c | street_number   = s }
+        City            s -> { c | city            = s }
+        Postal_code     s -> { c | postal_code     = s }
+        Country         s -> { c | country         = s }
+        Country_code    s -> { c | country_code    = s }
+
+        Phone1          s -> { c | phone           = s }
+        Phone2          s -> { c | phone2          = s }
+        Mobile          s -> { c | mobile          = s }
+        Fax             s -> { c | fax             = s }
+        Fax2            s -> { c | fax2            = s }
+        Mail            s -> { c | mail            = s }
+        Mail2           s -> { c | mail2           = s }
+        Web             s -> { c | web             = s }
+
+        Keyword         s -> { c | keyword         = s }
 
 
-viewEdit : Cfg msg -> Model -> Html msg
-viewEdit cfg model =
+viewEdit : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
+viewEdit cfg mdl model =
     let index x = (x :: cfg.index)
 
-        defaultButton_ i = defaultButton cfg.mdlMessage cfg.mdl (index i)
+        defaultButton_ i = defaultButton Mdl mdl (index i)
 
-        actions = [ defaultButton_ 1 "done" cfg.done
-                  , defaultButton_ 2 "cancel" (cfg.msg Abort)
-                  , defaultButton_ 3 "delete" cfg.delete
+        actions = [ defaultButton_ 1 "done"   Done
+                  , defaultButton_ 2 "cancel" Abort
+                  , defaultButton_ 3 "delete" Delete
                   ]
 
         tab_labels =
@@ -188,21 +209,17 @@ viewEdit cfg model =
                     Tabs.textLabel
                         [ Options.center
                         , Options.css "cursor" "pointer"
-                        ]
-                        l
-                        )
+                        ] l )
 
         tf i label value msg =
-            Textfield.render cfg.mdlMessage (index i) cfg.mdl
+            Textfield.render Mdl (index i) mdl
                 [ Textfield.value (value model.cache)
                 , Textfield.floatingLabel
                 , Textfield.label (label)
                 , Textfield.text_
                 , Options.css "width" "100%"
-                , Options.onInput (\t -> cfg.msg (msg t))
+                , Options.onInput (Change << msg)
                 ] ()
-
-        -- TODO: Build nice gridded forms
 
         s        = Grid.size
         full     = [ s Desktop 12, s Tablet 8, s Phone 4 ]
@@ -246,8 +263,8 @@ viewEdit cfg model =
                 , f full 48 "Website"      .web    Web
                 ]
 
-        tabs = Tabs.render cfg.mdlMessage (index 4) cfg.mdl
-                [ Tabs.onSelectTab (\i -> cfg.msg (SelectTab i))
+        tabs = Tabs.render Mdl (index 4) mdl
+                [ Tabs.onSelectTab SelectTab
                 , Tabs.activeTab model.editTab
                 ]
                 tab_labels
@@ -266,15 +283,15 @@ viewEdit cfg model =
         Card.view [ defaultCard ] cardContent
 
 
-viewShow : Cfg msg -> Customer -> Html msg
-viewShow cfg customer =
+viewShow : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
+viewShow cfg mdl model =
     let i x = (x :: cfg.index)
 
-        defaultButton_ x = defaultButton cfg.mdlMessage cfg.mdl (i x)
+        defaultButton_ x = defaultButton Mdl mdl (i x)
 
         actions =
-            [ defaultButton_ 1 "mode_edit" cfg.edit
-            , defaultButton_ 2 "delete"    cfg.delete
+            [ defaultButton_ 1 "mode_edit" Edit
+            , defaultButton_ 2 "delete"    Delete
             ]
 
         -- TODO: export to Extra.List/String
@@ -300,7 +317,7 @@ viewShow cfg customer =
 
         g = joinNonEmpty
 
-        c = customer
+        c = model.data
 
         main_ = []
             |> f c.title
@@ -343,9 +360,9 @@ viewShow cfg customer =
         Card.view [ defaultCard ] contents
 
 
-view : Cfg msg -> Model -> Customer -> Html msg
-view cfg model customer =
-    case model.editMode of
-        True  -> viewEdit cfg model
-        False -> viewShow cfg customer
+view : Cfg msg -> Material.Model -> Model -> Html msg
+view cfg mdl model =
+    Html.map cfg.lift <| case model.editing of
+        True  -> viewEdit cfg mdl model
+        False -> viewShow cfg mdl model
 
