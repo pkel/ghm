@@ -5,16 +5,13 @@ import Html.Attributes as Attributes
 
 import Material
 import Material.Button as Button
-import Material.Card as Card
 import Material.Color as Color
 import Material.Icon as Icon
 import Material.Elevation as Elevation
 import Material.Grid as Grid exposing (grid, cell, size, Device(..))
 import Material.Layout as Layout
 import Material.Options as Options
-import Material.Table as Table
 import Material.Textfield as Textfield
-import Material.Typography as Typography
 import Material.Helpers exposing (pure, effect)
 import Material.HelpersX exposing (liftCallback)
 
