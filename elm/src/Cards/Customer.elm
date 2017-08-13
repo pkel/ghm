@@ -196,7 +196,7 @@ viewEdit : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
 viewEdit cfg mdl model =
     let index x = (x :: cfg.index)
 
-        defaultButton_ i = defaultButton Mdl mdl (index i)
+        defaultButton_ i = Defaults.button Mdl mdl (index i)
 
         actions = [ defaultButton_ 1 "done"   Done
                   , defaultButton_ 2 "cancel" Abort
@@ -275,19 +275,19 @@ viewEdit cfg mdl model =
                 ]
 
         cardContent =
-            [ Card.title [ defaultCardTitle ] [ text model.cache.keyword ]
+            [ Card.title [ Defaults.cardTitle ] [ text model.cache.keyword ]
             , Card.text [] [ tabs ]
-            , Card.actions [ defaultActions ] actions
+            , Card.actions [ Defaults.actions ] actions
             ]
     in
-        Card.view [ defaultCard ] cardContent
+        Card.view [ Defaults.card ] cardContent
 
 
 viewShow : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
 viewShow cfg mdl model =
     let i x = (x :: cfg.index)
 
-        defaultButton_ x = defaultButton Mdl mdl (i x)
+        defaultButton_ x = Defaults.button Mdl mdl (i x)
 
         actions =
             [ defaultButton_ 1 "mode_edit" Edit
@@ -350,14 +350,14 @@ viewShow cfg mdl model =
             (List.concat (List.map2 h contact_labels contact_fields))
 
         contents =
-            [ Card.title [ defaultCardTitle ] [ text c.keyword ]
+            [ Card.title [ Defaults.cardTitle ] [ text c.keyword ]
             , main ]
             |> appendIfNotEmpty (c.company ++ c.company_address) [company]
             |> appendIfNotEmpty (String.join "" contact_fields)  [contact]
-            |> append [ Card.actions [ defaultActions ] actions ]
+            |> append [ Card.actions [ Defaults.actions ] actions ]
 
     in
-        Card.view [ defaultCard ] contents
+        Card.view [ Defaults.card ] contents
 
 
 view : Cfg msg -> Material.Model -> Model -> Html msg

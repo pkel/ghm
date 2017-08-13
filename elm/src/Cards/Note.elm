@@ -104,7 +104,7 @@ viewEdit cfg mdl model =
                 , Options.onInput Change
                 ] ()
 
-        defaultButton_ = defaultButton Mdl mdl
+        defaultButton_ = Defaults.button Mdl mdl
 
         actions = [ defaultButton_ (i 2) "done"   Done
                   , defaultButton_ (i 3) "cancel" Abort
@@ -112,13 +112,13 @@ viewEdit cfg mdl model =
                   ]
 
         cardContent =
-            [ Card.title [ defaultCardTitle ] [ text cfg.title ]
+            [ Card.title [ Defaults.cardTitle ] [ text cfg.title ]
             , Card.text [] [ textfield ]
-            , Card.actions [ defaultActions ] actions
+            , Card.actions [ Defaults.actions ] actions
             ]
 
     in
-        Card.view [ defaultCard ] cardContent
+        Card.view [ Defaults.card ] cardContent
 
 viewShow : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
 viewShow cfg mdl model =
@@ -126,7 +126,7 @@ viewShow cfg mdl model =
             Markdown.toHtmlWith Defaults.markdown
                 [ Attributes.class "ghm_md_note" ]
 
-        defaultButton_ = defaultButton Mdl mdl
+        defaultButton_ = Defaults.button Mdl mdl
 
         i x = (x :: cfg.index)
 
@@ -137,13 +137,13 @@ viewShow cfg mdl model =
                         [ defaultButton_ (i 5) "note_add" Edit ]
                     ]
                 _  ->
-                    [ Card.title [ defaultCardTitle ] [ text cfg.title ]
+                    [ Card.title [ Defaults.cardTitle ] [ text cfg.title ]
                     , Card.text [] [ mdToHtml model.data ]
-                    , Card.actions [ defaultActions ]
+                    , Card.actions [ Defaults.actions ]
                         [ defaultButton_ (i 6) "mode_edit" Edit
                         , defaultButton_ (i 7) "delete" Delete
                         ]
                     ]
     in
-        Card.view [ defaultCard ] cardContent
+        Card.view [ Defaults.card ] cardContent
 

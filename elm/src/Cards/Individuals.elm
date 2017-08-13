@@ -217,11 +217,10 @@ viewEdit cfg mdl model =
         family = field 202 "" Family .family true       ""
         birth  = field 203 "" Birth  .birth  checkBirth dateFormatHint
 
-        delete (i, _)  =
-            defaultButtonMini Mdl mdl (i::(id 204)) "delete"
+        delete (i, _)  = Defaults.buttonMini Mdl mdl (i::(id 204)) "delete"
                 (ItemDelete i)
 
-        defaultButton_ = defaultButton Mdl mdl
+        defaultButton_ = Defaults.button Mdl mdl
 
         left  = Options.css "text-align" "left"
         right = Options.css "text-align" "right"
@@ -236,8 +235,7 @@ viewEdit cfg mdl model =
 
         lst = model.cache |> Array.toIndexedList
 
-        add =
-            defaultButtonMini Mdl mdl (id 100) "add" ItemAdd
+        add = Defaults.buttonMini Mdl mdl (id 100) "add" ItemAdd
 
         table =
             Table.table []
@@ -258,9 +256,9 @@ viewEdit cfg mdl model =
             ]
     in
         Card.view
-            [ defaultCard ]
+            [ Defaults.card ]
             [ Card.title [ Options.center ] [ table ]
-            , Card.actions [ defaultActions ] actions
+            , Card.actions [ Defaults.actions ] actions
             ]
 
 viewShow : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
@@ -273,7 +271,7 @@ viewShow cfg mdl model =
         given i = text i.given
         family i = text i.family
 
-        defaultButton_ = defaultButton Mdl mdl
+        defaultButton_ = Defaults.button Mdl mdl
         i x = (x :: cfg.index)
 
         left  = Options.css "text-align" "left"
@@ -303,9 +301,9 @@ viewShow cfg mdl model =
             ]
     in
         Card.view
-            [ defaultCard ]
+            [ Defaults.card ]
             [ Card.title [ Options.center ] [ table ]
-            , Card.actions [ defaultActions ] actions
+            , Card.actions [ Defaults.actions ] actions
             ]
 
 view : Cfg msg -> Material.Model -> Model -> Html msg

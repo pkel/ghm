@@ -18,10 +18,10 @@ import Material.Typography as Typography
 import Material.Helpers exposing (pure, effect)
 import Material.HelpersX exposing (liftCallback)
 
-import Customer as C exposing (Customer)
-import Booking  as B exposing (Booking)
+import Customer exposing (Customer)
+import Booking  exposing (Booking, Individual, Room)
 
-import Defaults exposing (..)
+import Defaults
 
 import Array exposing (Array)
 import Helpers.Array as ArrayX
@@ -66,10 +66,10 @@ type alias Model =
 empty : Model
 empty =
     { customerId = Nothing
-    , customer = C.empty
+    , customer = Customer.empty
     , bookings = Array.empty
     , filter = ""
-    , customerCard = CustomerCard.init C.empty
+    , customerCard = CustomerCard.init Customer.empty
     , customerNoteCard = NoteCard.init ""
     , bookingNoteCard  = NoteCard.init ""
     , individualsCard  = Cards.Individuals.init []
@@ -101,7 +101,7 @@ type Msg
     | UpdatedCustomer Customer
     | UpdatedCustomerNote String
     | UpdatedBookingNote  String
-    | UpdatedIndividuals (List B.Individual)
+    | UpdatedIndividuals (List Individual)
 
     -- Pass through
     | CustomerCardMsg     (CustomerCard.Msg Msg)
@@ -247,14 +247,11 @@ update msg model =
 
 -- CARDS
 
--- TODO: remove this hack as soon as all cards have their own module
-defaultButton = Defaults.defaultButton Mdl
-
 bookingSelectionCard : Mdl -> (Int -> Msg) -> Array Booking
           -> Int -> Html Msg
 bookingSelectionCard mdl select bookings focused =
     let bookingsLst = Array.toList bookings
-        summaries = List.map B.summary bookingsLst
+        summaries = List.map Booking.summary bookingsLst
         indeces = List.range 0 (Array.length bookings - 1)
 
         date d = Maybe.withDefault "" (Maybe.map (DateF.format "%d.%m.%y") d)
@@ -292,28 +289,28 @@ bookingSelectionCard mdl select bookings focused =
                 ]
 
         actions =
-            [ defaultButton mdl [30] "add" Ignore ]
+            [ Defaults.button Mdl mdl [30] "add" Ignore ]
     in
         Card.view
-            [ defaultCard ]
-            [ Card.title [ defaultCardTitle ] [ text "Buchungen" ]
+            [ Defaults.card ]
+            [ Card.title [ Defaults.cardTitle ] [ text "Buchungen" ]
             , Card.title [ Options.center ] [ table ]
-            , Card.actions [ defaultActions ] actions
+            , Card.actions [ Defaults.actions ] actions
             ]
 
 bookingCard : Booking -> Html Msg
 bookingCard booking =
     Card.view
-        [ defaultCard ]
-        [ Card.title [ defaultCardTitle] [ text "Buchung" ]
+        [ Defaults.card ]
+        [ Card.title [ Defaults.cardTitle] [ text "Buchung" ]
         , Card.actions [] []
         ]
 
-roomCard : B.Room -> Html Msg
+roomCard : Room -> Html Msg
 roomCard room =
     Card.view
-        [ defaultCard ]
-        [ Card.title [ defaultCardTitle ] [ text "Zimmer" ]
+        [ Defaults.card ]
+        [ Card.title [ Defaults.cardTitle ] [ text "Zimmer" ]
         , Card.actions [] []
         ]
 
@@ -417,7 +414,7 @@ controls model =
         filterIcon = Icon.view "search"
             [ Options.css "margin-right" "5px" ]
 
-        btn i action icon = defaultButton model.mdl i icon action
+        btn i action icon = Defaults.button Mdl model.mdl i icon action
     in
         Layout.row
             [ Color.background Color.accent

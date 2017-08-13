@@ -12,30 +12,28 @@ import Markdown
 
 import Html exposing (Html)
 
--- TODO: Remove default prefixes in Defaults.elm
-
-defaultCard : Options.Property c m
-defaultCard =
+card : Options.Property c m
+card =
     Options.many
         [ Elevation.e2
         , Options.css "margin" "0.5em"
         , Options.css "width" "auto"
         ]
 
-defaultActions : Options.Property () m
-defaultActions =
+actions : Options.Property () m
+actions =
     Options.many
         [ Options.center
         , Card.border
         ]
 
-defaultButton : (Material.Msg a -> msg)
+button : (Material.Msg a -> msg)
    -> Material.Model
    -> List Int
    -> String
    -> msg
    -> Html msg
-defaultButton eMdl mdl index icon action =
+button eMdl mdl index icon action =
     Button.render eMdl index mdl
         [ Button.colored
         , Button.raised
@@ -45,13 +43,13 @@ defaultButton eMdl mdl index icon action =
         ]
         [ Icon.i icon ]
 
-defaultButtonMini : (Material.Msg a -> msg)
+buttonMini : (Material.Msg a -> msg)
    -> Material.Model
    -> List Int
    -> String
    -> msg
    -> Html msg
-defaultButtonMini eMdl mdl index icon action =
+buttonMini eMdl mdl index icon action =
     Button.render eMdl index mdl
         [ Button.colored
         , Button.icon
@@ -60,8 +58,8 @@ defaultButtonMini eMdl mdl index icon action =
         ]
         [ Icon.i icon ]
 
-defaultCardTitle : Options.Property c m
-defaultCardTitle =
+cardTitle : Options.Property c m
+cardTitle =
     Options.many
         [ Typography.title
         -- , Options.center
