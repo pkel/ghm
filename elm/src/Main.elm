@@ -15,7 +15,7 @@ import Material.Options as Options
 import Material.Table as Table
 import Material.Textfield as Textfield
 import Material.Typography as Typography
-import Material.Helpers exposing (pure, effect, lift)
+import Material.Helpers exposing (pure, effect)
 import Material.HelpersX exposing (liftCallback)
 
 import Customer as C exposing (Customer)
@@ -42,7 +42,8 @@ main =
   { init = init
   , view = view
   , update = update
-  , subscriptions = subscriptions }
+  , subscriptions = subscriptions
+  }
 
 
 -- MODEL
@@ -205,32 +206,40 @@ update msg model =
             -- TODO: Save stuff to server
 
     CustomerCardMsg msg_ ->
-        let update =
-                { delete = Ignore -- TODO: implement customer deletion
-                , updated = UpdatedCustomer
-                , mdl = Mdl
-                } |> CustomerCard.update
-        in
-        liftCallback      .customerCard
+        liftCallback
+            { delete = Ignore -- TODO: implement customer deletion
+            , updated = UpdatedCustomer
+            , mdl = Mdl
+            }             .customerCard
             (\m x -> { m | customerCard = x })
-            update msg_ model
+            CustomerCard.update
+            msg_ model
 
     CustomerNoteCardMsg msg_ ->
-        liftCallback      .customerNoteCard
+        liftCallback
+            { mdl = Mdl
+            , updated = UpdatedCustomerNote
+            }             .customerNoteCard
             (\m x -> { m | customerNoteCard = x })
-            (NoteCard.update Mdl UpdatedCustomerNote)
+            NoteCard.update
             msg_ model
 
     IndividualsCardMsg msg_ ->
-        liftCallback      .individualsCard
+        liftCallback
+            { mdl = Mdl
+            , updated = UpdatedIndividuals
+            }             .individualsCard
             (\m x -> { m | individualsCard = x })
-            (Cards.Individuals.update Mdl UpdatedIndividuals)
+            Cards.Individuals.update
             msg_ model
 
     BookingNoteCardMsg msg_ ->
-        liftCallback      .bookingNoteCard
+        liftCallback
+            { mdl = Mdl
+            , updated = UpdatedBookingNote
+            }             .bookingNoteCard
             (\m x -> { m | bookingNoteCard = x })
-            (NoteCard.update Mdl UpdatedBookingNote)
+            NoteCard.update
             msg_ model
 
     Mdl msg_ -> Material.update Mdl msg_ model
@@ -339,6 +348,12 @@ customerCfg =
     , index      = [802]
     }
 
+individualsCfg : Cards.Individuals.Cfg Msg
+individualsCfg =
+    { lift = IndividualsCardMsg
+    , index = [803]
+    }
+
 
 viewBody : Model -> Html Msg
 viewBody model =
@@ -370,8 +385,8 @@ viewBody model =
         -- list of individuals, editable
 
         individuals = Cards.Individuals.view
-            IndividualsCardMsg
-            [3] model.mdl
+            individualsCfg
+            model.mdl
             model.individualsCard
 
         -- booking note

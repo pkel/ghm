@@ -1,6 +1,8 @@
 module Cards.Individuals exposing
     ( Model
     , Msg
+    , Cfg
+    , Callbacks
     , view
     , init
     , update
@@ -8,7 +10,7 @@ module Cards.Individuals exposing
 
 import Material
 import Material.Helpers exposing (pure, effect)
-import Material.HelpersX exposing (callback)
+import Material.HelpersX exposing (callback, UpdateCallback)
 import Material.Card as Card
 import Material.Textfield as Textfield
 import Material.Options as Options
@@ -50,8 +52,6 @@ initCacheItem x =
     }
 
 type alias Data = List Individual
-type alias MdlCb msg  = Material.Msg msg -> msg
-type alias DataCb msg = Data -> msg
 
 type alias Model =
     { editing : Bool
@@ -125,19 +125,13 @@ extract model =
 
 -- Update
 
+type alias Callbacks msg =
+    { updated : Data -> msg
+    , mdl     : Material.Msg msg -> msg
+    }
 
-updateItem : ItemMsg -> CacheItem -> CacheItem
-updateItem msg item =
-    case msg of
-        Given str ->
-            { item | given = str }
-        Family str ->
-            { item | family = str }
-        Birth str ->
-            { item | birth = str }
-
-update : MdlCb msg -> DataCb msg -> Msg msg -> Model -> ( Model, Cmd msg )
-update mdlCb dataCb msg model =
+update : UpdateCallback msg (Callbacks msg) (Msg msg) Model
+update cb msg model =
     case msg of
         ItemChange index itemMsg ->
             let cache_ =
@@ -170,17 +164,32 @@ update mdlCb dataCb msg model =
         Done ->
             case extract model of
                 Nothing -> pure model
-                Just data -> init data |> callback (dataCb data)
+                Just data -> init data |> callback (cb.updated data)
 
-        Mdl msg -> model |> callback (mdlCb msg)
+        Mdl msg -> model |> callback (cb.mdl msg)
+
+
+updateItem : ItemMsg -> CacheItem -> CacheItem
+updateItem msg item =
+    case msg of
+        Given str ->
+            { item | given = str }
+        Family str ->
+            { item | family = str }
+        Birth str ->
+            { item | birth = str }
 
 
 -- View
 
+type alias Cfg msg =
+    { index : List Int
+    , lift : Msg msg -> msg
+    }
 
-viewEdit : List Int -> Material.Model -> Model -> Html (Msg msg)
-viewEdit   idx         mdl               model =
-    let id x = (x :: idx)
+viewEdit : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
+viewEdit cfg mdl model =
+    let id x = (x :: cfg.index)
 
         field i label up show check hint (nth,el) =
             let val = show el
@@ -236,7 +245,7 @@ viewEdit   idx         mdl               model =
                     [ Table.tr []
                         [ Table.th [left ] [text "Vorname"]
                         , Table.th [left ] [text "Name"]
-                        , Table.th [right] [text "Geburtsdatum"]
+                        , Table.th [right] [text "Geb. am"]
                         , Table.th [] [ add ]
                         ]
                     ]
@@ -254,8 +263,8 @@ viewEdit   idx         mdl               model =
             , Card.actions [ defaultActions ] actions
             ]
 
-viewShow : List Int -> Material.Model -> Model -> Html (Msg msg)
-viewShow   idx         mdl               model =
+viewShow : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
+viewShow cfg mdl model =
     let birth i = text
             ( Maybe.withDefault "n/a"
                 ( Maybe.map (DateF.format "%d.%m.%Y") i.date_of_birth)
@@ -265,7 +274,7 @@ viewShow   idx         mdl               model =
         family i = text i.family
 
         defaultButton_ = defaultButton Mdl mdl
-        i x = (x :: idx)
+        i x = (x :: cfg.index)
 
         left  = Options.css "text-align" "left"
         right = Options.css "text-align" "right"
@@ -283,7 +292,7 @@ viewShow   idx         mdl               model =
                     [ Table.tr []
                         [ Table.th [left ] [text "Vorname"]
                         , Table.th [left ] [text "Name"]
-                        , Table.th [right] [text "Geburtsdatum"]
+                        , Table.th [right] [text "Geb. am"]
                         ]
                     ]
                 , Table.tbody [] (List.map row model.data)
@@ -299,9 +308,9 @@ viewShow   idx         mdl               model =
             , Card.actions [ defaultActions ] actions
             ]
 
-view : (Msg msg -> msg) -> List Int -> Material.Model -> Model -> Html msg
-view   lift                idx         mdl               model =
-    Html.map lift <| case model.editing of
-        True  -> viewEdit idx mdl model
-        False -> viewShow idx mdl model
+view : Cfg msg -> Material.Model -> Model -> Html msg
+view cfg mdl model =
+    Html.map cfg.lift <| case model.editing of
+        True  -> viewEdit cfg mdl model
+        False -> viewShow cfg mdl model
 

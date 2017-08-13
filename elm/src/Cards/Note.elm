@@ -2,6 +2,7 @@ module Cards.Note exposing
     ( Model
     , Cfg
     , Msg
+    , Callbacks
     , init
     , view
     , update
@@ -9,7 +10,7 @@ module Cards.Note exposing
 
 import Material
 import Material.Helpers exposing (pure, effect)
-import Material.HelpersX exposing (callback)
+import Material.HelpersX exposing (callback, UpdateCallback)
 import Material.Card as Card
 import Material.Textfield as Textfield
 import Material.Options as Options
@@ -27,12 +28,6 @@ type alias Model =
     , cache   : String
     }
 
-type alias Cfg msg =
-    { title : String
-    , lift : Msg msg -> msg
-    , index : List Int
-    }
-
 type Msg msg
     = Change String
     | Edit
@@ -40,9 +35,6 @@ type Msg msg
     | Delete
     | Abort
     | Mdl (Material.Msg msg)
-
-type alias DataCb msg = String -> msg
-type alias MdlCb  msg = Material.Msg msg -> msg
 
 init : String -> Model
 init str =
@@ -58,8 +50,13 @@ edit model =
     , editing = True
     }
 
-update : MdlCb m -> DataCb m -> Msg m -> Model -> ( Model, Cmd m )
-update mdlCb dataCb msg model =
+type alias Callbacks msg =
+    { mdl : Material.Msg msg -> msg
+    , updated : String -> msg
+    }
+
+update : UpdateCallback m (Callbacks m) (Msg m) Model
+update cb msg model =
     case msg of
         Change str ->
             pure { model | cache = str }
@@ -71,16 +68,22 @@ update mdlCb dataCb msg model =
             edit model |> pure
 
         Delete ->
-            init "" |> callback (dataCb "")
+            init "" |> callback (cb.updated "")
 
         Done ->
             String.trim model.cache
-            |> (\x -> init x |> callback (dataCb x))
+            |> (\x -> init x |> callback (cb.updated x))
 
         Mdl msg ->
-            callback (mdlCb msg) model
+            callback (cb.mdl msg) model
 
 -- View
+
+type alias Cfg msg =
+    { title : String
+    , lift : Msg msg -> msg
+    , index : List Int
+    }
 
 view : Cfg msg -> Material.Model -> Model -> Html msg
 view cfg mdl model =

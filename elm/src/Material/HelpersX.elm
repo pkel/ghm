@@ -1,22 +1,26 @@
 module Material.HelpersX exposing (..)
 
-import Material.Helpers exposing (Update, effect, cmd)
+import Material.Helpers exposing (effect, cmd)
 
 import Task
 
-callback : msg -> model -> ( model , Cmd msg )
-callback msg =
-    cmd msg |> effect
+type alias UpdateCallback supaction callbacks action model =
+    callbacks -> action -> model -> ( model, Cmd supaction )
 
-liftCallback : (model -> submodel) -- get
+callback : supaction -> model -> ( model , Cmd supaction )
+callback supaction =
+    cmd supaction |> effect
+
+liftCallback : callbacks
+   -> (model -> submodel) -- get
    -> (model -> submodel -> model) -- set
-   -> (subaction -> submodel -> (submodel, Cmd action)) -- update
-   -> subaction -- action
-   -> model -- model
+   -> UpdateCallback action callbacks subaction submodel
+   -> subaction
+   -> model
    -> ( model, Cmd action )
-liftCallback get set update subaction model =
+liftCallback callbacks get set update subaction model =
     let
         ( submodel_, e ) =
-            update subaction (get model)
+            update callbacks subaction (get model)
     in
         ( set model submodel_, e )

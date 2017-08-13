@@ -10,7 +10,7 @@ module Cards.Customer exposing
 
 import Material
 import Material.Helpers  exposing (pure, effect)
-import Material.HelpersX exposing (callback)
+import Material.HelpersX exposing (callback, UpdateCallback)
 
 import Material.Card as Card
 import Material.Grid as Grid exposing (Device(..))
@@ -137,7 +137,7 @@ extract model =
             }
 
 
-update : Callbacks msg -> Msg msg -> Model -> ( Model, Cmd msg )
+update : UpdateCallback msg (Callbacks msg) (Msg msg) Model
 update cb msg model =
     case msg of
         Change msg ->
