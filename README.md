@@ -14,8 +14,6 @@ Todo
 Next steps
 ----------
 
-  * make sure that change in customer/booking closes related forms
-  * adapt cards to use similar api to individuals card
   * finish editable list and use it for individuals and rooms
   * move all cards from main to separate file
   * show complete booking information
