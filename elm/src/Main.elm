@@ -322,7 +322,7 @@ view model =
         { header = [ controls model ]
         , drawer = []
         , tabs = ( [], [] )
-        , main = [ viewBody model ]
+        , main = [ body model ]
         }
 
 customerNoteCfg : NoteCard.Cfg Msg
@@ -352,8 +352,8 @@ individualsCfg =
     }
 
 
-viewBody : Model -> Html Msg
-viewBody model =
+body : Model -> Html Msg
+body model =
     let -- TODO: Helpers.Maybe
         maybeMapDefault default f x = Maybe.map f x |> Maybe.withDefault default
 

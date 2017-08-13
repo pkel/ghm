@@ -1,7 +1,10 @@
-.PHONY: all clean distclean dep min
+.PHONY: all clean distclean dep min watch
 
 all:
-	elm-make src/Main.elm --output elm.js
+	npm run build
+
+watch:
+	npm run watch
 
 min: all index.html
 	closure-compiler -W QUIET --js elm.js > elm.min.js
@@ -11,6 +14,7 @@ cloc:
 	cloc index.html src etc Makefile elm-package.json
 
 dep:
+	npm install
 	elm-package install
 
 clean:
