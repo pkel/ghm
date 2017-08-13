@@ -1,10 +1,11 @@
-.PHONY: all clean distclean dep
+.PHONY: all clean distclean dep min
 
 all:
 	elm-make src/Main.elm --output elm.js
 
-min: all
-	closure-compiler --js elm.js > elm.min.js
+min: all index.html
+	closure-compiler -W QUIET --js elm.js > elm.min.js
+	sed 's/elm\.js/elm\.min\.js/g' index.html > index.min.html
 
 cloc:
 	cloc index.html src etc Makefile elm-package.json
