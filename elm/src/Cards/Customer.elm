@@ -18,7 +18,7 @@ import Material.Tabs as Tabs
 import Material.Textfield as Textfield
 import Material.Options as Options
 
-import Defaults exposing (..)
+import Defaults
 
 import Customer exposing (Customer)
 

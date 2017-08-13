@@ -29,6 +29,7 @@ import Helpers.Array as ArrayX
 import Cards.Note as NoteCard
 import Cards.Customer as CustomerCard
 import Cards.Individuals
+import Cards.Selection
 
 import Date.Format as DateF
 
@@ -113,7 +114,6 @@ type Msg
     | Mdl (Material.Msg Msg)
 
 
--- TODO: These two functions should clean up the interface
 selectBooking : Int -> Model -> Model
 selectBooking i model =
     case Array.get i model.bookings of
@@ -155,6 +155,7 @@ update msg model =
 
     CustomerReceived (Ok c) ->
         let b  = Array.fromList c.bookings
+            summaries = List.map Booking.summary c.bookings
             c_ = { c | bookings = [] }
         in
             { model
@@ -245,75 +246,6 @@ update msg model =
     Mdl msg_ -> Material.update Mdl msg_ model
 
 
--- CARDS
-
-bookingSelectionCard : Mdl -> (Int -> Msg) -> Array Booking
-          -> Int -> Html Msg
-bookingSelectionCard mdl select bookings focused =
-    let bookingsLst = Array.toList bookings
-        summaries = List.map Booking.summary bookingsLst
-        indeces = List.range 0 (Array.length bookings - 1)
-
-        date d = Maybe.withDefault "" (Maybe.map (DateF.format "%d.%m.%y") d)
-        range f t = text (date f ++ " bis " ++ date t)
-        int  i = text (toString i)
-
-        c = Options.css "text-align" "center"
-
-        same index booking =
-            Array.get focused bookings
-                |> Maybe.map ((==) booking)
-                |> Maybe.withDefault False
-
-        row index booking summary =
-            Table.tr
-                [ Options.onClick (select index)
-                , Table.selected
-                    |> Options.when (same focused booking)
-                ]
-                [ Table.td [c] [range summary.from summary.to]
-                , Table.td [c] [int summary.n_beds]
-                , Table.td [c] [int summary.n_rooms]
-                ]
-
-        table =
-            Table.table []
-                [ Table.thead []
-                    [ Table.tr []
-                        [ Table.th [c] [Icon.i "date_range"]
-                        , Table.th [c] [Icon.i "hotel"]
-                        , Table.th [c] [Icon.i "vpn_key"]
-                        ]
-                    ]
-                , Table.tbody [] (List.map3 row indeces bookingsLst summaries)
-                ]
-
-        actions =
-            [ Defaults.button Mdl mdl [30] "add" Ignore ]
-    in
-        Card.view
-            [ Defaults.card ]
-            [ Card.title [ Defaults.cardTitle ] [ text "Buchungen" ]
-            , Card.title [ Options.center ] [ table ]
-            , Card.actions [ Defaults.actions ] actions
-            ]
-
-bookingCard : Booking -> Html Msg
-bookingCard booking =
-    Card.view
-        [ Defaults.card ]
-        [ Card.title [ Defaults.cardTitle] [ text "Buchung" ]
-        , Card.actions [] []
-        ]
-
-roomCard : Room -> Html Msg
-roomCard room =
-    Card.view
-        [ Defaults.card ]
-        [ Card.title [ Defaults.cardTitle ] [ text "Zimmer" ]
-        , Card.actions [] []
-        ]
-
 -- VIEW
 
 view : Model -> Html Msg
@@ -324,6 +256,7 @@ view model =
         , tabs = ( [], [] )
         , main = [ body model ]
         }
+
 
 customerNoteCfg : NoteCard.Cfg Msg
 customerNoteCfg =
@@ -339,18 +272,38 @@ bookingNoteCfg =
     , title = "Buchungsnotiz"
     }
 
-customerCfg: CustomerCard.Cfg Msg
+customerCfg : CustomerCard.Cfg Msg
 customerCfg =
-    { lift       = CustomerCardMsg
-    , index      = [802]
+    { lift  = CustomerCardMsg
+    , index = [802]
     }
 
 individualsCfg : Cards.Individuals.Cfg Msg
 individualsCfg =
-    { lift = IndividualsCardMsg
+    { lift  = IndividualsCardMsg
     , index = [803]
     }
 
+bookingSelectionCfg : Cards.Selection.Cfg Msg Booking.Summary
+bookingSelectionCfg =
+    let date  d  = Maybe.withDefault "" (Maybe.map (DateF.format "%d.%m.%y") d)
+        range el = text (date el.from ++ " bis " ++ date el.to)
+        int   i  = text (toString i)
+        beds  el = int el.n_beds
+        rooms el = int el.n_rooms
+        fields =
+            [ ( Icon.i "date_range" , range )
+            , ( Icon.i "hotel"      , beds  )
+            , ( Icon.i "vpn_key"    , rooms )
+            ]
+    in
+    { mdl = Mdl
+    , index = [804]
+    , render = Cards.Selection.table fields
+    , add = Ignore -- TODO: Implement Booking creation
+    , select = SelectBooking
+    , title = Nothing
+    }
 
 body : Model -> Html Msg
 body model =
@@ -373,10 +326,10 @@ body model =
 
         -- booking list with booking selection
 
-        selection = bookingSelectionCard
+        selection = Cards.Selection.view
+            bookingSelectionCfg
             model.mdl
-            SelectBooking
-            model.bookings
+            (Array.map Booking.summary model.bookings)
             model.focusedBooking
 
         -- list of individuals, editable
@@ -400,6 +353,7 @@ body model =
             , cell [ size All 4 ] [ individuals ]
             , cell [ size All 4 ] [ bookingNote ]
             ]
+
 
 controls : Model -> Html Msg
 controls model =

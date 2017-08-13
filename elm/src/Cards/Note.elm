@@ -15,7 +15,7 @@ import Material.Card as Card
 import Material.Textfield as Textfield
 import Material.Options as Options
 
-import Defaults exposing (..)
+import Defaults
 
 import Markdown
 

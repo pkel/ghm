@@ -18,7 +18,7 @@ import Material.Table as Table
 
 import Booking exposing (Individual)
 
-import Defaults exposing (..)
+import Defaults
 
 import Html exposing (Html, text)
 import Html.Attributes as Attributes
