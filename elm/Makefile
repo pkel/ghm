@@ -1,24 +1,29 @@
-.PHONY: all clean distclean dep min watch
+.PHONY: build clean distclean dependencies minify watch dev
 
-all:
+build:
 	npm run build
 
 watch:
 	npm run watch
 
-min: all index.html
+dev:
+	tmux new-session -d -n postgrest 'cd ../postgrest; make run'
+	tmux new-window -n elm 'make watch'
+	tmux at
+
+minify: all index.html
 	closure-compiler -W QUIET --js elm.js > elm.min.js
 	sed 's/elm\.js/elm\.min\.js/g' index.html > index.min.html
 
 cloc:
 	cloc index.html src etc Makefile elm-package.json
 
-dep:
+dependencies:
 	npm install
 	elm-package install
 
 clean:
-	rm -f elm.js elm.min.js
+	rm -f elm.js elm.min.js index.min.html
 
 distclean: clean
-	rm -rf elm-stuff
+	rm -rf elm-stuff node_modules
