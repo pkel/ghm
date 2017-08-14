@@ -65,7 +65,7 @@ empty : Model
 empty =
     { customerId = Nothing
     , customer = Customer.empty
-    , bookings = Array.empty
+    , bookings = Array.fromList [Booking.empty]
     , filter = ""
     , customerCard = CustomerCard.init Customer.empty
     , customerNoteCard = NoteCard.init ""
@@ -126,7 +126,7 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     New ->
-        { model
+        { empty
         | customerId = Nothing
         , filter = ""
         } |> pure
