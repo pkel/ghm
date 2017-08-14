@@ -14,7 +14,8 @@ import Material.HelpersX exposing (callback, UpdateCallback)
 import Material.Card as Card
 import Material.Textfield as Textfield
 import Material.Options as Options
-import Material.Table as Table
+import Material.Grid as Grid exposing (Device(..))
+import Material.List as Lists
 import Material.Button as Button
 
 import Booking exposing (Individual)
@@ -179,6 +180,7 @@ updateItem msg item =
 type alias Cfg msg =
     { index : List Int
     , lift : Msg msg -> msg
+    , title : Maybe String
     }
 
 view : Cfg msg -> Material.Model -> Model -> Html msg
@@ -190,12 +192,12 @@ view cfg mdl model =
                 props =
                 [ Options.onInput (\x -> Change nth (up x))
                 , Textfield.label label
+                , Textfield.floatingLabel
                 , Textfield.value val
                 , Textfield.error hint |> Options.when (not <| check val)
-                , Options.css "width" "auto"
-                , Options.css "padding-top" "0"
-                , Options.css "padding-bottom" "1"
-                , Options.css "font-size" "13px"
+                , Options.css "width" "100%"
+                -- , Options.css "padding-bottom" "1"
+                -- , Options.css "font-size" "13px"
                 ]
             in
             Textfield.render Mdl (nth::(id i)) mdl
@@ -203,8 +205,8 @@ view cfg mdl model =
 
         miniButton = Defaults.buttonMini Mdl mdl
 
-        button = Defaults.button_
-            [ Button.disabled |> Options.when (not model.dirty)
+        button cond = Defaults.button_
+            [ Button.disabled |> Options.when (not cond)
             , Button.raised
             ] Mdl mdl
 
@@ -214,49 +216,54 @@ view cfg mdl model =
             Ok _  -> True
             Err _ -> False
 
-        given  = field 201 "" Given  .given  true       ""
-        family = field 202 "" Family .family true       ""
-        birth  = field 203 "" Birth  .birth  checkBirth dateFormatHint
+        given  = field 201 "Vorname"    Given  .given  true       ""
+        family = field 202 "Nachname"   Family .family true       ""
+        birth  = field 203 "Geburtstag" Birth  .birth  checkBirth dateFormatHint
 
         delete (i, _)  = miniButton (i::(id 204)) "delete" (Delete i)
 
-        left  = Options.css "text-align" "left"
-        right = Options.css "text-align" "right"
+        p0 = Options.css "padding" "0"
+        w100 = Options.css "width" "100%"
+
+        grid = Grid.grid [ p0, w100 ]
+        cell = Grid.cell
+        s = Grid.size
+        li = Lists.li [ p0 ]
+
+        form i =
+            grid
+                [ cell [s All 4] [given  i]
+                , cell [s All 4] [family i]
+                , cell [s All 4] [birth  i]
+                ]
 
         row i =
-            Table.tr []
-                [ Table.td [left ] [given  i]
-                , Table.td [left ] [family i]
-                , Table.td [right] [birth  i]
-                , Table.td []      [delete i]
+            li
+                [ Lists.content [] [ form i ]
+                , delete i
                 ]
+
+        add = Defaults.button Mdl mdl (id 100) "add" Add
 
         lst = model.cache |> Array.toIndexedList
 
-        add = miniButton (id 100) "add" Add
+        list =
+            List.map row lst |> Lists.ul [ p0 ]
 
-        table =
-            Table.table []
-                [ Table.thead []
-                    [ Table.tr []
-                        [ Table.th [left ] [text "Vorname"]
-                        , Table.th [left ] [text "Name"]
-                        , Table.th [right] [text "Geb. am"]
-                        , Table.th [] [ add ]
-                        ]
-                    ]
-                , Table.tbody [] (List.map row lst)
-                ]
 
         actions =
-            [ button (id 302) "cancel" Abort
-            , button (id 303) "save"   Save
+            [ button model.dirty (id 302) "cancel" Abort
+            , button model.dirty (id 303) "save"   Save
+            , button True        (id 304) "add"    Add
             ]
     in
-        Card.view
-            [ Defaults.card ]
-            [ Card.title [ Options.center ] [ table ]
-            , Card.actions [ Defaults.actions ] actions
-            ]
+        [ Card.text [] [ list ]
+        , Card.actions [ Defaults.actions ] actions
+        ]
+        |> ( \x -> case cfg.title of
+            Nothing -> x
+            Just title ->
+                Card.title [ Defaults.cardTitle ] [ text title ] :: x )
+        |> Card.view [ Defaults.card ]
         |> Html.map cfg.lift
 
