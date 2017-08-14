@@ -1,7 +1,7 @@
 {
   "scripts": {
     "watch": "chokidar 'src/**/*.elm' -c 'npm run build' --initial",
-    "build": "elm make src/Main.elm --output elm.js"
+    "build": "elm make src/Main.elm --output elm.js || true"
   },
   "devDependencies": {
     "chokidar-cli": "^1.2.0"

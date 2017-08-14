@@ -15,6 +15,7 @@ import Material.Card as Card
 import Material.Textfield as Textfield
 import Material.Options as Options
 import Material.Table as Table
+import Material.Button as Button
 
 import Booking exposing (Individual)
 
@@ -54,9 +55,9 @@ initCacheItem x =
 type alias Data = List Individual
 
 type alias Model =
-    { editing : Bool
-    , cache   : Array CacheItem
-    , data    : Data
+    { dirty : Bool
+    , cache : Array CacheItem
+    , data  : Data
     }
 
 type ItemMsg
@@ -65,27 +66,23 @@ type ItemMsg
     | Birth  String
 
 type Msg msg
-    = ItemChange Int ItemMsg
-    | ItemDelete Int
-    | ItemAdd
-    | Edit
+    = Change Int ItemMsg
+    | Delete Int
+    | Add
     | Abort
-    | Done
+    | Save
     | Mdl (Material.Msg msg)
 
 init : Data -> Model
 init data =
-    { editing = False
-    , cache   = Array.empty
-    , data    = data
+    { cache = Array.fromList (List.map initCacheItem data)
+    , data  = data
+    , dirty = False
     }
 
-edit : Model -> Model
-edit model =
-    { model
-    | editing = True
-    , cache   = Array.fromList (List.map initCacheItem model.data)
-    }
+dirty : Model -> Model
+dirty model =
+    { model | dirty = True }
 
 dateFormatHint : String
 dateFormatHint = "1995-04-15"
@@ -133,35 +130,32 @@ type alias Callbacks msg =
 update : UpdateCallback msg (Callbacks msg) (Msg msg) Model
 update cb msg model =
     case msg of
-        ItemChange index itemMsg ->
+        Change index itemMsg ->
             let cache_ =
                     case Array.get index model.cache of
                         Nothing -> model.cache
                         Just el -> updateItem itemMsg el
                             |> \x -> Array.set index x model.cache
             in
-            { model | cache = cache_ } |> pure
+            dirty { model | cache = cache_ } |> pure
 
-        ItemDelete index ->
+        Delete index ->
             let cache_ =
                     ArrayX.delete index model.cache
             in
-            { model | cache = cache_ } |> pure
+            dirty { model | cache = cache_ } |> pure
 
-        ItemAdd ->
+        Add ->
             let cache_ =
                     model.cache |>
                     Array.push (initCacheItem Booking.emptyIndividual)
             in
-            { model | cache = cache_ } |> pure
+            dirty { model | cache = cache_ } |> pure
 
         Abort ->
-            { model | editing = False , cache = Array.empty } |> pure
+            init model.data |> pure
 
-        Edit ->
-            edit model |> pure
-
-        Done ->
+        Save ->
             case extract model of
                 Nothing -> pure model
                 Just data -> init data |> callback (cb.updated data)
@@ -187,14 +181,14 @@ type alias Cfg msg =
     , lift : Msg msg -> msg
     }
 
-viewEdit : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
-viewEdit cfg mdl model =
+view : Cfg msg -> Material.Model -> Model -> Html msg
+view cfg mdl model =
     let id x = (x :: cfg.index)
 
         field i label up show check hint (nth,el) =
             let val = show el
                 props =
-                [ Options.onInput (\x -> ItemChange nth (up x))
+                [ Options.onInput (\x -> Change nth (up x))
                 , Textfield.label label
                 , Textfield.value val
                 , Textfield.error hint |> Options.when (not <| check val)
@@ -207,6 +201,13 @@ viewEdit cfg mdl model =
             Textfield.render Mdl (nth::(id i)) mdl
                 props []
 
+        miniButton = Defaults.buttonMini Mdl mdl
+
+        button = Defaults.button_
+            [ Button.disabled |> Options.when (not model.dirty)
+            , Button.raised
+            ] Mdl mdl
+
         true str = True
 
         checkBirth str = case extractBirth str of
@@ -217,10 +218,7 @@ viewEdit cfg mdl model =
         family = field 202 "" Family .family true       ""
         birth  = field 203 "" Birth  .birth  checkBirth dateFormatHint
 
-        delete (i, _)  = Defaults.buttonMini Mdl mdl (i::(id 204)) "delete"
-                (ItemDelete i)
-
-        defaultButton_ = Defaults.button Mdl mdl
+        delete (i, _)  = miniButton (i::(id 204)) "delete" (Delete i)
 
         left  = Options.css "text-align" "left"
         right = Options.css "text-align" "right"
@@ -235,7 +233,7 @@ viewEdit cfg mdl model =
 
         lst = model.cache |> Array.toIndexedList
 
-        add = Defaults.buttonMini Mdl mdl (id 100) "add" ItemAdd
+        add = miniButton (id 100) "add" Add
 
         table =
             Table.table []
@@ -251,8 +249,8 @@ viewEdit cfg mdl model =
                 ]
 
         actions =
-            [ defaultButton_ (id 302) "cancel" Abort
-            , defaultButton_ (id 303) "done"   Done
+            [ button (id 302) "cancel" Abort
+            , button (id 303) "save"   Save
             ]
     in
         Card.view
@@ -260,55 +258,5 @@ viewEdit cfg mdl model =
             [ Card.title [ Options.center ] [ table ]
             , Card.actions [ Defaults.actions ] actions
             ]
-
-viewShow : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
-viewShow cfg mdl model =
-    let birth i = text
-            ( Maybe.withDefault "n/a"
-                ( Maybe.map (DateF.format "%d.%m.%Y") i.date_of_birth)
-            )
-
-        given i = text i.given
-        family i = text i.family
-
-        defaultButton_ = Defaults.button Mdl mdl
-        i x = (x :: cfg.index)
-
-        left  = Options.css "text-align" "left"
-        right = Options.css "text-align" "right"
-
-        row i =
-            Table.tr []
-                [ Table.td [left ] [given i]
-                , Table.td [left ] [family i]
-                , Table.td [right] [birth i]
-                ]
-
-        table =
-            Table.table []
-                [ Table.thead []
-                    [ Table.tr []
-                        [ Table.th [left ] [text "Vorname"]
-                        , Table.th [left ] [text "Name"]
-                        , Table.th [right] [text "Geb. am"]
-                        ]
-                    ]
-                , Table.tbody [] (List.map row model.data)
-                ]
-
-        actions =
-            [ defaultButton_ (i 102) "mode_edit" Edit
-            ]
-    in
-        Card.view
-            [ Defaults.card ]
-            [ Card.title [ Options.center ] [ table ]
-            , Card.actions [ Defaults.actions ] actions
-            ]
-
-view : Cfg msg -> Material.Model -> Model -> Html msg
-view cfg mdl model =
-    Html.map cfg.lift <| case model.editing of
-        True  -> viewEdit cfg mdl model
-        False -> viewShow cfg mdl model
+        |> Html.map cfg.lift
 

@@ -27,36 +27,29 @@ actions =
         , Card.border
         ]
 
-button : (Material.Msg a -> msg)
+type alias Button a msg =
+   (Material.Msg a -> msg)
    -> Material.Model
    -> List Int
    -> String
    -> msg
    -> Html msg
-button eMdl mdl index icon action =
+
+-- button_ : List (Options.Property c m) -> Button a msg
+button_ cfg eMdl mdl index icon action =
     Button.render eMdl index mdl
-        [ Button.colored
-        , Button.raised
-        , Button.minifab
-        , Options.onClick action
-        , Options.css "margin" "0 4px 0 4px"
-        ]
+        ( Options.many
+            [ Button.colored
+            , Options.onClick action
+            , Options.css "margin" "0 4px 0 4px"
+            ] :: cfg )
         [ Icon.i icon ]
 
-buttonMini : (Material.Msg a -> msg)
-   -> Material.Model
-   -> List Int
-   -> String
-   -> msg
-   -> Html msg
-buttonMini eMdl mdl index icon action =
-    Button.render eMdl index mdl
-        [ Button.colored
-        , Button.icon
-        , Options.onClick action
-        , Options.css "margin" "0 4px 0 4px"
-        ]
-        [ Icon.i icon ]
+button : Button a msg
+button = button_ [ Button.raised ]
+
+buttonMini : Button a msg
+buttonMini = button_ [ Button.icon ]
 
 cardTitle : Options.Property c m
 cardTitle =
