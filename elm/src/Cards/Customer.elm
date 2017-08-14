@@ -15,6 +15,7 @@ import Material.HelpersX exposing (callback, UpdateCallback)
 import Material.Card as Card
 import Material.Grid as Grid exposing (Device(..))
 import Material.Tabs as Tabs
+import Material.Button as Button
 import Material.Textfield as Textfield
 import Material.Options as Options
 
@@ -26,15 +27,10 @@ import Html exposing (Html, text, br)
 import Html.Attributes as Attributes
 
 type alias Model =
-    { editing : Bool
-    , editTab : Int
+    { dirty : Bool
+    , tab   : Int
     , cache : Customer
     , data  : Customer
-    }
-
-type alias Cfg msg =
-    { index      : List Int
-    , lift       : Msg msg -> msg
     }
 
 type ChangeMsg
@@ -69,10 +65,9 @@ type ChangeMsg
 
 type Msg msg
     = Change ChangeMsg
-    | Edit
     | Abort
     | Delete
-    | Done
+    | Save
     | SelectTab Int
     | Mdl (Material.Msg msg)
 
@@ -84,19 +79,15 @@ type alias Callbacks msg =
 
 init : Customer -> Model
 init c =
-    { editing = False
-    , editTab = 0
-    , cache   = Customer.empty
-    , data    = c
+    { dirty = False
+    , tab   = 0
+    , cache = c
+    , data  = c
     }
 
-edit : Model -> Model
-edit model =
-    { model
-    | editing = True
-    , editTab = 0
-    , cache = model.data
-    }
+dirty : Model -> Model
+dirty model =
+    { model | dirty = True }
 
 -- Update given Customer with editable fields from
 -- cache TODO: if form is ok.
@@ -141,24 +132,23 @@ update : UpdateCallback msg (Callbacks msg) (Msg msg) Model
 update cb msg model =
     case msg of
         Change msg ->
-            pure { model | cache = updateCache msg model.cache }
+            dirty { model | cache = updateCache msg model.cache } |> pure
 
         Abort ->
-            pure { model | editing = False }
+            { model | cache = model.data, dirty = False } |> pure
 
         SelectTab i ->
-            pure { model | editTab = i }
+            pure { model | tab = i }
 
-        Edit ->
-            edit model |> pure
-
-        Done -> case extract model of
+        Save -> case extract model of
             Nothing -> pure model
-            Just c -> init c |> callback (cb.updated c)
+            Just c -> { model | data = model.cache, dirty = False }
+                |> callback (cb.updated c)
 
         Delete -> callback cb.delete model
 
         Mdl msg -> callback (cb.mdl msg) model
+
 
 updateCache : ChangeMsg -> Customer -> Customer
 updateCache msg c =
@@ -192,15 +182,24 @@ updateCache msg c =
         Keyword         s -> { c | keyword         = s }
 
 
-viewEdit : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
-viewEdit cfg mdl model =
+-- View
+
+type alias Cfg msg =
+    { index      : List Int
+    , lift       : Msg msg -> msg
+    }
+
+view : Cfg msg -> Material.Model -> Model -> Html msg
+view cfg mdl model =
     let index x = (x :: cfg.index)
 
-        defaultButton_ i = Defaults.button Mdl mdl (index i)
+        button cond i = Defaults.button_
+            [ Button.disabled |> Options.when (not cond)
+            , Button.raised
+            ] Mdl mdl (index i)
 
-        actions = [ defaultButton_ 1 "done"   Done
-                  , defaultButton_ 2 "cancel" Abort
-                  , defaultButton_ 3 "delete" Delete
+        actions = [ button model.dirty 1 "cancel" Abort
+                  , button model.dirty 2 "save"   Save
                   ]
 
         tab_labels =
@@ -265,104 +264,21 @@ viewEdit cfg mdl model =
 
         tabs = Tabs.render Mdl (index 4) mdl
                 [ Tabs.onSelectTab SelectTab
-                , Tabs.activeTab model.editTab
+                , Tabs.activeTab model.tab
                 ]
                 tab_labels
-                [ case model.editTab of
+                [ case model.tab of
                     1 -> addressTab
                     2 -> contactTab
                     _ -> nameTab
                 ]
 
         cardContent =
-            [ Card.title [ Defaults.cardTitle ] [ text model.cache.keyword ]
-            , Card.text [] [ tabs ]
+            -- [ Card.title [ Defaults.cardTitle ] [ text model.cache.keyword ]
+            [ Card.text [] [ tabs ]
             , Card.actions [ Defaults.actions ] actions
             ]
     in
         Card.view [ Defaults.card ] cardContent
-
-
-viewShow : Cfg msg -> Material.Model -> Model -> Html (Msg msg)
-viewShow cfg mdl model =
-    let i x = (x :: cfg.index)
-
-        defaultButton_ x = Defaults.button Mdl mdl (i x)
-
-        actions =
-            [ defaultButton_ 1 "mode_edit" Edit
-            , defaultButton_ 2 "delete"    Delete
-            ]
-
-        -- TODO: export to Extra.List/String
-        nonEmpty str =
-            case String.trim str of
-                "" -> Nothing
-                str -> Just str
-
-        joinNonEmpty sep lst =
-            List.filterMap nonEmpty lst
-                |> String.join sep
-
-        append post pre =
-            pre ++ post
-
-        appendIfNotEmpty check post pre =
-            case nonEmpty check of
-                Nothing -> pre
-                Just _  -> append post pre
-
-        f str =
-            appendIfNotEmpty str [ text str, br [] [] ]
-
-        g = joinNonEmpty
-
-        c = model.data
-
-        main_ = []
-            |> f c.title
-            |> f (g " " [c.given, c.second, c.family])
-            |> f (g " " [c.street, c.street_number])
-            |> f (g " " [g "-" [c.country_code, c.postal_code], c.city])
-            |> f c.country
-
-        main = Card.text [] main_
-
-        company_ = []
-            |> f c.company
-            |> f c.company_address
-
-        company =
-            Card.text [] company_
-
-        contact_fields = [c.phone, c.phone2, c.mobile, c.fax, c.fax2, c.mail
-                            , c.mail2, c.web]
-
-        contact_labels = ["Telefon", "Telefon", "Mobil", "Fax", "Fax", ""
-                            , "", ""]
-
-        h label value = case (label, value) of
-            (l, "") -> []
-            ("", v) -> [text v, br [] []]
-            (l, v) -> List.map text [v, " (", l, ")"] ++ [br [] []]
-
-        contact = Card.text []
-            (List.concat (List.map2 h contact_labels contact_fields))
-
-        contents =
-            [ Card.title [ Defaults.cardTitle ] [ text c.keyword ]
-            , main ]
-            |> appendIfNotEmpty (c.company ++ c.company_address) [company]
-            |> appendIfNotEmpty (String.join "" contact_fields)  [contact]
-            |> append [ Card.actions [ Defaults.actions ] actions ]
-
-    in
-        Card.view [ Defaults.card ] contents
-
-
-view : Cfg msg -> Material.Model -> Model -> Html msg
-view cfg mdl model =
-    Html.map cfg.lift <| case model.editing of
-        True  -> viewEdit cfg mdl model
-        False -> viewShow cfg mdl model
+        |> Html.map cfg.lift
 

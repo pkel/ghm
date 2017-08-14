@@ -259,14 +259,14 @@ customerNoteCfg : NoteCard.Cfg Msg
 customerNoteCfg =
     { lift  = CustomerNoteCardMsg
     , index = [800]
-    , title = "Kundennotiz"
+    , title = "Anmerkungen"
     }
 
 bookingNoteCfg : NoteCard.Cfg Msg
 bookingNoteCfg =
     { lift  = BookingNoteCardMsg
     , index = [801]
-    , title = "Buchungsnotiz"
+    , title = "Notiz zur Buchung"
     }
 
 customerCfg : CustomerCard.Cfg Msg
@@ -347,8 +347,8 @@ body model =
         grid
             [ Grid.noSpacing
             ]
-            [ cell [ size All 4 ] [ customer, customerNote, selection ]
-            , cell [ size All 4 ] [ individuals ]
+            [ cell [ size All 4 ] [ customer, customerNote ]
+            , cell [ size All 4 ] [ selection, individuals ]
             , cell [ size All 4 ] [ bookingNote ]
             ]
 
