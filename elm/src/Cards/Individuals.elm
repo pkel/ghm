@@ -17,6 +17,8 @@ import Material.Options as Options
 import Material.Grid as Grid exposing (Device(..))
 import Material.List as Lists
 import Material.Button as Button
+import Material.Style as Style
+import Material.GriddedForm as Form
 
 import Booking exposing (Individual)
 
@@ -189,19 +191,10 @@ view cfg mdl model =
 
         field i label up show check hint (nth,el) =
             let val = show el
-                props =
-                [ Options.onInput (\x -> Change nth (up x))
-                , Textfield.label label
-                , Textfield.floatingLabel
-                , Textfield.value val
-                , Textfield.error hint |> Options.when (not <| check val)
-                , Options.css "width" "100%"
-                -- , Options.css "padding-bottom" "1"
-                -- , Options.css "font-size" "13px"
-                ]
+                error = Textfield.error hint |> Options.when (not <| check val)
+                action = Change nth << up
             in
-            Textfield.render Mdl (nth::(id i)) mdl
-                props []
+            Form.textfield Mdl (nth::(id i)) mdl [error] label action val
 
         miniButton = Defaults.buttonMini Mdl mdl
 
@@ -222,13 +215,12 @@ view cfg mdl model =
 
         delete (i, _)  = miniButton (i::(id 204)) "delete" (Delete i)
 
-        p0 = Options.css "padding" "0"
-        w100 = Options.css "width" "100%"
+        grid = Form.grid
+        cell = Form.cell
 
-        grid = Grid.grid [ p0, w100 ]
-        cell = Grid.cell
         s = Grid.size
-        li = Lists.li [ p0 ]
+
+        li = Form.li
 
         form i =
             grid
@@ -238,17 +230,14 @@ view cfg mdl model =
                 ]
 
         row i =
-            li
-                [ Lists.content [] [ form i ]
-                , delete i
-                ]
+            li [ form i, delete i ]
 
         add = Defaults.button Mdl mdl (id 100) "add" Add
 
         lst = model.cache |> Array.toIndexedList
 
         list =
-            List.map row lst |> Lists.ul [ p0 ]
+            List.map row lst |> Form.ul |> Form.contain
 
 
         actions =
@@ -257,7 +246,7 @@ view cfg mdl model =
             , button True        (id 304) "add"    Add
             ]
     in
-        [ Card.text [] [ list ]
+        [ Card.actions [] [ list ]
         , Card.actions [ Defaults.actions ] actions
         ]
         |> ( \x -> case cfg.title of

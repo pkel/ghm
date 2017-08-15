@@ -7,6 +7,7 @@ import Material.Icon as Icon
 import Material.Options as Options
 import Material.Typography as Typography
 import Material.Card as Card
+import Material.Style as Style
 
 import Markdown
 
@@ -17,7 +18,7 @@ card =
     Options.many
         [ Elevation.e2
         , Options.css "margin" "0.5em"
-        , Options.css "width" "auto"
+        , Style.widthAuto
         ]
 
 actions : Options.Property () m

@@ -18,6 +18,8 @@ import Material.Tabs as Tabs
 import Material.Button as Button
 import Material.Textfield as Textfield
 import Material.Options as Options
+import Material.Style as Style
+import Material.GriddedForm as Form
 
 import Defaults
 
@@ -211,14 +213,8 @@ view cfg mdl model =
                         ] l )
 
         tf i label value msg =
-            Textfield.render Mdl (index i) mdl
-                [ Textfield.value (value model.cache)
-                , Textfield.floatingLabel
-                , Textfield.label (label)
-                , Textfield.text_
-                , Options.css "width" "100%"
-                , Options.onInput (Change << msg)
-                ] ()
+            Form.textfield Mdl (index i) mdl [] label
+                (Change << msg) (value model.cache)
 
         s        = Grid.size
         full     = [ s Desktop 12, s Tablet 8, s Phone 4 ]
@@ -226,9 +222,10 @@ view cfg mdl model =
         three4th = [ s Desktop 9 , s Tablet 6, s Phone 3 ]
         half     = [ s Desktop 6 , s Tablet 4, s Phone 2 ]
 
-        f size i label value msg = Grid.cell size [ tf i label value msg ]
+        f size i label value msg =
+            Form.cell size [ tf i label value msg ]
 
-        grid = Grid.grid [ Options.css "padding" "0" ]
+        grid = Form.grid
 
         nameTab =
             grid
@@ -239,6 +236,7 @@ view cfg mdl model =
                 , f half     9  "Zweitname"    .second       Second
                 , f full     10 "Nachname"     .family       Family
                 ]
+            |> Form.contain
 
         addressTab =
             grid
@@ -249,6 +247,7 @@ view cfg mdl model =
                 , f three4th 25 "Land"         .country       Country
                 , f one4th   26 "Ländercode"   .country_code  Country_code
                 ]
+            |> Form.contain
 
         contactTab =
             grid
@@ -261,6 +260,7 @@ view cfg mdl model =
                 , f full 47 "Email"        .mail2  Mail2
                 , f full 48 "Website"      .web    Web
                 ]
+            |> Form.contain
 
         tabs = Tabs.render Mdl (index 4) mdl
                 [ Tabs.onSelectTab SelectTab
@@ -275,7 +275,7 @@ view cfg mdl model =
 
         cardContent =
             -- [ Card.title [ Defaults.cardTitle ] [ text model.cache.keyword ]
-            [ Card.text [] [ tabs ]
+            [ Card.actions [] [ tabs ]
             , Card.actions [ Defaults.actions ] actions
             ]
     in

@@ -279,7 +279,7 @@ individualsCfg : Cards.Individuals.Cfg Msg
 individualsCfg =
     { lift  = IndividualsCardMsg
     , index = [803]
-    , title = Just "Gäste"
+    , title = Nothing
     }
 
 bookingSelectionCfg : Cards.Selection.Cfg Msg Booking.Summary

@@ -50,7 +50,7 @@ type alias Booking =
     { booking_id       : Maybe Int
     , state            : Int
     , deposit_asked    : Maybe Float
-    , deposit_git      : Maybe Float
+    , deposit_got      : Maybe Float
     , no_tax           : Bool
     , note             : String
     , individuals      : List Individual
