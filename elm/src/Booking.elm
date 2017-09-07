@@ -41,7 +41,6 @@ type alias Room =
     , factor        : Float
     , description   : String
     , breakfast     : Bool
-    , note          : String
     , from          : Maybe Date
     , to            : Maybe Date
     }
@@ -135,7 +134,6 @@ decodeRoom =
             |> optional "factor"        float 1.0
             |> optional "description"   string ""
             |> optional "breakfast"     bool True
-            |> optional "note"          string ""
             |> optional "from_date"     (nullable date) Nothing
             |> optional "to_date"       (nullable date) Nothing
 
@@ -149,7 +147,7 @@ emptyIndividual =
 -- TODO: Read default from config / database
 emptyRoom : Room
 emptyRoom =
-    Room Nothing 2 0.0 1.0 "" True "" Nothing Nothing
+    Room Nothing 2 0.0 1.0 "" True Nothing Nothing
 
 empty : Booking
 empty =

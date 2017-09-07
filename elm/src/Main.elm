@@ -25,8 +25,9 @@ import Helpers.Array as ArrayX
 
 import Cards.Note as NoteCard
 import Cards.Customer as CustomerCard
-import Cards.Individuals
 import Cards.Selection
+import Cards.Rooms
+import Cards.Individuals
 
 import Date.Format as DateF
 
@@ -49,16 +50,17 @@ main =
 type alias Mdl = Material.Model
 
 type alias Model =
-  { customerId : Maybe Int
-  , customer : Customer
-  , bookings : Array Booking
-  , filter : String
-  , focusedBooking : Int
-  , customerCard : CustomerCard.Model
+  { customerId       : Maybe Int
+  , customer         : Customer
+  , bookings         : Array Booking
+  , filter           : String
+  , focusedBooking   : Int
+  , customerCard     : CustomerCard.Model
   , customerNoteCard : NoteCard.Model
-  , individualsCard : Cards.Individuals.Model
-  , bookingNoteCard : NoteCard.Model
-  , mdl : Mdl
+  , individualsCard  : Cards.Individuals.Model
+  , roomsCard        : Cards.Rooms.Model
+  , bookingNoteCard  : NoteCard.Model
+  , mdl              : Mdl
   }
 
 empty : Model
@@ -71,6 +73,7 @@ empty =
     , customerNoteCard = NoteCard.init ""
     , bookingNoteCard  = NoteCard.init ""
     , individualsCard  = Cards.Individuals.init []
+    , roomsCard        = Cards.Rooms.init []
     , focusedBooking   = -1
     , mdl = Material.model
     }
@@ -100,12 +103,14 @@ type Msg
     | UpdatedCustomerNote String
     | UpdatedBookingNote  String
     | UpdatedIndividuals (List Individual)
+    | UpdatedRooms       (List Room)
 
     -- Pass through
     | CustomerCardMsg     (CustomerCard.Msg Msg)
     | CustomerNoteCardMsg (NoteCard.Msg Msg)
     | BookingNoteCardMsg  (NoteCard.Msg Msg)
     | IndividualsCardMsg  (Cards.Individuals.Msg Msg)
+    | RoomsCardMsg        (Cards.Rooms.Msg Msg)
 
     -- Material Boilerplate
     | Mdl (Material.Msg Msg)
@@ -119,6 +124,7 @@ selectBooking i model =
             { model
             | focusedBooking  = i
             , individualsCard = Cards.Individuals.init booking.individuals
+            , roomsCard       = Cards.Rooms.init       booking.rooms
             , bookingNoteCard = NoteCard.init booking.note
             }
 
@@ -203,6 +209,15 @@ update msg model =
             pure { model | bookings = bookings_ }
             -- TODO: Save stuff to server
 
+    UpdatedRooms lst ->
+        let mod b =
+                { b | rooms = lst }
+            bookings_ =
+                ArrayX.modify model.focusedBooking mod model.bookings
+        in
+            pure { model | bookings = bookings_ }
+            -- TODO: Save stuff to server
+
     CustomerCardMsg msg_ ->
         liftCallback
             { delete = Ignore -- TODO: implement customer deletion
@@ -229,6 +244,15 @@ update msg model =
             }             .individualsCard
             (\m x -> { m | individualsCard = x })
             Cards.Individuals.update
+            msg_ model
+
+    RoomsCardMsg       msg_ ->
+        liftCallback
+            { mdl = Mdl
+            , updated = UpdatedRooms
+            }             .roomsCard
+            (\m x -> { m | roomsCard = x })
+            Cards.Rooms.update
             msg_ model
 
     BookingNoteCardMsg msg_ ->
@@ -279,6 +303,13 @@ individualsCfg : Cards.Individuals.Cfg Msg
 individualsCfg =
     { lift  = IndividualsCardMsg
     , index = [803]
+    , title = Nothing
+    }
+
+roomsCfg : Cards.Rooms.Cfg Msg
+roomsCfg =
+    { lift  = RoomsCardMsg
+    , index = [804]
     , title = Nothing
     }
 
@@ -337,6 +368,13 @@ body model =
             model.mdl
             model.individualsCard
 
+        -- list of rooms, editable
+
+        rooms = Cards.Rooms.view
+            roomsCfg
+            model.mdl
+            model.roomsCard
+
         -- booking note
 
         bookingNote = NoteCard.view
@@ -349,7 +387,7 @@ body model =
             ]
             [ cell [ size All 4 ] [ customer, customerNote ]
             , cell [ size All 4 ] [ selection, individuals ]
-            , cell [ size All 4 ] [ bookingNote ]
+            , cell [ size All 4 ] [ rooms, bookingNote ]
             ]
 
 
