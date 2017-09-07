@@ -218,13 +218,13 @@ view cfg mdl model =
 
         true str = True
 
-        room          = field 201 "Nr." Room          .room          true ""
-        beds          = field 202 ""    Beds          .beds          true ""
-        price_per_bed = field 203 "P"   Price_per_bed .price_per_bed true ""
-        factor        = field 204 "F"   Factor        .factor        true ""
-        description   = field 205 "Dsc" Description   .description   true ""
-        from          = field 207 "Frm" From          .from          true ""
-        to            = field 208 "To"  To            .to            true ""
+        room          = field 201 "Nr."  Room          .room          true ""
+        beds          = field 202 "Betten"  Beds          .beds          true ""
+        price_per_bed = field 203 "Preis"   Price_per_bed .price_per_bed true ""
+        factor        = field 204 "Faktor"   Factor        .factor        true ""
+        description   = field 205 "Beschr." Description   .description   true ""
+        from          = field 207 "Von"     From          .from          true ""
+        to            = field 208 "Bis"     To            .to            true ""
 
         delete (i, _)  = miniButton (i::(id 204)) "delete" (Delete i)
 
@@ -237,21 +237,24 @@ view cfg mdl model =
 
         form i =
             grid
-                [ cell [s All 4] [room   i]
-                , cell [s All 4] [beds   i]
-                , cell [s All 4] [price_per_bed  i]
+                [ cell [s All 2]  [room   i]
+                , cell [s All 2]  [beds   i]
+                , cell [s All 2]  [price_per_bed  i]
+                , cell [s All 2]  [factor  i]
+                , cell [s All 4]  [from  i]
+                , cell [s All 8]  [description  i]
+                , cell [s All 4]  [to  i]
                 ]
 
         row i =
-            li [ form i, delete i ]
+            li [ form i |> Form.contain , delete i ]
 
         add = Defaults.button Mdl mdl (id 100) "add" Add
 
         lst = model.cache |> Array.toIndexedList
 
         list =
-            List.map row lst |> Form.ul |> Form.contain
-
+            List.map row lst |> Form.ul
 
         actions =
             [ button model.dirty (id 302) "cancel" Abort

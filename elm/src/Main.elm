@@ -158,7 +158,6 @@ update msg model =
 
     CustomerReceived (Ok c) ->
         let b  = Array.fromList c.bookings
-            summaries = List.map Booking.summary c.bookings
             c_ = { c | bookings = [] }
         in
             { model
