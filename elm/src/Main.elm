@@ -384,9 +384,9 @@ body model =
         grid
             [ Grid.noSpacing
             ]
-            [ cell [ size All 4 ] [ customer, customerNote ]
-            , cell [ size All 4 ] [ selection, individuals ]
-            , cell [ size All 4 ] [ rooms, bookingNote ]
+            [ cell [ size All 4 ] [ customer, selection, customerNote ]
+            , cell [ size All 4 ] [ rooms ] -- booking info missing
+            , cell [ size All 4 ] [ individuals, bookingNote ]
             ]
 
 
