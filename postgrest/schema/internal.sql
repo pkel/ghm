@@ -78,8 +78,6 @@ create table booked_rooms (
 
     breakfast         bool not null default true,
 
-    note              text not null default '',
-
     from_date         date,
     to_date           date
 );

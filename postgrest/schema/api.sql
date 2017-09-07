@@ -184,8 +184,6 @@ create view booked_rooms as select
 
     breakfast,
 
-    note,
-
     from_date,
     to_date
   from internal.booked_rooms;
