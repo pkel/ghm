@@ -15,5 +15,5 @@ modify : Int -> (a -> a) -> Array a -> Array a
 modify i f arr =
     case get i arr of
         Nothing -> arr
-        Just el -> set i el arr
+        Just el -> set i (f el) arr
 

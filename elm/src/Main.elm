@@ -34,8 +34,6 @@ import Date.Format as DateF
 import Database as Db
 import Http
 
-import Debug exposing (log)
-
 main =
   Html.program
   { init = init

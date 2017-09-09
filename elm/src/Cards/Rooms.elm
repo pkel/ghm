@@ -33,41 +33,6 @@ import Helpers.Array as ArrayX
 import Form.Show  as FShow
 import Form.Parse as FParse
 
-
-type alias CacheItem =
-    { room          : String
-    , beds          : String
-    , price_per_bed : String
-    , factor        : String
-    , description   : String
-    , from          : String
-    , to            : String
-    }
-
-emptyCacheItem : CacheItem
-emptyCacheItem =
-    { room          = ""
-    , beds          = ""
-    , price_per_bed = ""
-    , factor        = ""
-    , description   = ""
-    , from          = ""
-    , to            = ""
-    }
-
-initCacheItem : Room -> CacheItem
-initCacheItem r =
-    let f field = field.set (field.init (field.get r)) in
-    emptyCacheItem
-    |> f room
-    |> f beds
-    |> f price_per_bed
-    |> f factor
-    |> f description
-    |> f from
-    |> f to
-
--- room : Input Int
 room =
     { set   = \v r -> { r | room = v }
     , get   = .room
@@ -141,6 +106,39 @@ to =
     , label = "Bis"
     }
 
+type alias CacheItem =
+    { room          : String
+    , beds          : String
+    , price_per_bed : String
+    , factor        : String
+    , description   : String
+    , from          : String
+    , to            : String
+    }
+
+emptyCacheItem : CacheItem
+emptyCacheItem =
+    { room          = ""
+    , beds          = ""
+    , price_per_bed = ""
+    , factor        = ""
+    , description   = ""
+    , from          = ""
+    , to            = ""
+    }
+
+initCacheItem : Room -> CacheItem
+initCacheItem r =
+    let f field = field.set (field.init (field.get r)) in
+    emptyCacheItem
+    |> f room
+    |> f beds
+    |> f price_per_bed
+    |> f factor
+    |> f description
+    |> f from
+    |> f to
+
 extractItem : CacheItem -> Result String Room
 extractItem i =
     let mbInt  = FParse.maybe FParse.int
@@ -156,14 +154,6 @@ extractItem i =
     |> ex from
     |> ex to
 
-type alias Data = List Room
-
-type alias Model =
-    { dirty : Bool
-    , cache : Array CacheItem
-    , data  : Data
-    }
-
 type ItemMsg
     = Room          String
     | Beds          String
@@ -172,6 +162,28 @@ type ItemMsg
     | Description   String
     | From          String
     | To            String
+
+updateItem : ItemMsg -> CacheItem -> CacheItem
+updateItem msg item =
+    let set val field = field.set val item
+    in
+        case msg of
+            Room          str -> set str room
+            Beds          str -> set str beds
+            Price_per_bed str -> set str price_per_bed
+            Factor        str -> set str factor
+            Description   str -> set str description
+            From          str -> set str from
+            To            str -> set str to
+
+
+type alias Data = List Room
+
+type alias Model =
+    { dirty : Bool
+    , cache : Array CacheItem
+    , data  : Data
+    }
 
 type Msg msg
     = Change Int ItemMsg
@@ -242,19 +254,6 @@ update cb msg model =
 
         Mdl msg -> model |> callback (cb.mdl msg)
 
-
-updateItem : ItemMsg -> CacheItem -> CacheItem
-updateItem msg item =
-    let set val field = field.set val item
-    in
-        case msg of
-            Room          str -> set str room
-            Beds          str -> set str beds
-            Price_per_bed str -> set str price_per_bed
-            Factor        str -> set str factor
-            Description   str -> set str description
-            From          str -> set str from
-            To            str -> set str to
 
 
 -- View
