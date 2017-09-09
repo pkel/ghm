@@ -72,12 +72,11 @@ room =
     { set   = \v r -> { r | room = v } -- This is not part of Input
     , get   = .room
     , msg   = Room
-    , parse = FParse.maybe FParse.int
+    , parse = FParse.int
+        |> FParse.check (\x -> x >= 0 && x < 100)
+        |> FParse.maybe
     , init  =  FShow.maybe  FShow.int
-    , valid = \mb -> Maybe.map (\x -> x >= 0 && x < 100) mb
-        |> Maybe.withDefault True
     , hint  = "0-99"
-    , key   = "room"
     , label = "Nr."
     }
 
@@ -86,10 +85,9 @@ beds =
     , get   = .beds
     , msg   = Beds
     , parse = FParse.int
+        |> FParse.check (\x -> x >= 0 && x < 100)
     , init  =  FShow.int
-    , valid = \x -> x >= 0 && x < 100
     , hint  = "0-99"
-    , key   = "beds"
     , label = "Betten"
     }
 
@@ -99,9 +97,7 @@ price_per_bed =
     , msg   = Price_per_bed
     , parse = FParse.float
     , init  =  FShow.float
-    , valid = \x -> True
     , hint  = toString 32.30
-    , key   = "price"
     , label = "Preis"
     }
 
@@ -111,9 +107,7 @@ factor =
     , msg   = Factor
     , parse = FParse.float
     , init  =  FShow.float
-    , valid = \x -> True
     , hint  = toString 0.75
-    , key   = "factor"
     , label = "Faktor"
     }
 
@@ -123,9 +117,7 @@ description =
     , msg   = Description
     , parse = FParse.string
     , init  =  FShow.string
-    , valid = \x -> True
     , hint  = "Einzelzimmer"
-    , key   = "description"
     , label = "Beschreibung"
     }
 
@@ -135,9 +127,7 @@ from =
     , msg   = From
     , parse = FParse.maybe FParse.date
     , init  =  FShow.maybe  FShow.date
-    , valid = \x -> True
     , hint  = FShow.dateFormatHint
-    , key   = "from"
     , label = "Von"
     }
 
@@ -147,9 +137,7 @@ to =
     , msg   = To
     , parse = FParse.maybe FParse.date
     , init  =  FShow.maybe  FShow.date
-    , valid = \x -> True
     , hint  = FShow.dateFormatHint
-    , key   = "to"
     , label = "Bis"
     }
 
@@ -157,7 +145,7 @@ extractItem : CacheItem -> Maybe Room
 extractItem i =
     let mbInt  = FParse.maybe FParse.int
         mbDate = FParse.maybe FParse.date
-        ex x = Result.map2 x.set ( x.parse (x.get i)) -- use room.valid
+        ex x = Result.map2 x.set ( x.parse (x.get i))
     in
     Ok Booking.emptyRoom
     |> ex room
@@ -284,8 +272,9 @@ view cfg mdl model =
 
         field i spec (nth,el) =
             let val = spec.get el
-                check val = spec.parse val |> Result.map spec.valid
-                    |> Result.withDefault False
+                check val = case spec.parse val of
+                    Err () -> False
+                    Ok  _  -> True
                 error = Textfield.error spec.hint |> Options.when (not <| check val)
                 action = Change nth << spec.msg
             in

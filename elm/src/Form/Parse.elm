@@ -13,6 +13,11 @@ maybe f s =
         ""  -> Ok Nothing
         str -> Result.map Just (f str)
 
+check : ( a -> Bool ) -> ( String -> R a ) -> String -> R a
+check valid parse str =
+    parse str
+    |> Result.andThen (\x -> if valid x then Ok x else Err ())
+
 string : String -> R String
 string s =
     trim s |> Ok
