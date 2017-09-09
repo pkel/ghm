@@ -69,40 +69,40 @@ initCacheItem r =
 
 -- room : Input Int
 room =
-    { set   = \v r -> { r | room = v } -- This is not part of Input
+    { set   = \v r -> { r | room = v }
     , get   = .room
     , msg   = Room
     , parse = FParse.int
-        |> FParse.check (\x -> x >= 0 && x < 100)
+        |> FParse.check (\x -> x > 0)
         |> FParse.maybe
     , init  =  FShow.maybe  FShow.int
-    , hint  = "0-99"
+    , hint  = "1, 2, ..."
     , label = "Nr."
     }
 
 beds =
-    { set   = \v r -> { r | beds = v } -- This is not part of Input
+    { set   = \v r -> { r | beds = v }
     , get   = .beds
     , msg   = Beds
     , parse = FParse.int
-        |> FParse.check (\x -> x >= 0 && x < 100)
+        |> FParse.check (\x -> x >= 0)
     , init  =  FShow.int
-    , hint  = "0-99"
+    , hint  = "0, 1, ..."
     , label = "Betten"
     }
 
 price_per_bed =
-    { set   = \v r -> { r | price_per_bed = v } -- This is not part of Input
+    { set   = \v r -> { r | price_per_bed = v }
     , get   = .price_per_bed
     , msg   = Price_per_bed
     , parse = FParse.float
     , init  =  FShow.float
-    , hint  = toString 32.30
+    , hint  = toString 44.49
     , label = "Preis"
     }
 
 factor =
-    { set   = \v r -> { r | factor = v } -- This is not part of Input
+    { set   = \v r -> { r | factor = v }
     , get   = .factor
     , msg   = Factor
     , parse = FParse.float
@@ -112,7 +112,7 @@ factor =
     }
 
 description =
-    { set   = \v r -> { r | description = v } -- This is not part of Input
+    { set   = \v r -> { r | description = v }
     , get   = .description
     , msg   = Description
     , parse = FParse.string
@@ -122,7 +122,7 @@ description =
     }
 
 from =
-    { set   = \v r -> { r | from = v } -- This is not part of Input
+    { set   = \v r -> { r | from = v }
     , get   = .from
     , msg   = From
     , parse = FParse.maybe FParse.date
@@ -132,7 +132,7 @@ from =
     }
 
 to =
-    { set   = \v r -> { r | to = v } -- This is not part of Input
+    { set   = \v r -> { r | to = v }
     , get   = .to
     , msg   = To
     , parse = FParse.maybe FParse.date
@@ -141,7 +141,7 @@ to =
     , label = "Bis"
     }
 
-extractItem : CacheItem -> Maybe Room
+extractItem : CacheItem -> Result String Room
 extractItem i =
     let mbInt  = FParse.maybe FParse.int
         mbDate = FParse.maybe FParse.date
@@ -155,7 +155,6 @@ extractItem i =
     |> ex description
     |> ex from
     |> ex to
-    |> Result.toMaybe
 
 type alias Data = List Room
 
@@ -194,11 +193,11 @@ dirty model =
     { model | dirty = True }
 
 
-extract : Model -> Maybe Data
+extract : Model -> Result String Data
 extract model =
     Array.toList model.cache
-    |> List.foldl (\i acc -> Maybe.map2 (::) (extractItem i) acc) (Just [])
-    |> Maybe.map List.reverse
+    |> List.foldl (\i acc -> Result.map2 (::) (extractItem i) acc) (Ok [])
+    |> Result.map List.reverse
 
 
 -- Update
@@ -238,8 +237,8 @@ update cb msg model =
 
         Save ->
             case extract model of
-                Nothing -> pure model
-                Just data -> init data |> callback (cb.updated data)
+                Err _ -> pure model
+                Ok data -> init data |> callback (cb.updated data)
 
         Mdl msg -> model |> callback (cb.mdl msg)
 
@@ -248,14 +247,14 @@ updateItem : ItemMsg -> CacheItem -> CacheItem
 updateItem msg item =
     let set val field = field.set val item
     in
-    case msg of
-        Room          str -> set str room
-        Beds          str -> set str beds
-        Price_per_bed str -> set str price_per_bed
-        Factor        str -> set str factor
-        Description   str -> set str description
-        From          str -> set str from
-        To            str -> set str to
+        case msg of
+            Room          str -> set str room
+            Beds          str -> set str beds
+            Price_per_bed str -> set str price_per_bed
+            Factor        str -> set str factor
+            Description   str -> set str description
+            From          str -> set str from
+            To            str -> set str to
 
 
 -- View
@@ -273,8 +272,8 @@ view cfg mdl model =
         field i spec (nth,el) =
             let val = spec.get el
                 check val = case spec.parse val of
-                    Err () -> False
-                    Ok  _  -> True
+                    Err _ -> False
+                    Ok  _ -> True
                 error = Textfield.error spec.hint |> Options.when (not <| check val)
                 action = Change nth << spec.msg
             in
@@ -327,9 +326,13 @@ view cfg mdl model =
         list =
             List.map row lst |> Form.ul
 
+        save = case extract model of
+            Err _ -> False
+            Ok _  -> model.dirty
+
         actions =
             [ button model.dirty (id 302) "cancel" Abort
-            , button model.dirty (id 303) "save"   Save
+            , button save        (id 303) "save"   Save
             , button True        (id 304) "add"    Add
             ]
     in
