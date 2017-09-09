@@ -40,7 +40,6 @@ type alias CacheItem =
     , price_per_bed : String
     , factor        : String
     , description   : String
-    , breakfast     : Bool
     , from          : String
     , to            : String
     }
@@ -52,41 +51,122 @@ emptyCacheItem =
     , price_per_bed = ""
     , factor        = ""
     , description   = ""
-    , breakfast     = True
     , from          = ""
     , to            = ""
     }
 
 initCacheItem : Room -> CacheItem
-initCacheItem x =
-    let mbInt  = FShow.maybe FShow.int
-        mbDate = FShow.maybe FShow.date
-    in
-    { room          = x.room          |> mbInt
-    , beds          = x.beds          |> FShow.int
-    , price_per_bed = x.price_per_bed |> FShow.float
-    , factor        = x.factor        |> FShow.float
-    , description   = x.description   |> FShow.string
-    , breakfast     = x.breakfast
-    , from          = x.from          |> mbDate
-    , to            = x.to            |> mbDate
+initCacheItem r =
+    let f field = field.set (field.init (field.get r)) in
+    emptyCacheItem
+    |> f room
+    |> f beds
+    |> f price_per_bed
+    |> f factor
+    |> f description
+    |> f from
+    |> f to
+
+-- room : Input Int
+room =
+    { set   = \v r -> { r | room = v } -- This is not part of Input
+    , get   = .room
+    , msg   = Room
+    , parse = FParse.maybe FParse.int
+    , init  =  FShow.maybe  FShow.int
+    , valid = \mb -> Maybe.map (\x -> x >= 0 && x < 100) mb
+        |> Maybe.withDefault True
+    , hint  = "0-99"
+    , key   = "room"
+    , label = "Nr."
+    }
+
+beds =
+    { set   = \v r -> { r | beds = v } -- This is not part of Input
+    , get   = .beds
+    , msg   = Beds
+    , parse = FParse.int
+    , init  =  FShow.int
+    , valid = \x -> x >= 0 && x < 100
+    , hint  = "0-99"
+    , key   = "beds"
+    , label = "Betten"
+    }
+
+price_per_bed =
+    { set   = \v r -> { r | price_per_bed = v } -- This is not part of Input
+    , get   = .price_per_bed
+    , msg   = Price_per_bed
+    , parse = FParse.float
+    , init  =  FShow.float
+    , valid = \x -> True
+    , hint  = toString 32.30
+    , key   = "price"
+    , label = "Preis"
+    }
+
+factor =
+    { set   = \v r -> { r | factor = v } -- This is not part of Input
+    , get   = .factor
+    , msg   = Factor
+    , parse = FParse.float
+    , init  =  FShow.float
+    , valid = \x -> True
+    , hint  = toString 0.75
+    , key   = "factor"
+    , label = "Faktor"
+    }
+
+description =
+    { set   = \v r -> { r | description = v } -- This is not part of Input
+    , get   = .description
+    , msg   = Description
+    , parse = FParse.string
+    , init  =  FShow.string
+    , valid = \x -> True
+    , hint  = "Einzelzimmer"
+    , key   = "description"
+    , label = "Beschreibung"
+    }
+
+from =
+    { set   = \v r -> { r | from = v } -- This is not part of Input
+    , get   = .from
+    , msg   = From
+    , parse = FParse.maybe FParse.date
+    , init  =  FShow.maybe  FShow.date
+    , valid = \x -> True
+    , hint  = FShow.dateFormatHint
+    , key   = "from"
+    , label = "Von"
+    }
+
+to =
+    { set   = \v r -> { r | to = v } -- This is not part of Input
+    , get   = .to
+    , msg   = To
+    , parse = FParse.maybe FParse.date
+    , init  =  FShow.maybe  FShow.date
+    , valid = \x -> True
+    , hint  = FShow.dateFormatHint
+    , key   = "to"
+    , label = "Bis"
     }
 
 extractItem : CacheItem -> Maybe Room
 extractItem i =
     let mbInt  = FParse.maybe FParse.int
         mbDate = FParse.maybe FParse.date
-        a = Result.map2
+        ex x = Result.map2 x.set ( x.parse (x.get i)) -- use room.valid
     in
-    Ok emptyCacheItem
-    |> a ( \v r -> { r | room          = v } ) ( mbInt         i.room          )
-    |> a ( \v r -> { r | beds          = v } ) ( FParse.int    i.beds          )
-    |> a ( \v r -> { r | price_per_bed = v } ) ( FParse.float  i.price_per_bed )
-    |> a ( \v r -> { r | factor        = v } ) ( FParse.float  i.factor        )
-    |> a ( \v r -> { r | description   = v } ) ( FParse.string i.description   )
-    |> a ( \v r -> { r | breakfast     = v } ) ( Ok            i.breakfast     )
-    |> a ( \v r -> { r | from          = v } ) ( mbDate        i.from          )
-    |> a ( \v r -> { r | to            = v } ) ( mbDate        i.to            )
+    Ok Booking.emptyRoom
+    |> ex room
+    |> ex beds
+    |> ex price_per_bed
+    |> ex factor
+    |> ex description
+    |> ex from
+    |> ex to
     |> Result.toMaybe
 
 type alias Data = List Room
@@ -105,7 +185,6 @@ type ItemMsg
     | Description   String
     | From          String
     | To            String
-    | Breakfast     Bool
 
 type Msg msg
     = Change Int ItemMsg
@@ -179,15 +258,16 @@ update cb msg model =
 
 updateItem : ItemMsg -> CacheItem -> CacheItem
 updateItem msg item =
+    let set val field = field.set val item
+    in
     case msg of
-        Room          str -> { item | room          = str  }
-        Beds          str -> { item | beds          = str  }
-        Price_per_bed str -> { item | price_per_bed = str  }
-        Factor        str -> { item | factor        = str  }
-        Description   str -> { item | description   = str  }
-        From          str -> { item | from          = str  }
-        To            str -> { item | to            = str  }
-        Breakfast    bool -> { item | breakfast     = bool }
+        Room          str -> set str room
+        Beds          str -> set str beds
+        Price_per_bed str -> set str price_per_bed
+        Factor        str -> set str factor
+        Description   str -> set str description
+        From          str -> set str from
+        To            str -> set str to
 
 
 -- View
@@ -202,12 +282,14 @@ view : Cfg msg -> Material.Model -> Model -> Html msg
 view cfg mdl model =
     let id x = (x :: cfg.index)
 
-        field i label up show check hint (nth,el) =
-            let val = show el
-                error = Textfield.error hint |> Options.when (not <| check val)
-                action = Change nth << up
+        field i spec (nth,el) =
+            let val = spec.get el
+                check val = spec.parse val |> Result.map spec.valid
+                    |> Result.withDefault False
+                error = Textfield.error spec.hint |> Options.when (not <| check val)
+                action = Change nth << spec.msg
             in
-            Form.textfield Mdl (nth::(id i)) mdl [error] label action val
+            Form.textfield Mdl (nth::(id i)) mdl [error] spec.label action val
 
         miniButton = Defaults.buttonMini Mdl mdl
 
@@ -218,13 +300,13 @@ view cfg mdl model =
 
         true str = True
 
-        room          = field 201 "Nr."  Room          .room          true ""
-        beds          = field 202 "Betten"  Beds          .beds          true ""
-        price_per_bed = field 203 "Preis"   Price_per_bed .price_per_bed true ""
-        factor        = field 204 "Faktor"   Factor        .factor        true ""
-        description   = field 205 "Beschr." Description   .description   true ""
-        from          = field 207 "Von"     From          .from          true ""
-        to            = field 208 "Bis"     To            .to            true ""
+        f_room          = field 201 room
+        f_beds          = field 202 beds
+        f_price_per_bed = field 203 price_per_bed
+        f_factor        = field 204 factor
+        f_description   = field 205 description
+        f_from          = field 207 from
+        f_to            = field 208 to
 
         delete (i, _)  = miniButton (i::(id 204)) "delete" (Delete i)
 
@@ -237,13 +319,13 @@ view cfg mdl model =
 
         form i =
             grid
-                [ cell [s All 2]  [room   i]
-                , cell [s All 2]  [beds   i]
-                , cell [s All 2]  [price_per_bed  i]
-                , cell [s All 2]  [factor  i]
-                , cell [s All 4]  [from  i]
-                , cell [s All 8]  [description  i]
-                , cell [s All 4]  [to  i]
+                [ cell [s All 2]  [f_room   i]
+                , cell [s All 2]  [f_beds   i]
+                , cell [s All 2]  [f_price_per_bed  i]
+                , cell [s All 2]  [f_factor  i]
+                , cell [s All 4]  [f_from  i]
+                , cell [s All 8]  [f_description  i]
+                , cell [s All 4]  [f_to  i]
                 ]
 
         row i =
