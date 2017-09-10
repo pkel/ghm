@@ -28,48 +28,64 @@ import Html exposing (Html, text)
 import Html.Attributes as Attributes
 
 import Helpers.Array as ArrayX
-
 import Array exposing (Array)
 
 import Date exposing (Date)
-import Date.Format as DateF
 
-type alias CacheItem =
-    { given  : String
-    , family : String
-    , birth  : String
+import BufferedInput as Input
+
+given : Input.Spec String
+given =
+    { key      = "given"
+    , hint     = ""
+    , label    = "Vorname"
+    , typeSpec = Input.string
     }
 
-emptyCacheItem : CacheItem
-emptyCacheItem =
-    { given  = ""
-    , family = ""
-    , birth  = ""
+family : Input.Spec String
+family =
+    { key      = "family"
+    , hint     = ""
+    , label    = "Nachname"
+    , typeSpec = Input.string
     }
 
-initCacheItem : Individual -> CacheItem
-initCacheItem x =
-    { given  = x.given
-    , family = x.family
-    , birth  = Maybe.map (DateF.format "%Y-%m-%d") x.date_of_birth
-        |> Maybe.withDefault ""
+birth : Input.Spec (Maybe Date)
+birth =
+    { key      = "birth"
+    , hint     = Input.dateFormatHint
+    , label    = "Geburtsdatum"
+    , typeSpec = Input.maybe Input.date
     }
+
+initBuffer : Individual -> Input.Buffer
+initBuffer i =
+    let f spec get = Input.init spec (get i)
+    in
+        Input.empty
+        |> f given  .given
+        |> f family .family
+        |> f birth  .date_of_birth
+
+parseIndividual : Input.Buffer -> Result String Individual
+parseIndividual buf =
+    let f spec set = Result.map2 set (Input.parse spec buf)
+    in
+        Ok Booking.emptyIndividual
+        |> f given  (\v r -> { r | given  = v})
+        |> f family (\v r -> { r | family = v})
+        |> f birth  (\v r -> { r | date_of_birth  = v})
 
 type alias Data = List Individual
 
 type alias Model =
-    { dirty : Bool
-    , cache : Array CacheItem
-    , data  : Data
+    { dirty  : Bool
+    , buffer : Array Input.Buffer
+    , data   : Data
     }
 
-type ItemMsg
-    = Given  String
-    | Family String
-    | Birth  String
-
 type Msg msg
-    = Change Int ItemMsg
+    = Change Int Input.Updater String
     | Delete Int
     | Add
     | Abort
@@ -78,7 +94,7 @@ type Msg msg
 
 init : Data -> Model
 init data =
-    { cache = Array.fromList (List.map initCacheItem data)
+    { buffer = Array.fromList (List.map initBuffer data)
     , data  = data
     , dirty = False
     }
@@ -87,40 +103,11 @@ dirty : Model -> Model
 dirty model =
     { model | dirty = True }
 
-dateFormatHint : String
-dateFormatHint = "1995-04-15"
-
-extractBirth : String -> Result String (Maybe Date)
-extractBirth str =
-    let str_ = String.trim str in
-    case String.length str_ == 0 of
-        True -> Ok Nothing
-        False ->
-            case Date.fromString str_ of
-                Ok date -> Ok (Just date)
-                Err err -> Err err
-
-extract : Model -> Maybe Data
-extract model =
-    let birth str =
-            case extractBirth str of
-                Err err -> Nothing
-                Ok mbDate -> mbDate
-
-        f el =
-            extractBirth el.birth
-            |> Result.map ( \x ->
-                { given = String.trim el.given
-                , family = String.trim el.family
-                , date_of_birth = x
-                } )
-
-        fold el acc = Result.map2 (::) (f el) (acc)
-    in
-        Array.toList model.cache
-        |> List.foldl fold (Ok [])
-        |> Result.map List.reverse
-        |> Result.toMaybe
+parse : Model -> Result String Data
+parse model =
+    Array.toList model.buffer
+    |> List.foldl (\i acc -> Result.map2 (::) (parseIndividual i) acc) (Ok [])
+    |> Result.map List.reverse
 
 
 -- Update
@@ -133,48 +120,34 @@ type alias Callbacks msg =
 update : UpdateCallback msg (Callbacks msg) (Msg msg) Model
 update cb msg model =
     case msg of
-        Change index itemMsg ->
-            let cache_ =
-                    case Array.get index model.cache of
-                        Nothing -> model.cache
-                        Just el -> updateItem itemMsg el
-                            |> \x -> Array.set index x model.cache
+        Change index updater str ->
+            let f = Input.update updater str
+                buffer_ = ArrayX.modify index f model.buffer
             in
-            dirty { model | cache = cache_ } |> pure
+            dirty { model | buffer = buffer_ } |> pure
 
         Delete index ->
-            let cache_ =
-                    ArrayX.delete index model.cache
+            let buffer_ =
+                    ArrayX.delete index model.buffer
             in
-            dirty { model | cache = cache_ } |> pure
+            dirty { model | buffer = buffer_ } |> pure
 
         Add ->
-            let cache_ =
-                    model.cache |>
-                    Array.push (initCacheItem Booking.emptyIndividual)
+            let buffer_ =
+                    model.buffer |>
+                    Array.push (initBuffer Booking.emptyIndividual)
             in
-            dirty { model | cache = cache_ } |> pure
+            dirty { model | buffer = buffer_ } |> pure
 
         Abort ->
             init model.data |> pure
 
         Save ->
-            case extract model of
-                Nothing -> pure model
-                Just data -> init data |> callback (cb.updated data)
+            case parse model of
+                Err _ -> pure model
+                Ok data -> init data |> callback (cb.updated data)
 
         Mdl msg -> model |> callback (cb.mdl msg)
-
-
-updateItem : ItemMsg -> CacheItem -> CacheItem
-updateItem msg item =
-    case msg of
-        Given str ->
-            { item | given = str }
-        Family str ->
-            { item | family = str }
-        Birth str ->
-            { item | birth = str }
 
 
 -- View
@@ -189,12 +162,14 @@ view : Cfg msg -> Material.Model -> Model -> Html msg
 view cfg mdl model =
     let id x = (x :: cfg.index)
 
-        field i label up show check hint (nth,el) =
-            let val = show el
-                error = Textfield.error hint |> Options.when (not <| check val)
-                action = Change nth << up
+        -- TODO: This might belong into a seperate module
+        field i spec (nth,el) =
+            let val = Input.get spec el
+                error = Textfield.error spec.hint
+                    |> Options.when (not <| Input.valid spec el)
+                action str = Change nth (Input.updater spec) str
             in
-            Form.textfield Mdl (nth::(id i)) mdl [error] label action val
+            Form.textfield Mdl (nth::(id i)) mdl [error] spec.label action val
 
         miniButton = Defaults.buttonMini Mdl mdl
 
@@ -203,15 +178,9 @@ view cfg mdl model =
             , Button.raised
             ] Mdl mdl
 
-        true str = True
-
-        checkBirth str = case extractBirth str of
-            Ok _  -> True
-            Err _ -> False
-
-        given  = field 201 "Vorname"    Given  .given  true       ""
-        family = field 202 "Nachname"   Family .family true       ""
-        birth  = field 203 "Geburtstag" Birth  .birth  checkBirth dateFormatHint
+        f_given  = field 201 given
+        f_family = field 202 family
+        f_birth  = field 203 birth
 
         delete (i, _)  = miniButton (i::(id 204)) "delete" (Delete i)
 
@@ -224,9 +193,9 @@ view cfg mdl model =
 
         form i =
             grid
-                [ cell [s All 4] [given  i]
-                , cell [s All 4] [family i]
-                , cell [s All 4] [birth  i]
+                [ cell [s All 4] [f_given  i]
+                , cell [s All 4] [f_family i]
+                , cell [s All 4] [f_birth  i]
                 ]
 
         row i =
@@ -234,15 +203,18 @@ view cfg mdl model =
 
         add = Defaults.button Mdl mdl (id 100) "add" Add
 
-        lst = model.cache |> Array.toIndexedList
+        lst = model.buffer |> Array.toIndexedList
 
         list =
             List.map row lst |> Form.ul |> Form.contain
 
+        save = case parse model of
+            Err _ -> False
+            Ok _  -> model.dirty
 
         actions =
             [ button model.dirty (id 302) "cancel" Abort
-            , button model.dirty (id 303) "save"   Save
+            , button save        (id 303) "save"   Save
             , button True        (id 304) "add"    Add
             ]
     in
