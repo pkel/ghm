@@ -206,6 +206,7 @@ view : Cfg msg -> Material.Model -> Model -> Html msg
 view cfg mdl model =
     let id x = (x :: cfg.index)
 
+        -- TODO: This might belong into a seperate module
         field i spec (nth,el) =
             let val = Input.get spec el
                 error = Textfield.error spec.hint
@@ -220,8 +221,6 @@ view cfg mdl model =
             [ Button.disabled |> Options.when (not cond)
             , Button.raised
             ] Mdl mdl
-
-        true str = True
 
         f_room          = field 201 room
         f_beds          = field 202 beds
@@ -242,13 +241,13 @@ view cfg mdl model =
 
         form i =
             grid
-                [ cell [s All 2]  [f_room   i]
-                , cell [s All 2]  [f_beds   i]
-                , cell [s All 2]  [f_price_per_bed  i]
-                , cell [s All 2]  [f_factor  i]
-                , cell [s All 4]  [f_from  i]
-                , cell [s All 8]  [f_description  i]
-                , cell [s All 4]  [f_to  i]
+                [ cell [s All 2] [f_room          i]
+                , cell [s All 2] [f_beds          i]
+                , cell [s All 2] [f_price_per_bed i]
+                , cell [s All 2] [f_factor        i]
+                , cell [s All 4] [f_from          i]
+                , cell [s All 8] [f_description   i]
+                , cell [s All 4] [f_to            i]
                 ]
 
         row i =
