@@ -109,6 +109,8 @@ parseRoom : Input.Buffer -> Result String Room
 parseRoom buf =
     let f spec set = Result.map2 set (Input.parse spec buf)
     in
+        -- TODO: This potentially deletes field which where there on init
+        -- compare Cards.Customer
     Ok Booking.emptyRoom
     |> f room          (\v r -> { r | room          = v } )
     |> f beds          (\v r -> { r | beds          = v } )

@@ -71,6 +71,8 @@ parseIndividual : Input.Buffer -> Result String Individual
 parseIndividual buf =
     let f spec set = Result.map2 set (Input.parse spec buf)
     in
+        -- TODO: This potentially deletes field which where there on init
+        -- compare Cards.Customer
         Ok Booking.emptyIndividual
         |> f given  (\v r -> { r | given  = v})
         |> f family (\v r -> { r | family = v})

@@ -23,50 +23,53 @@ import Material.GriddedForm as Form
 
 import Defaults
 
+import BufferedInput as Input
+
 import Customer exposing (Customer)
 
 import Html exposing (Html, text, br)
 import Html.Attributes as Attributes
 
 type alias Model =
-    { dirty : Bool
-    , tab   : Int
-    , cache : Customer
-    , data  : Customer
+    { dirty  : Bool
+    , tab    : Int
+    , buffer : Input.Buffer
+    , data   : Customer
     }
 
-type ChangeMsg
-    = Title           String
-    | Title_letter    String
+stringSpec : String -> String -> Input.Spec String
+stringSpec key label =
+    { key = key
+    , typeSpec = Input.string
+    , hint  = ""
+    , label = label
+    }
 
-    | Given           String
-    | Second          String
-    | Family          String
-
-    | Company         String
-    | Company_address String
-
-    | Street          String
-    | Street_number   String
-    | City            String
-    | Postal_code     String
-    | Country         String
-    | Country_code    String
-
-    | Phone1          String -- Naming conflict with Material.Grid Device Phone
-    | Phone2          String
-    | Mobile          String
-    | Fax             String
-    | Fax2            String
-    | Mail            String
-    | Mail2           String
-    | Web             String
-
-    | Keyword         String
-
+keyword         = stringSpec "keyword"         "Kürzel"
+title           = stringSpec "title"           "Anrede"
+title_letter    = stringSpec "title_letter"    "Anrede Brief"
+given           = stringSpec "given"           "Vorname"
+second          = stringSpec "second"          "Zweitname"
+family          = stringSpec "family"          "Nachname"
+street          = stringSpec "street"          "Straße"
+street_number   = stringSpec "street_number"   "Hnr."
+postal_code     = stringSpec "postal_code"     "Postleitzahl"
+city            = stringSpec "city"            "Ort"
+country         = stringSpec "country"         "Land"
+country_code    = stringSpec "country_code"    "Ländercode"
+company         = stringSpec "company"         "Firma"
+company_address = stringSpec "company_address" "Adresse Firma"
+phone           = stringSpec "phone"           "Telefon"
+phone2          = stringSpec "phone2"          "Telefon"
+mobile          = stringSpec "mobile"          "Mobiltelefon"
+fax             = stringSpec "fax"             "Fax"
+fax2            = stringSpec "fax2"            "Fax"
+mail            = stringSpec "mail"            "Email"
+mail2           = stringSpec "mail2"           "Email"
+web             = stringSpec "web"             "Website"
 
 type Msg msg
-    = Change ChangeMsg
+    = Change Input.Updater String
     | Abort
     | Delete
     | Save
@@ -81,108 +84,95 @@ type alias Callbacks msg =
 
 init : Customer -> Model
 init c =
-    { dirty = False
-    , tab   = 0
-    , cache = c
-    , data  = c
+    { dirty  = False
+    , tab    = 0
+    , buffer = initBuffer c
+    , data   = c
     }
 
 dirty : Model -> Model
 dirty model =
     { model | dirty = True }
 
--- Update given Customer with editable fields from
--- cache TODO: if form is ok.
-extract : Model -> Maybe Customer
-extract model =
-    let c = model.cache
-        was = model.data
+initBuffer : Customer -> Input.Buffer
+initBuffer c =
+    let f spec get = Input.init spec (get c)
     in
-        Just
-            { was
-            | title           = c.title
-            , title_letter    = c.title_letter
+        Input.empty
+        |> f title           .title
+        |> f title_letter    .title_letter
+        |> f given           .given
+        |> f second          .second
+        |> f family          .family
+        |> f company         .company
+        |> f company_address .company_address
+        |> f street          .street
+        |> f street_number   .street_number
+        |> f city            .city
+        |> f postal_code     .postal_code
+        |> f country         .country
+        |> f country_code    .country_code
+        |> f phone           .phone
+        |> f phone2          .phone2
+        |> f mobile          .mobile
+        |> f fax             .fax
+        |> f fax2            .fax2
+        |> f mail            .mail
+        |> f mail2           .mail2
+        |> f web             .web
+        |> f keyword         .keyword
 
-            , given           = c.given
-            , second          = c.second
-            , family          = c.family
 
-            , company         = c.company
-            , company_address = c.company_address
-
-            , street          = c.street
-            , street_number   = c.street_number
-            , city            = c.city
-            , postal_code     = c.postal_code
-            , country         = c.country
-            , country_code    = c.country_code
-
-            , phone           = c.phone
-            , phone2          = c.phone2
-            , mobile          = c.mobile
-            , fax             = c.fax
-            , fax2            = c.fax2
-            , mail            = c.mail
-            , mail2           = c.mail2
-            , web             = c.web
-
-            , keyword         = c.keyword
-            }
+parse : Model -> Result String Customer
+parse model =
+    let buf = model.buffer
+        f spec set = Result.map2 set (Input.parse spec buf)
+    in
+        Ok model.data
+        |> f title           (\v r -> { r | title           = v } )
+        |> f title_letter    (\v r -> { r | title_letter    = v } )
+        |> f given           (\v r -> { r | given           = v } )
+        |> f second          (\v r -> { r | second          = v } )
+        |> f family          (\v r -> { r | family          = v } )
+        |> f company         (\v r -> { r | company         = v } )
+        |> f company_address (\v r -> { r | company_address = v } )
+        |> f street          (\v r -> { r | street          = v } )
+        |> f street_number   (\v r -> { r | street_number   = v } )
+        |> f city            (\v r -> { r | city            = v } )
+        |> f postal_code     (\v r -> { r | postal_code     = v } )
+        |> f country         (\v r -> { r | country         = v } )
+        |> f country_code    (\v r -> { r | country_code    = v } )
+        |> f phone           (\v r -> { r | phone           = v } )
+        |> f phone2          (\v r -> { r | phone2          = v } )
+        |> f mobile          (\v r -> { r | mobile          = v } )
+        |> f fax             (\v r -> { r | fax             = v } )
+        |> f fax2            (\v r -> { r | fax2            = v } )
+        |> f mail            (\v r -> { r | mail            = v } )
+        |> f mail2           (\v r -> { r | mail2           = v } )
+        |> f web             (\v r -> { r | web             = v } )
+        |> f keyword         (\v r -> { r | keyword         = v } )
 
 
 update : UpdateCallback msg (Callbacks msg) (Msg msg) Model
 update cb msg model =
     case msg of
-        Change msg ->
-            dirty { model | cache = updateCache msg model.cache } |> pure
+        Change up str ->
+            dirty { model | buffer = Input.update up str model.buffer } |> pure
 
         Abort ->
-            { model | cache = model.data, dirty = False } |> pure
+            { model | buffer = initBuffer model.data, dirty = False } |> pure
 
         SelectTab i ->
             pure { model | tab = i }
 
-        Save -> case extract model of
-            Nothing -> pure model
-            Just c -> { model | data = model.cache, dirty = False }
-                |> callback (cb.updated c)
+        Save -> case parse model of
+            Err _ -> pure model
+            Ok data -> { model | data = data, dirty = False }
+                |> callback (cb.updated data)
 
         Delete -> callback cb.delete model
 
         Mdl msg -> callback (cb.mdl msg) model
-
-
-updateCache : ChangeMsg -> Customer -> Customer
-updateCache msg c =
-    case msg of
-        Title           s -> { c | title           = s }
-        Title_letter    s -> { c | title_letter    = s }
-
-        Given           s -> { c | given           = s }
-        Second          s -> { c | second          = s }
-        Family          s -> { c | family          = s }
-
-        Company         s -> { c | company         = s }
-        Company_address s -> { c | company_address = s }
-
-        Street          s -> { c | street          = s }
-        Street_number   s -> { c | street_number   = s }
-        City            s -> { c | city            = s }
-        Postal_code     s -> { c | postal_code     = s }
-        Country         s -> { c | country         = s }
-        Country_code    s -> { c | country_code    = s }
-
-        Phone1          s -> { c | phone           = s }
-        Phone2          s -> { c | phone2          = s }
-        Mobile          s -> { c | mobile          = s }
-        Fax             s -> { c | fax             = s }
-        Fax2            s -> { c | fax2            = s }
-        Mail            s -> { c | mail            = s }
-        Mail2           s -> { c | mail2           = s }
-        Web             s -> { c | web             = s }
-
-        Keyword         s -> { c | keyword         = s }
-
 
 -- View
 
@@ -212,9 +202,9 @@ view cfg mdl model =
                         , Options.css "cursor" "pointer"
                         ] l )
 
-        tf i label value msg =
-            Form.textfield Mdl (index i) mdl [] label
-                (Change << msg) (value model.cache)
+        tf i spec =
+            Form.textfield Mdl (index i) mdl [] spec.label
+                (Change (Input.updater spec)) (Input.get spec model.buffer)
 
         s        = Grid.size
         full     = [ s Desktop 12, s Tablet 8, s Phone 4 ]
@@ -222,43 +212,45 @@ view cfg mdl model =
         three4th = [ s Desktop 9 , s Tablet 6, s Phone 3 ]
         half     = [ s Desktop 6 , s Tablet 4, s Phone 2 ]
 
-        f size i label value msg =
-            Form.cell size [ tf i label value msg ]
+        f size i spec =
+            Form.cell size [ tf i spec ]
 
         grid = Form.grid
 
         nameTab =
             grid
-                [ f full     5  "Kürzel"       .keyword      Keyword
-                , f one4th   6  "Anrede"       .title        Title
-                , f three4th 7  "Anrede Brief" .title_letter Title_letter
-                , f half     8  "Vorname"      .given        Given
-                , f half     9  "Zweitname"    .second       Second
-                , f full     10 "Nachname"     .family       Family
+                [ f full     5  keyword
+                , f one4th   6  title
+                , f three4th 7  title_letter
+                , f half     8  given
+                , f half     9  second
+                , f full     10 family
                 ]
             |> Form.contain
 
         addressTab =
             grid
-                [ f three4th 21 "Straße"       .street        Street
-                , f one4th   22 "Hnr."         .street_number Street_number
-                , f one4th   24 "Postleitzahl" .postal_code   Postal_code
-                , f three4th 23 "Ort"          .city          City
-                , f three4th 25 "Land"         .country       Country
-                , f one4th   26 "Ländercode"   .country_code  Country_code
+                [ f three4th 21 street
+                , f one4th   22 street_number
+                , f one4th   24 postal_code
+                , f three4th 23 city
+                , f three4th 25 country
+                , f one4th   26 country_code
+                , f full     27 company
+                , f full     28 company_address
                 ]
             |> Form.contain
 
         contactTab =
             grid
-                [ f half 41 "Telefon"      .phone  Phone1
-                , f half 42 "Telefon"      .phone2 Phone2
-                , f full 43 "Mobiltelefon" .mobile Mobile
-                , f half 44 "Fax"          .fax    Fax
-                , f half 45 "Fax"          .fax2   Fax2
-                , f full 46 "Email"        .mail   Mail
-                , f full 47 "Email"        .mail2  Mail2
-                , f full 48 "Website"      .web    Web
+                [ f half 41 phone
+                , f half 42 phone2
+                , f full 43 mobile
+                , f half 44 fax
+                , f half 45 fax2
+                , f full 46 mail
+                , f full 47 mail2
+                , f full 48 web
                 ]
             |> Form.contain
 
