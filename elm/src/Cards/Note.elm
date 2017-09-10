@@ -25,7 +25,7 @@ import Html.Attributes as Attributes
 type alias Model =
     { editing : Bool
     , data    : String
-    , cache   : String
+    , buffer  : String
     }
 
 type Msg msg
@@ -39,27 +39,27 @@ type Msg msg
 init : String -> Model
 init str =
     { editing = False
-    , cache = ""
-    , data = str
+    , buffer  = ""
+    , data    = str
     }
 
 edit : Model -> Model
 edit model =
     { model
-    | cache = model.data
+    | buffer  = model.data
     , editing = True
     }
 
 type alias Callbacks msg =
-    { mdl : Material.Msg msg -> msg
-    , updated : String -> msg
+    { mdl     : Material.Msg msg -> msg
+    , updated : String           -> msg
     }
 
 update : UpdateCallback m (Callbacks m) (Msg m) Model
 update cb msg model =
     case msg of
         Change str ->
-            pure { model | cache = str }
+            pure { model | buffer = str }
 
         Abort ->
             pure { model | editing = False }
@@ -71,7 +71,7 @@ update cb msg model =
             init "" |> callback (cb.updated "")
 
         Done ->
-            String.trim model.cache
+            String.trim model.buffer
             |> (\x -> init x |> callback (cb.updated x))
 
         Mdl msg ->
@@ -81,7 +81,7 @@ update cb msg model =
 
 type alias Cfg msg =
     { title : String
-    , lift : Msg msg -> msg
+    , lift  : Msg  msg -> msg
     , index : List Int
     }
 
@@ -97,10 +97,10 @@ viewEdit cfg mdl model =
     let i x = (x :: cfg.index)
         textfield =
             Textfield.render Mdl (i 1) mdl
-                [ Textfield.value model.cache
+                [ Textfield.value model.buffer
                 , Textfield.textarea
                 , Options.css "width" "100%"
-                , Textfield.rows (model.cache |> String.lines |> List.length)
+                , Textfield.rows (model.buffer |> String.lines |> List.length)
                 , Options.onInput Change
                 ] ()
 
