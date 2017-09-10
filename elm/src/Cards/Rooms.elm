@@ -30,163 +30,105 @@ import Html.Attributes as Attributes
 import Array exposing (Array)
 import Helpers.Array as ArrayX
 
-import Form.Show  as FShow
-import Form.Parse as FParse
+import BufferedInput as Input
 
+import Date exposing (Date)
+
+room : Input.Spec (Maybe Int)
 room =
-    { set   = \v r -> { r | room = v }
-    , get   = .room
-    , msg   = Room
-    , parse = FParse.int
-        |> FParse.check (\x -> x > 0)
-        |> FParse.maybe
-    , init  =  FShow.maybe  FShow.int
+    { key   = "room"
     , hint  = "1, 2, ..."
     , label = "Nr."
+    , typeSpec = Input.int
+        |> Input.check (\x -> x > 0)
+        |> Input.maybe
     }
 
+beds : Input.Spec Int
 beds =
-    { set   = \v r -> { r | beds = v }
-    , get   = .beds
-    , msg   = Beds
-    , parse = FParse.int
-        |> FParse.check (\x -> x >= 0)
-    , init  =  FShow.int
-    , hint  = "0, 1, ..."
+    { hint  = "0, 1, ..."
     , label = "Betten"
+    , key   = "beds"
+    , typeSpec = Input.int
+        |> Input.check (\x -> x >= 0)
     }
 
+price_per_bed : Input.Spec Float
 price_per_bed =
-    { set   = \v r -> { r | price_per_bed = v }
-    , get   = .price_per_bed
-    , msg   = Price_per_bed
-    , parse = FParse.float
-    , init  =  FShow.float
-    , hint  = toString 44.49
+    { hint  = toString 44.49
     , label = "Preis"
+    , typeSpec = Input.float
+    , key   = "price"
     }
 
+factor : Input.Spec Float
 factor =
-    { set   = \v r -> { r | factor = v }
-    , get   = .factor
-    , msg   = Factor
-    , parse = FParse.float
-    , init  =  FShow.float
-    , hint  = toString 0.75
+    { hint  = toString 0.75
     , label = "Faktor"
+    , key   = "factor"
+    , typeSpec = Input.float
     }
 
+description : Input.Spec String
 description =
-    { set   = \v r -> { r | description = v }
-    , get   = .description
-    , msg   = Description
-    , parse = FParse.string
-    , init  =  FShow.string
-    , hint  = "Einzelzimmer"
+    { hint  = "Einzelzimmer"
     , label = "Beschreibung"
+    , key   = "description"
+    , typeSpec = Input.string
     }
 
+from : Input.Spec (Maybe Date)
 from =
-    { set   = \v r -> { r | from = v }
-    , get   = .from
-    , msg   = From
-    , parse = FParse.maybe FParse.date
-    , init  =  FShow.maybe  FShow.date
-    , hint  = FShow.dateFormatHint
+    { hint  = Input.dateFormatHint
     , label = "Von"
+    , key   = "from"
+    , typeSpec = Input.maybe Input.date
     }
 
+to : Input.Spec (Maybe Date)
 to =
-    { set   = \v r -> { r | to = v }
-    , get   = .to
-    , msg   = To
-    , parse = FParse.maybe FParse.date
-    , init  =  FShow.maybe  FShow.date
-    , hint  = FShow.dateFormatHint
+    { hint  = Input.dateFormatHint
     , label = "Bis"
+    , key   = "to"
+    , typeSpec = Input.maybe Input.date
     }
 
-type alias CacheItem =
-    { room          : String
-    , beds          : String
-    , price_per_bed : String
-    , factor        : String
-    , description   : String
-    , from          : String
-    , to            : String
-    }
+initBuffer : Room -> Input.Buffer
+initBuffer r =
+    let f spec get = Input.init spec (get r) in
+    Input.empty
+    |> f room          .room
+    |> f beds          .beds
+    |> f price_per_bed .price_per_bed
+    |> f factor        .factor
+    |> f description   .description
+    |> f from          .from
+    |> f to            .to
 
-emptyCacheItem : CacheItem
-emptyCacheItem =
-    { room          = ""
-    , beds          = ""
-    , price_per_bed = ""
-    , factor        = ""
-    , description   = ""
-    , from          = ""
-    , to            = ""
-    }
-
-initCacheItem : Room -> CacheItem
-initCacheItem r =
-    let f field = field.set (field.init (field.get r)) in
-    emptyCacheItem
-    |> f room
-    |> f beds
-    |> f price_per_bed
-    |> f factor
-    |> f description
-    |> f from
-    |> f to
-
-extractItem : CacheItem -> Result String Room
-extractItem i =
-    let mbInt  = FParse.maybe FParse.int
-        mbDate = FParse.maybe FParse.date
-        ex x = Result.map2 x.set ( x.parse (x.get i))
+parseRoom : Input.Buffer -> Result String Room
+parseRoom buf =
+    let f spec set = Result.map2 set (Input.parse spec buf)
     in
     Ok Booking.emptyRoom
-    |> ex room
-    |> ex beds
-    |> ex price_per_bed
-    |> ex factor
-    |> ex description
-    |> ex from
-    |> ex to
-
-type ItemMsg
-    = Room          String
-    | Beds          String
-    | Price_per_bed String
-    | Factor        String
-    | Description   String
-    | From          String
-    | To            String
-
-updateItem : ItemMsg -> CacheItem -> CacheItem
-updateItem msg item =
-    let set val field = field.set val item
-    in
-        case msg of
-            Room          str -> set str room
-            Beds          str -> set str beds
-            Price_per_bed str -> set str price_per_bed
-            Factor        str -> set str factor
-            Description   str -> set str description
-            From          str -> set str from
-            To            str -> set str to
+    |> f room          (\v r -> { r | room          = v } )
+    |> f beds          (\v r -> { r | beds          = v } )
+    |> f price_per_bed (\v r -> { r | price_per_bed = v } )
+    |> f factor        (\v r -> { r | factor        = v } )
+    |> f description   (\v r -> { r | description   = v } )
+    |> f from          (\v r -> { r | from          = v } )
+    |> f to            (\v r -> { r | to            = v } )
 
 
 type alias Data = List Room
 
 type alias Model =
-    { dirty : Bool
-    , cache : Array CacheItem
-    , data  : Data
+    { dirty  : Bool
+    , buffer : Array Input.Buffer
+    , data   : Data
     }
 
 type Msg msg
-    = Change Int ItemMsg
+    = Change Int Input.Updater String
     | Delete Int
     | Add
     | Abort
@@ -195,7 +137,7 @@ type Msg msg
 
 init : Data -> Model
 init data =
-    { cache = Array.fromList (List.map initCacheItem data)
+    { buffer = Array.fromList (List.map initBuffer data)
     , data  = data
     , dirty = False
     }
@@ -205,10 +147,10 @@ dirty model =
     { model | dirty = True }
 
 
-extract : Model -> Result String Data
-extract model =
-    Array.toList model.cache
-    |> List.foldl (\i acc -> Result.map2 (::) (extractItem i) acc) (Ok [])
+parse : Model -> Result String Data
+parse model =
+    Array.toList model.buffer
+    |> List.foldl (\i acc -> Result.map2 (::) (parseRoom i) acc) (Ok [])
     |> Result.map List.reverse
 
 
@@ -222,38 +164,34 @@ type alias Callbacks msg =
 update : UpdateCallback msg (Callbacks msg) (Msg msg) Model
 update cb msg model =
     case msg of
-        Change index itemMsg ->
-            let cache_ =
-                    case Array.get index model.cache of
-                        Nothing -> model.cache
-                        Just el -> updateItem itemMsg el
-                            |> \x -> Array.set index x model.cache
+        Change index updater str ->
+            let f = Input.update updater str
+                buffer_ = ArrayX.modify index f model.buffer
             in
-            dirty { model | cache = cache_ } |> pure
+            dirty { model | buffer = buffer_ } |> pure
 
         Delete index ->
-            let cache_ =
-                    ArrayX.delete index model.cache
+            let buffer_ =
+                    ArrayX.delete index model.buffer
             in
-            dirty { model | cache = cache_ } |> pure
+            dirty { model | buffer = buffer_ } |> pure
 
         Add ->
-            let cache_ =
-                    model.cache |>
-                    Array.push (initCacheItem Booking.emptyRoom)
+            let buffer_ =
+                    model.buffer |>
+                    Array.push (initBuffer Booking.emptyRoom)
             in
-            dirty { model | cache = cache_ } |> pure
+            dirty { model | buffer = buffer_ } |> pure
 
         Abort ->
             init model.data |> pure
 
         Save ->
-            case extract model of
+            case parse model of
                 Err _ -> pure model
                 Ok data -> init data |> callback (cb.updated data)
 
         Mdl msg -> model |> callback (cb.mdl msg)
-
 
 
 -- View
@@ -269,12 +207,10 @@ view cfg mdl model =
     let id x = (x :: cfg.index)
 
         field i spec (nth,el) =
-            let val = spec.get el
-                check val = case spec.parse val of
-                    Err _ -> False
-                    Ok  _ -> True
-                error = Textfield.error spec.hint |> Options.when (not <| check val)
-                action = Change nth << spec.msg
+            let val = Input.get spec el
+                error = Textfield.error spec.hint
+                    |> Options.when (not <| Input.valid spec el)
+                action str = Change nth (Input.updater spec) str
             in
             Form.textfield Mdl (nth::(id i)) mdl [error] spec.label action val
 
@@ -320,12 +256,12 @@ view cfg mdl model =
 
         add = Defaults.button Mdl mdl (id 100) "add" Add
 
-        lst = model.cache |> Array.toIndexedList
+        lst = model.buffer |> Array.toIndexedList
 
         list =
             List.map row lst |> Form.ul
 
-        save = case extract model of
+        save = case parse model of
             Err _ -> False
             Ok _  -> model.dirty
 
