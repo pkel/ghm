@@ -28,6 +28,7 @@ import Cards.Customer as CustomerCard
 import Cards.Selection
 import Cards.Rooms
 import Cards.Individuals
+import Cards.Booking
 
 import Date.Format as DateF
 
@@ -58,6 +59,7 @@ type alias Model =
   , individualsCard  : Cards.Individuals.Model
   , roomsCard        : Cards.Rooms.Model
   , bookingNoteCard  : NoteCard.Model
+  , bookingCard      : Cards.Booking.Model
   , mdl              : Mdl
   }
 
@@ -72,6 +74,7 @@ empty =
     , bookingNoteCard  = NoteCard.init ""
     , individualsCard  = Cards.Individuals.init []
     , roomsCard        = Cards.Rooms.init []
+    , bookingCard      = Cards.Booking.init Booking.empty
     , focusedBooking   = -1
     , mdl = Material.model
     }
@@ -102,6 +105,7 @@ type Msg
     | UpdatedBookingNote  String
     | UpdatedIndividuals (List Individual)
     | UpdatedRooms       (List Room)
+    | UpdatedBooking     (Booking -> Booking)
 
     -- Pass through
     | CustomerCardMsg     (CustomerCard.Msg Msg)
@@ -109,6 +113,7 @@ type Msg
     | BookingNoteCardMsg  (NoteCard.Msg Msg)
     | IndividualsCardMsg  (Cards.Individuals.Msg Msg)
     | RoomsCardMsg        (Cards.Rooms.Msg Msg)
+    | BookingCardMsg      (Cards.Booking.Msg Msg)
 
     -- Material Boilerplate
     | Mdl (Material.Msg Msg)
@@ -124,6 +129,7 @@ selectBooking i model =
             , individualsCard = Cards.Individuals.init booking.individuals
             , roomsCard       = Cards.Rooms.init       booking.rooms
             , bookingNoteCard = NoteCard.init booking.note
+            , bookingCard     = Cards.Booking.init booking
             }
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -215,6 +221,11 @@ update msg model =
             pure { model | bookings = bookings_ }
             -- TODO: Save stuff to server
 
+    UpdatedBooking mod ->
+        { model
+        | bookings = ArrayX.modify model.focusedBooking mod model.bookings
+        } |> pure
+
     CustomerCardMsg msg_ ->
         liftCallback
             { delete = Ignore -- TODO: implement customer deletion
@@ -223,6 +234,16 @@ update msg model =
             }             .customerCard
             (\m x -> { m | customerCard = x })
             CustomerCard.update
+            msg_ model
+
+    BookingCardMsg msg_ ->
+        liftCallback
+            { delete = Ignore -- TODO: implement booking deletion
+            , updated = UpdatedBooking
+            , mdl = Mdl
+            }             .bookingCard
+            (\m x -> { m | bookingCard = x })
+            Cards.Booking.update
             msg_ model
 
     CustomerNoteCardMsg msg_ ->
@@ -310,6 +331,13 @@ roomsCfg =
     , title = Nothing
     }
 
+bookingCfg : Cards.Booking.Cfg Msg
+bookingCfg =
+    { lift  = BookingCardMsg
+    , index = [805]
+    }
+
+-- TODO: This seems to have deprecated Card Api
 bookingSelectionCfg : Cards.Selection.Cfg Msg Booking.Summary
 bookingSelectionCfg =
     let date  d  = Maybe.withDefault "" (Maybe.map (DateF.format "%d.%m.%y") d)
@@ -324,7 +352,7 @@ bookingSelectionCfg =
             ]
     in
     { mdl = Mdl
-    , index = [804]
+    , index = [806]
     , render = Cards.Selection.table fields
     , add = Ignore -- TODO: Implement Booking creation
     , select = SelectBooking
@@ -358,6 +386,12 @@ body model =
             (Array.map Booking.summary model.bookings)
             model.focusedBooking
 
+        -- booking meta information
+        booking = Cards.Booking.view
+            bookingCfg
+            model.mdl
+            model.bookingCard
+
         -- list of individuals, editable
 
         individuals = Cards.Individuals.view
@@ -383,7 +417,7 @@ body model =
             [ Grid.noSpacing
             ]
             [ cell [ size All 4 ] [ customer, selection, customerNote ]
-            , cell [ size All 4 ] [ rooms ] -- booking info missing
+            , cell [ size All 4 ] [ booking, rooms ]
             , cell [ size All 4 ] [ individuals, bookingNote ]
             ]
 
