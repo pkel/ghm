@@ -186,8 +186,11 @@ update msg model =
         pure model
 
     UpdatedCustomer c ->
-        pure { model | customer = c }
-        -- TODO: Save stuff to server
+        { model | customer = c }
+        |> case model.customerId of
+            Just id -> Db.saveCustomer CustomerReceived c id |> effect
+            Nothing -> Db.newCustomer  CustomerReceived c    |> effect
+        -- TODO: Handle save error
 
     UpdatedCustomerNote str ->
         let mod c = { c | note = str }
