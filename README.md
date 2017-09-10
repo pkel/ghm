@@ -14,9 +14,6 @@ Todo
 Next steps
 ----------
 
-  * finish editable list and use it for individuals and rooms
-  * show complete booking information
-  * editing
   * Insert new bookings for existing customers
   * Customer generation
   * saving
@@ -28,5 +25,4 @@ Gui Tuning
   * Markdown editing in monospace font
   * Calculate number of nights for booking selection
   * Calculate number of persons for booking selection
-  * Use (editable) list instead of tables
 
