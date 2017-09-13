@@ -76,9 +76,11 @@ type Msg msg
     | SelectTab Int
     | Mdl (Material.Msg msg)
 
+type alias Modifier = Customer -> Customer
+
 type alias Callbacks msg =
     { delete  : msg
-    , updated : Customer -> msg
+    , updated : (Modifier) -> msg
     , mdl     : Material.Msg msg -> msg
     }
 
@@ -123,12 +125,13 @@ initBuffer c =
         |> f keyword         .keyword
 
 
-parse : Model -> Result String Customer
+parse : Model -> Result String Modifier
 parse model =
     let buf = model.buffer
-        f spec set = Result.map2 set (Input.parse spec buf)
+        mod set str acc m = (set str) (acc m)
+        f spec set = Result.map2 (mod set) (Input.parse spec buf)
     in
-        Ok model.data
+        Ok (\x -> x)
         |> f title           (\v r -> { r | title           = v } )
         |> f title_letter    (\v r -> { r | title_letter    = v } )
         |> f given           (\v r -> { r | given           = v } )
@@ -167,8 +170,8 @@ update cb msg model =
 
         Save -> case parse model of
             Err _ -> pure model
-            Ok data -> { model | data = data, dirty = False }
-                |> callback (cb.updated data)
+            Ok mod -> { model | data = mod model.data, dirty = False }
+                |> callback (cb.updated mod)
 
         Delete -> callback cb.delete model
 

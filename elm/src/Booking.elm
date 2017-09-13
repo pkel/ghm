@@ -5,6 +5,7 @@ module Booking exposing
     , Summary
     , summary
     , decode
+    , encode
     , empty
     , emptyIndividual
     , emptyRoom
@@ -29,7 +30,6 @@ import Html.Events exposing (..)
 
 type alias Individual =
     { given          : String
---    , second         : String
     , family         : String
     , date_of_birth  : Maybe Date
     }
@@ -102,6 +102,23 @@ decode =
             |> optional "note"               string ""
             |> optional "booked_individuals" (list decodeIndividual) []
             |> optional "booked_rooms"       (list decodeRoom) []
+
+encode : Booking -> Encode.Value
+encode b =
+    let int    = Encode.int
+        maybe  = EncodeX.maybe
+        string = Encode.string
+        float  = Encode.float
+        bool   = Encode.bool
+    in
+        Encode.object
+            [ ("booking_id",    (maybe int)   b.booking_id)
+            , ("state",         int           b.state)
+            , ("deposit_asked", (maybe float) b.deposit_asked)
+            , ("deposit_got",   (maybe float) b.deposit_got)
+            , ("no_tax",        bool          b.no_tax)
+            , ("note",          string        b.note)
+            ]
 
 decodeIndividual : Decoder Individual
 decodeIndividual =

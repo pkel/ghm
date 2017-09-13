@@ -63,9 +63,11 @@ type Msg msg
     | Save
     | Mdl (Material.Msg msg)
 
+type alias Modifier = Booking -> Booking
+
 type alias Callbacks msg =
     { delete  : msg
-    , updated : (Booking -> Booking) -> msg
+    , updated : Modifier -> msg
     , mdl     : Material.Msg msg -> msg
     }
 
@@ -89,22 +91,15 @@ initBuffer x =
         |> f deposit_asked .deposit_asked
 
 
-parse : Model -> Result String (Booking -> Booking)
+parse : Model -> Result String Modifier
 parse model =
     let buf = model.buffer
-        f spec set = Result.map2 set (Input.parse spec buf)
+        mod set str acc m = (set str) (acc m)
+        f spec set = Result.map2 (mod set) (Input.parse spec buf)
     in
-        -- TODO: Advanced uglyness
-        -- The intention is to avoid the overwriting of
-        -- booking.rooms/individuals and only set the values, this card cares of
-        Ok Booking.empty
+        Ok (\x -> x)
         |> f deposit_asked   (\v r -> { r | deposit_asked   = v } )
         |> f deposit_got     (\v r -> { r | deposit_got     = v } )
-        |> Result.map (\new was ->
-            { was
-            | deposit_got   = new.deposit_got
-            , deposit_asked = new.deposit_asked
-            } )
 
 
 update : UpdateCallback msg (Callbacks msg) (Msg msg) Model

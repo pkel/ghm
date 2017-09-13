@@ -41,8 +41,7 @@ create view customers as select
  * insert to customers
  *
  * - customer_id can't be specified
- * - null is replaced with sober default
- * - data is trimmed
+ * - coalescing
  */
 create rule customers_insert as on insert to customers do instead
   insert into internal.customers
@@ -111,12 +110,8 @@ create rule customers_insert as on insert to customers do instead
  * update customers
  *
  * - customer_id can't be changed
- * - changes are logged (multi-statement rules do not work (postgrest?)
- *   TODO: Do logging in a different layer
- * - data is trimed
  */
 create rule customers_update as on update to customers do instead
-  /* ( insert into internal.customers_log values (old.*) */
   update internal.customers set
     title           = trim(coalesce(new.title           , old.title          )),
     title_letter    = trim(coalesce(new.title_letter    , old.title_letter   )),
@@ -150,14 +145,6 @@ create rule customers_update as on update to customers do instead
   returning customers.*;
 
 /*
- * delete from customers
- *
- * - customers are logged before deletion
- */
-create rule customers_delete as on delete to customers do
-  insert into internal.customers_log values (old.*);
-
-/*
  * bookings
  */
 create view bookings as select
@@ -170,6 +157,32 @@ create view bookings as select
     no_tax,
     note
   from internal.bookings;
+
+/*
+ * insert booking
+ *
+ * - booking_id can't be set
+ */
+create rule bookings_insert as on insert to bookings do instead
+  insert into internal.bookings
+    ( booking_id
+
+    , state
+    , deposit_asked
+    , deposit_got
+    , no_tax
+    , note
+    ) values
+    ( new.booking_id
+
+    , new.state
+    , new.deposit_asked
+    , new.deposit_got
+    , coalesce(new.no_tax, false)
+    , trim(coalesce(new.note, ''))
+    )
+  returning bookings.*
+  ;
 
 create view booked_rooms as select
     booked_room_id,
@@ -188,6 +201,45 @@ create view booked_rooms as select
     to_date
   from internal.booked_rooms;
 
+/*
+ * insert booked_room
+ *
+ * - id can't be set
+ */
+create rule booked_rooms_insert as on insert to booked_rooms do instead
+  insert into internal.booked_rooms
+    ( booking_id
+    , room_id
+
+    , beds
+    , price_per_bed
+    , factor
+
+    , description
+    , breakfast
+
+    , from_date
+    , to_date
+    ) values
+    ( new.booking_id
+    , new.room_id
+
+    , new.beds
+    , new.price_per_bed
+    , new.factor
+
+    , trim(coalesce(new.description,''))
+    , new.breakfast
+
+    , new.from_date
+    , new.to_date
+    )
+  returning booked_rooms.*
+  ;
+
+/*
+ * booked_individuals
+ */
 create view booked_individuals as select
     booked_individual_id,
     booking_id,
@@ -197,6 +249,13 @@ create view booked_individuals as select
     family,
     date_of_birth
   from internal.booked_individuals;
+
+/*
+ * insert
+ *
+ * - id can't be set
+ */
+ /* todo */
 
 /*
  * static configuration tables

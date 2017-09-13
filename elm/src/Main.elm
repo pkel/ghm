@@ -46,11 +46,16 @@ main =
 
 -- MODEL
 
+type SyncState
+    = Syncing
+    | Dirty
+    | InSync
+    | Error Http.Error
+
 type alias Mdl = Material.Model
 
 type alias Model =
-  { customerId       : Maybe Int
-  , customer         : Customer
+  { customer         : Customer
   , bookings         : Array Booking
   , filter           : String
   , focusedBooking   : Int
@@ -60,13 +65,13 @@ type alias Model =
   , roomsCard        : Cards.Rooms.Model
   , bookingNoteCard  : NoteCard.Model
   , bookingCard      : Cards.Booking.Model
+  , syncState        : SyncState
   , mdl              : Mdl
   }
 
 empty : Model
 empty =
-    { customerId = Nothing
-    , customer = Customer.empty
+    { customer = Customer.empty
     , bookings = Array.fromList [Booking.empty]
     , filter = ""
     , customerCard = CustomerCard.init Customer.empty
@@ -76,6 +81,7 @@ empty =
     , roomsCard        = Cards.Rooms.init []
     , bookingCard      = Cards.Booking.init Booking.empty
     , focusedBooking   = -1
+    , syncState = Syncing
     , mdl = Material.model
     }
 
@@ -84,23 +90,28 @@ init =
   ( empty
   , Db.getLatestCustomer CustomerReceived "" )
 
+dirty : Model -> Model
+dirty m = { m | syncState = Dirty }
+
 
 -- UPDATE
 
 type Msg
     = New
+    | Save
     | Previous
     | Next
     | Last
     | FilterChanged String
+    | SelectBooking Int
 
     | CustomerReceived (Result Http.Error Customer)
 
-    | SelectBooking Int
 
     | Ignore
 
-    | UpdatedCustomer Customer
+    -- Incoming changes from forms
+    | UpdatedCustomer    (Customer -> Customer)
     | UpdatedCustomerNote String
     | UpdatedBookingNote  String
     | UpdatedIndividuals (List Individual)
@@ -136,19 +147,29 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     New ->
-        { empty
-        | customerId = Nothing
-        , filter = ""
-        } |> pure
+        { empty | filter = "" } |> dirty |> pure
+
+    Save ->
+        let c_ = model.customer
+            c = { c_ | bookings = model.bookings |> Array.toList }
+            save =
+                Db.saveCustomer CustomerReceived c
+                |> effect
+        in
+        case model.syncState of
+            Dirty   -> { model | syncState = Syncing } |> save
+            Error _ -> { model | syncState = Syncing } |> save
+            InSync  -> model |> pure
+            Syncing -> model |> pure
 
     Previous ->
-        model |> case model.customerId of
+        model |> case model.customer.customer_id of
           Nothing -> pure
           Just i  -> effect <|
               Db.getPrevCustomerById CustomerReceived model.filter i
 
     Next ->
-        model |> case model.customerId of
+        model |> case model.customer.customer_id of
           Nothing -> pure
           Just i  -> effect <|
               Db.getNextCustomerById CustomerReceived model.filter i
@@ -166,7 +187,7 @@ update msg model =
         in
             { model
             | customer = c_
-            , customerId = c.customer_id
+            , syncState = InSync
             , customerCard = CustomerCard.init c
             , customerNoteCard = NoteCard.init c.note
             , bookings = b
@@ -185,26 +206,26 @@ update msg model =
         -- TODO: Where is this needed?
         pure model
 
-    UpdatedCustomer c ->
-        { model | customer = c }
-        |> case model.customerId of
-            Just id -> Db.saveCustomer CustomerReceived c id |> effect
-            Nothing -> Db.newCustomer  CustomerReceived c    |> effect
-        -- TODO: Handle save error
+    UpdatedCustomer mod ->
+        { model | customer = mod model.customer }
+        |> dirty
+        |> pure
 
     UpdatedCustomerNote str ->
         let mod c = { c | note = str }
         in
-            pure { model | customer = mod model.customer }
-            -- TODO: Save stuff to server
+            { model | customer = mod model.customer }
+            |> dirty
+            |> pure
 
     UpdatedBookingNote str ->
         let mod b = { b | note = str }
             bookings_ =
                 ArrayX.modify model.focusedBooking mod model.bookings
         in
-            pure { model | bookings = bookings_ }
-            -- TODO: Save stuff to server
+            { model | bookings = bookings_ }
+            |> dirty
+            |> pure
 
     UpdatedIndividuals lst ->
         let mod b =
@@ -212,8 +233,9 @@ update msg model =
             bookings_ =
                 ArrayX.modify model.focusedBooking mod model.bookings
         in
-            pure { model | bookings = bookings_ }
-            -- TODO: Save stuff to server
+            { model | bookings = bookings_ }
+            |> dirty
+            |> pure
 
     UpdatedRooms lst ->
         let mod b =
@@ -221,13 +243,16 @@ update msg model =
             bookings_ =
                 ArrayX.modify model.focusedBooking mod model.bookings
         in
-            pure { model | bookings = bookings_ }
-            -- TODO: Save stuff to server
+            { model | bookings = bookings_ }
+            |> dirty
+            |> pure
 
     UpdatedBooking mod ->
         { model
         | bookings = ArrayX.modify model.focusedBooking mod model.bookings
-        } |> pure
+        }
+        |> dirty |> pure
+
 
     CustomerCardMsg msg_ ->
         liftCallback
