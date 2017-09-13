@@ -32,7 +32,7 @@ import Cards.Booking
 
 import Date.Format as DateF
 
-import Database as Db
+import Database as Db exposing (Msg(..))
 import Http
 
 main =
@@ -46,7 +46,7 @@ main =
 
 -- MODEL
 
-type SyncState
+type DbState
     = Syncing
     | Dirty
     | InSync
@@ -65,7 +65,7 @@ type alias Model =
   , roomsCard        : Cards.Rooms.Model
   , bookingNoteCard  : NoteCard.Model
   , bookingCard      : Cards.Booking.Model
-  , syncState        : SyncState
+  , dbState          : DbState
   , mdl              : Mdl
   }
 
@@ -81,17 +81,17 @@ empty =
     , roomsCard        = Cards.Rooms.init []
     , bookingCard      = Cards.Booking.init Booking.empty
     , focusedBooking   = -1
-    , syncState = Syncing
+    , dbState = Syncing
     , mdl = Material.model
     }
 
 init : (Model, Cmd Msg)
 init =
   ( empty
-  , Db.getLatestCustomer CustomerReceived "" )
+  , Db.getLatestCustomer Database "" )
 
 dirty : Model -> Model
-dirty m = { m | syncState = Dirty }
+dirty m = { m | dbState = Dirty }
 
 
 -- UPDATE
@@ -105,7 +105,7 @@ type Msg
     | FilterChanged String
     | SelectBooking Int
 
-    | CustomerReceived (Result Http.Error Customer)
+    | Database (Db.Msg)
 
 
     | Ignore
@@ -130,6 +130,20 @@ type Msg
     | Mdl (Material.Msg Msg)
 
 
+setCustomer : Customer -> Model -> Model
+setCustomer c model =
+    let b  = Array.fromList c.bookings
+        c_ = { c | bookings = [] }
+    in
+        { model
+        | customer = c_
+        , dbState = InSync
+        , customerCard = CustomerCard.init c
+        , customerNoteCard = NoteCard.init c.note
+        , bookings = b
+        }
+        |> selectBooking 0
+
 selectBooking : Int -> Model -> Model
 selectBooking i model =
     case Array.get i model.bookings of
@@ -153,12 +167,12 @@ update msg model =
         let c_ = model.customer
             c = { c_ | bookings = model.bookings |> Array.toList }
             save =
-                Db.saveCustomer CustomerReceived c
+                Db.saveCustomer Database c
                 |> effect
         in
-        case model.syncState of
-            Dirty   -> { model | syncState = Syncing } |> save
-            Error _ -> { model | syncState = Syncing } |> save
+        case model.dbState of
+            Dirty   -> { model | dbState = Syncing } |> save
+            Error _ -> { model | dbState = Syncing } |> save
             InSync  -> model |> pure
             Syncing -> model |> pure
 
@@ -166,38 +180,26 @@ update msg model =
         model |> case model.customer.customer_id of
           Nothing -> pure
           Just i  -> effect <|
-              Db.getPrevCustomerById CustomerReceived model.filter i
+              Db.getPrevCustomerById Database model.filter i
 
     Next ->
         model |> case model.customer.customer_id of
           Nothing -> pure
           Just i  -> effect <|
-              Db.getNextCustomerById CustomerReceived model.filter i
+              Db.getNextCustomerById Database model.filter i
 
     Last ->
-        model |> effect (Db.getLatestCustomer CustomerReceived model.filter)
+        model |> effect (Db.getLatestCustomer Database model.filter)
 
     FilterChanged str ->
         { model | filter = str } |>
-        effect (Db.getLatestCustomer CustomerReceived str)
+        effect (Db.getLatestCustomer Database str)
 
-    CustomerReceived (Ok c) ->
-        let b  = Array.fromList c.bookings
-            c_ = { c | bookings = [] }
-        in
-            { model
-            | customer = c_
-            , syncState = InSync
-            , customerCard = CustomerCard.init c
-            , customerNoteCard = NoteCard.init c.note
-            , bookings = b
-            }
-            |> selectBooking 0
-            |> pure
-
-    CustomerReceived (Err _) ->
-        -- TODO: notify
-        pure model
+    Database msg_ ->
+        case msg_ of
+            DbReceived c -> setCustomer c model |> pure
+            DbError e -> { model | dbState = Error e } |> pure
+            DbSuccess -> { model | dbState = InSync }  |> pure
 
     SelectBooking i ->
         selectBooking i model |> pure

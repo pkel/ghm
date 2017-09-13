@@ -4,6 +4,7 @@ module Database exposing
     , getNextCustomerById
     , getLatestCustomer
     , saveCustomer
+    , Msg(..)
     )
 
 import Http
@@ -25,15 +26,35 @@ customerSelect : String
 customerSelect =
     "select=*,bookings{*,booked_individuals{*},booked_rooms{*}}"
 
-type alias Callback msg a = Result Http.Error a -> msg
+type Msg
+    = DbError Http.Error
+    | DbReceived Customer
+    | DbSuccess
 
+type alias Callback msg = Msg -> msg
+
+map f ret =
+    case ret of
+        Err e -> DbError e
+        Ok  x -> f x
+
+customer : Callback msg -> Result Http.Error Customer -> msg
+customer cb r =
+    map DbReceived r |> cb
+
+unit : Callback msg -> Result Http.Error a -> msg
+unit cb r =
+    map (\x -> DbSuccess) r |> cb
+
+send cb wrap =
+    Http.send (wrap cb)
 
 ---------------
 -- Customers --
 ---------------
 
-getCustomerById : Callback msg Customer -> Int -> Cmd msg
-getCustomerById encap id =
+getCustomerById : Callback msg -> Int -> Cmd msg
+getCustomerById cb id =
     let params =
             [ "customer_id=eq." ++ (toString id)
             , customerSelect
@@ -41,10 +62,10 @@ getCustomerById encap id =
 
         uri = buildUri res.customers params Nothing
     in
-        Http.send encap (Http.get uri C.jsonDecoderFirst)
+        Http.send (customer cb) (Http.get uri C.jsonDecoderFirst)
 
-getPrevCustomerById : Callback msg Customer -> String -> Int -> Cmd msg
-getPrevCustomerById encap filter id =
+getPrevCustomerById : Callback msg -> String -> Int -> Cmd msg
+getPrevCustomerById cb filter id =
     let params =
             [ "customer_id=lt." ++ (toString id)
             , customerSelect
@@ -54,10 +75,11 @@ getPrevCustomerById encap filter id =
 
         uri = buildUri res.customers params (Just filter)
     in
-        Http.send encap (Http.get uri C.jsonDecoderFirst)
+        Http.get uri C.jsonDecoderFirst
+        |> send cb customer
 
-getNextCustomerById : Callback msg Customer -> String -> Int -> Cmd msg
-getNextCustomerById encap filter id =
+getNextCustomerById : Callback msg -> String -> Int -> Cmd msg
+getNextCustomerById cb filter id =
     let params =
             [ "customer_id=gt." ++ (toString id)
             , customerSelect
@@ -67,10 +89,11 @@ getNextCustomerById encap filter id =
 
         uri = buildUri res.customers params (Just filter)
     in
-        Http.send encap (Http.get uri C.jsonDecoderFirst)
+        Http.get uri C.jsonDecoderFirst
+        |> send cb customer
 
-getLatestCustomer : Callback msg Customer -> String -> Cmd msg
-getLatestCustomer encap filter =
+getLatestCustomer : Callback msg -> String -> Cmd msg
+getLatestCustomer cb filter =
     let params =
             [ "order=customer_id.desc"
             , customerSelect
@@ -79,10 +102,17 @@ getLatestCustomer encap filter =
 
         uri = buildUri res.customers params (Just filter)
     in
-        Http.send encap (Http.get uri C.jsonDecoderFirst)
+        Http.get uri C.jsonDecoderFirst
+        |> send cb customer
 
-patchCustomer : Callback msg Customer -> Customer -> Int -> Cmd msg
-patchCustomer encap c id =
+saveCustomer : Callback msg -> Customer -> Cmd msg
+saveCustomer cb c =
+    case c.customer_id of
+        Nothing -> newCustomer cb c
+        Just id -> patchCustomer cb c id
+
+patchCustomer : Callback msg -> Customer -> Int -> Cmd msg
+patchCustomer cb c id =
     let params =
             [ "customer_id=eq." ++ (toString id)
             ]
@@ -93,35 +123,33 @@ patchCustomer encap c id =
 
         json = C.jsonEncode cc
     in
-        Http.send encap (patchJson uri json C.jsonDecoderFirst)
+        patchJson uri json C.jsonDecoderFirst
+        |> send cb unit
 
-saveCustomer : Callback msg Customer -> Customer -> Cmd msg
-saveCustomer cb c =
-    case c.customer_id of
-        Nothing -> newCustomer cb c
-        Just id -> patchCustomer cb c id
-
-newCustomer : Callback msg Customer -> Customer -> Cmd msg
-newCustomer encap c =
+newCustomer : Callback msg -> Customer -> Cmd msg
+newCustomer cb c =
     let cc = { c | customer_id = Nothing }
 
         json = C.jsonEncode cc
     in
-        Http.send encap (postJson res.customers json C.jsonDecoder)
+        postJson res.customers json C.jsonDecoder
+        |> send cb unit
 
-patchBooking : Callback msg Booking -> Booking -> Int -> Cmd msg
-patchBooking map b id =
+patchBooking : Callback msg -> Booking -> Int -> Cmd msg
+patchBooking cb b id =
     let json = { b | booking_id = Nothing } |> B.encode
         params = [ "booking_id=eq." ++ (toString id) ]
         uri = buildUri res.bookings params Nothing
     in
-        Http.send map (patchJson uri json B.decode)
+        patchJson uri json B.decode
+        |> send cb unit
 
-newBooking : Callback msg Booking -> Booking -> Cmd msg
-newBooking map b =
+newBooking : Callback msg -> Booking -> Cmd msg
+newBooking cb b =
     let json = { b | booking_id = Nothing } |> B.encode
     in
-        Http.send map (postJson res.bookings json B.decode)
+        postJson res.bookings json B.decode
+        |> send cb unit
 
 
 
