@@ -1,21 +1,22 @@
-database = ghm-postgrest
-
-.PHONY : db combit run all
-
-all : run
-
+.PHONY: run
 run :
-	postgrest etc/postgrest.cfg
+	sudo docker-compose up
 
-db :
-	dropdb --if-exists $(database)
-	createdb $(database)
-	psql $(database) -qf schema/internal.sql
-	psql $(database) -qf schema/api.sql
-	psql $(database) -qf etc/ghm-cfg.sql
+.PHONY: reset
+reset : clean init
 
-combit : db
-	psql $(database) -qf combit/import.sql
+.PHONY: init
+init :
+	sudo docker-compose up -d postgres
+	source ./env ; tools/wait-for-db
+	source ./env ; psql -qf schema/0_internal.sql
+	source ./env ; psql -qf schema/1_public.sql
 
+.PHONY: combit
+combit :
+	sudo docker-compose up -d postgres
+	source ./env ; psql -qf combit/import.sql
+
+.PHONY: clean
 clean :
-	# rm -rf schema.png
+	sudo docker-compose down -v

@@ -1,0 +1,24 @@
+version: '3.1'
+
+services:
+  postgrest:
+    image: suzel/docker-postgrest:latest
+    ports:
+      - "3000:3000"
+    environment:
+      POSTGREST_VERSION: 0.4.3.0
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - ghm-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  ghm-postgres-data: {}

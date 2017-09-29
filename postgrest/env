@@ -1,0 +1,4 @@
+export PGHOST=localhost
+export PGUSER=app_user
+export PGDATABASE=app_db
+export PGPASSWORD=secret

@@ -1,5 +1,4 @@
-create schema api;
-set search_path to api;
+set search_path to public;
 
 /*
  * customers

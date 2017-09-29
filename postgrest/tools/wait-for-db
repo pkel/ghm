@@ -1,0 +1,6 @@
+#!/bin/bash
+
+while !(psql -c '\q' 2> /dev/null ) ; do
+  echo '.'
+  sleep 1
+done
