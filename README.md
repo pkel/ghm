@@ -26,3 +26,21 @@ Gui Tuning
   * Calculate number of nights for booking selection
   * Calculate number of persons for booking selection
 
+External Dependencies
+---------------------
+
+```
+dnf install docker npm postgresql
+```
+
+Usage
+-----
+
+```
+cd postgrest ; make clean init combit
+make run
+```
+```
+cd ../elm ; make dependencies
+make watch
+```
