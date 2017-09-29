@@ -1,9 +1,14 @@
 {
+  "name": "elm-ghm",
+  "license": "MIT",
+  "repository": "unspecified",
+  "description": "Guesthouse Management written in ELM",
   "scripts": {
     "watch": "chokidar 'src/**/*.elm' -c 'npm run build' --initial",
     "build": "elm make src/Main.elm --output elm.js || true"
   },
   "devDependencies": {
-    "chokidar-cli": "^1.2.0"
+    "chokidar-cli": "^1.2.0",
+    "elm": "^0.18.0"
   }
 }

@@ -20,7 +20,6 @@ cloc:
 
 dependencies:
 	npm install
-	elm-package install
 
 clean:
 	rm -f elm.js elm.min.js index.min.html
