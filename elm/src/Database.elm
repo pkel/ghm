@@ -18,13 +18,11 @@ import Booking  as B exposing (Booking)
 res =
     { customers    = Config.apiUrl ++ "/customers"
     , bookings     = Config.apiUrl ++ "/bookings"
-    , bIndividuals = Config.apiUrl ++ "/booked_individuals"
-    , bRooms       = Config.apiUrl ++ "/booked_rooms"
     }
 
 customerSelect : String
 customerSelect =
-    "select=*,bookings{*,booked_individuals{*},booked_rooms{*}}"
+    "select=*,bookings{*}"
 
 type Msg
     = DbError Http.Error
@@ -119,25 +117,21 @@ patchCustomer cb c id =
 
         uri = buildUri res.customers params Nothing
 
-        cc = { c | customer_id = Just id }
-
-        json = C.jsonEncode cc
+        json = C.jsonEncode c
     in
         patchJson uri json C.jsonDecoderFirst
         |> send cb unit
 
 newCustomer : Callback msg -> Customer -> Cmd msg
 newCustomer cb c =
-    let cc = { c | customer_id = Nothing }
-
-        json = C.jsonEncode cc
+    let json = C.jsonEncode c
     in
         postJson res.customers json C.jsonDecoder
         |> send cb unit
 
 patchBooking : Callback msg -> Booking -> Int -> Cmd msg
 patchBooking cb b id =
-    let json = { b | booking_id = Nothing } |> B.encode
+    let json = B.encode b
         params = [ "booking_id=eq." ++ (toString id) ]
         uri = buildUri res.bookings params Nothing
     in
@@ -146,7 +140,7 @@ patchBooking cb b id =
 
 newBooking : Callback msg -> Booking -> Cmd msg
 newBooking cb b =
-    let json = { b | booking_id = Nothing } |> B.encode
+    let json = B.encode b
     in
         postJson res.bookings json B.decode
         |> send cb unit

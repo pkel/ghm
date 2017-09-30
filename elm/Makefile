@@ -17,7 +17,7 @@ dependencies:
 	npm install
 
 clean:
-	rm -f elm.js elm.min.js index.min.html
+	rm -f elm.js elm.min.js index.min.html -r elm-stuff/build-artifacts
 
 distclean: clean
 	rm -rf elm-stuff node_modules

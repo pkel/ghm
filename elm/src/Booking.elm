@@ -101,9 +101,10 @@ decode =
             |> optional "deposit_got"        (nullable float) Nothing
             |> optional "no_tax"             bool False
             |> optional "note"               string ""
-            |> optional "booked_individuals" (list decodeIndividual) []
-            |> optional "booked_rooms"       (list decodeRoom) []
+            |> optional "individuals"        (list decodeIndividual) []
+            |> optional "rooms"              (list decodeRoom) []
 
+-- This intentionally omits id. It should be handled by db connector
 encode : Booking -> Encode.Value
 encode b =
     let int    = Encode.int
@@ -116,14 +117,16 @@ encode b =
         list f l = List.map f l |> Encode.list
     in
         Encode.object
-            [ ("booking_id",    (maybe int)   b.booking_id)
-            , ("state",         int           b.state)
+            [ ("state",         int           b.state)
             , ("deposit_asked", (maybe float) b.deposit_asked)
             , ("deposit_got",   (maybe float) b.deposit_got)
             , ("no_tax",        bool          b.no_tax)
             , ("note",          string        b.note)
             , ("rooms",         (list room)   b.rooms)
             , ("individuals",   (list indi)   b.individuals)
+
+            -- TODO: check this on encode. Move to module. Use in Customer.
+            , ("client",        string        "ghm-v0")
             ]
 
 decodeIndividual : Decoder Individual
@@ -135,7 +138,6 @@ decodeIndividual =
     in
         Pipeline.decode Individual
             |> optional "given"         string ""
-            -- |> optional "second"        string ""
             |> optional "family"        string ""
             |> optional "date_of_birth" (nullable date) Nothing
 

@@ -115,17 +115,16 @@ jsonDecoder =
             |> optional "bookings"         (list booking) []
 
 
+-- This intentionally omits id and bookings. They must be handled by database
+-- connector
 jsonEncode : Customer -> Encode.Value
 jsonEncode c =
     let int    = Encode.int
         maybe  = EncodeX.maybe
         string = Encode.string
-        bookings l = List.map B.encode l |> Encode.list
     in
         Encode.object
-        [ ("customer_id",      (maybe int) c.customer_id)
-
-        , ("title",            string c.title)
+        [ ("title",            string c.title)
         , ("title_letter",     string c.title_letter)
 
         , ("given",            string c.given)
@@ -154,7 +153,8 @@ jsonEncode c =
         , ("keyword",          string c.keyword)
         , ("note",             string c.note)
 
-        , ("bookings",         bookings c.bookings)
+        -- TODO: check this on encode. Move to module. Use in Booking.
+        , ("client",           string "ghm-v0")
         ]
 
 

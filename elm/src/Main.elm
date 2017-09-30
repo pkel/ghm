@@ -174,7 +174,7 @@ update msg model =
             if not model.dirty then pure model else
               case model.dbState of
                 Error _ -> { model | dbState = Syncing } |> save
-                Synced  -> model |> pure
+                Synced  -> { model | dbState = Syncing } |> save
                 Syncing -> model |> pure
 
     Abort ->
