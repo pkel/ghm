@@ -46,8 +46,8 @@ create table bookings (
     to_date           date,
     no_tax            bool      not null default false,
     note              text      not null default '',
-    rooms             jsonb     not null default '[]::jsonb',
-    individuals       jsonb     not null default '[]::jsonb',
+    rooms             jsonb     not null default '[]'::jsonb,
+    individuals       jsonb     not null default '[]'::jsonb,
 
     client            text      not null default ''
 );
