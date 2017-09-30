@@ -99,6 +99,7 @@ dirty m = { m | dbState = Dirty }
 type Msg
     = New
     | Save
+    | Abort
     | Previous
     | Next
     | Last
@@ -106,7 +107,6 @@ type Msg
     | SelectBooking Int
 
     | Database (Db.Msg)
-
 
     | Ignore
 
@@ -175,6 +175,10 @@ update msg model =
             Error _ -> { model | dbState = Syncing } |> save
             InSync  -> model |> pure
             Syncing -> model |> pure
+
+    Abort ->
+      -- TODO: implement abort
+      init
 
     Previous ->
         model |> case model.customer.customer_id of
@@ -454,18 +458,31 @@ body model =
 
 controls : Model -> Html Msg
 controls model =
-    let filter =
+    let button cond = Defaults.button_
+            [ Button.disabled |> Options.when (not cond)
+            , Button.raised
+            ] Mdl model.mdl
+
+        dirty = case model.dbState of
+          Dirty   -> True
+          Syncing -> False
+          InSync  -> False
+          Error _ -> False
+
+        ndirty = not dirty
+
+        filter =
             Textfield.render Mdl [0] model.mdl
                 [ Textfield.label "Suche"
                 , Textfield.text_
                 , Textfield.value model.filter
+                , Textfield.disabled |> Options.when dirty
                 , Options.onInput (FilterChanged)
                 ] []
 
         filterIcon = Icon.view "search"
             [ Options.css "margin-right" "5px" ]
 
-        btn i action icon = Defaults.button Mdl model.mdl i icon action
     in
         Layout.row
             [ Color.background Color.accent
@@ -474,11 +491,13 @@ controls model =
             [ filterIcon
             , filter
             , Layout.spacer
-            , btn [1] Previous "chevron_left"
-            , btn [2] Next "chevron_right"
-            , btn [3] Last "last_page"
+            , button ndirty [1] "chevron_left"  Previous
+            , button ndirty [2] "chevron_right" Next
+            , button ndirty [3] "last_page"     Last
             , Layout.spacer
-            , btn [4] New "library_add"
+            , button ndirty [4] "library_add" New
+            , button dirty  [5] "save"        Save
+            , button dirty  [6] "cancel"      Abort
             ]
 
 

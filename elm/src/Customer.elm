@@ -120,39 +120,42 @@ jsonEncode c =
     let int    = Encode.int
         maybe  = EncodeX.maybe
         string = Encode.string
+        bookings l = List.map B.encode l |> Encode.list
     in
         Encode.object
-            [ ("customer_id",      (maybe int) c.customer_id)
+        [ ("customer_id",      (maybe int) c.customer_id)
 
-            , ("title",            string c.title)
-            , ("title_letter",     string c.title_letter)
+        , ("title",            string c.title)
+        , ("title_letter",     string c.title_letter)
 
-            , ("given",            string c.given)
-            , ("second",           string c.second)
-            , ("family",           string c.family)
+        , ("given",            string c.given)
+        , ("second",           string c.second)
+        , ("family",           string c.family)
 
-            , ("company",          string c.company)
-            , ("company_address",  string c.company_address)
+        , ("company",          string c.company)
+        , ("company_address",  string c.company_address)
 
-            , ("street",           string c.street)
-            , ("street_number",    string c.street_number)
-            , ("postal_code",      string c.postal_code)
-            , ("city",             string c.city)
-            , ("country",          string c.country)
-            , ("country_code",     string c.country_code)
+        , ("street",           string c.street)
+        , ("street_number",    string c.street_number)
+        , ("postal_code",      string c.postal_code)
+        , ("city",             string c.city)
+        , ("country",          string c.country)
+        , ("country_code",     string c.country_code)
 
-            , ("phone",            string c.phone)
-            , ("phone2",           string c.phone2)
-            , ("mobile",           string c.mobile)
-            , ("fax",              string c.fax)
-            , ("fax2",             string c.fax2)
-            , ("mail",             string c.mail)
-            , ("mail2",            string c.mail2)
-            , ("web",              string c.web)
+        , ("phone",            string c.phone)
+        , ("phone2",           string c.phone2)
+        , ("mobile",           string c.mobile)
+        , ("fax",              string c.fax)
+        , ("fax2",             string c.fax2)
+        , ("mail",             string c.mail)
+        , ("mail2",            string c.mail2)
+        , ("web",              string c.web)
 
-            , ("keyword",          string c.keyword)
-            , ("note",             string c.note)
-            ]
+        , ("keyword",          string c.keyword)
+        , ("note",             string c.note)
+
+        , ("bookings",         bookings c.bookings)
+        ]
 
 
 -- Constructors
