@@ -3,7 +3,9 @@ module Database exposing
     , getPrevCustomerById
     , getNextCustomerById
     , getLatestCustomer
-    , saveCustomer
+    , patchCustomer
+    , createCustomer
+    , saveBooking
     , Msg(..)
     )
 
@@ -27,6 +29,7 @@ customerSelect =
 type Msg
     = DbError Http.Error
     | DbReceived Customer
+    | DbCustomerCreated Int
     | DbSuccess
 
 type alias Callback msg = Msg -> msg
@@ -103,12 +106,6 @@ getLatestCustomer cb filter =
         Http.get uri C.jsonDecoderFirst
         |> send cb customer
 
-saveCustomer : Callback msg -> Customer -> Cmd msg
-saveCustomer cb c =
-    case c.customer_id of
-        Nothing -> newCustomer cb c
-        Just id -> patchCustomer cb c id
-
 patchCustomer : Callback msg -> Customer -> Int -> Cmd msg
 patchCustomer cb c id =
     let params =
@@ -122,24 +119,32 @@ patchCustomer cb c id =
         patchJson uri json C.jsonDecoderFirst
         |> send cb unit
 
-newCustomer : Callback msg -> Customer -> Cmd msg
-newCustomer cb c =
+createCustomer : Callback msg -> Customer -> Cmd msg
+createCustomer cb c =
     let json = C.jsonEncode c
     in
+        -- TODO: Return CustomerCreated id
         postJson res.customers json C.jsonDecoder
         |> send cb unit
 
+saveBooking : Callback msg -> Int -> Booking -> Cmd msg
+saveBooking cb customer_id b =
+  let b_ = { b | customer_id = Just customer_id }
+  in case b.booking_id of
+      Nothing -> createBooking cb b_
+      Just id -> patchBooking cb b_ id
+
 patchBooking : Callback msg -> Booking -> Int -> Cmd msg
 patchBooking cb b id =
-    let json = B.encode b
-        params = [ "booking_id=eq." ++ (toString id) ]
+    let params = [ "booking_id=eq." ++ (toString id) ]
         uri = buildUri res.bookings params Nothing
+        json = B.encode b
     in
         patchJson uri json B.decode
         |> send cb unit
 
-newBooking : Callback msg -> Booking -> Cmd msg
-newBooking cb b =
+createBooking : Callback msg -> Booking -> Cmd msg
+createBooking cb b =
     let json = B.encode b
     in
         postJson res.bookings json B.decode

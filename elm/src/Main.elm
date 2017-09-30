@@ -134,7 +134,11 @@ type Msg
 
 setCustomer : Customer -> Model -> Model
 setCustomer c model =
-    let b  = Array.fromList c.bookings
+    let b  =
+          case c.bookings of
+            [] ->  Array.fromList [Booking.empty]
+            lst -> Array.fromList lst
+
         c_ = { c | bookings = [] }
     in
         { model
@@ -173,11 +177,14 @@ update msg model =
             |> selectBooking i |> dirty |> pure
 
     Save ->
-        let c_ = model.customer
-            c = { c_ | bookings = model.bookings |> Array.toList }
-            save =
-                Db.saveCustomer Database c
-                |> effect
+        let c = model.customer
+            save = case c.customer_id of
+              Nothing -> Db.createCustomer Database c |> effect
+              Just id ->
+                let savec = Db.patchCustomer Database c id
+                    b = model.bookings |> Array.toList
+                    saveb = List.map (Db.saveBooking Database id) b
+                in savec :: saveb |> Cmd.batch |> effect
         in
             if not model.dirty then pure model else
               case model.dbState of
@@ -210,9 +217,19 @@ update msg model =
 
     Database msg_ ->
         case msg_ of
-            DbReceived c -> setCustomer c model |> pure
-            DbError e -> { model | dbState = Error e } |> pure
-            DbSuccess -> { model | dbState = Synced }  |> pure
+          -- TODO: check for overwrites of dbState
+          DbReceived c -> setCustomer c model |> pure
+          DbError e -> { model | dbState = Error e } |> pure
+          DbSuccess -> { model | dbState = Synced }  |> pure
+          DbCustomerCreated id ->
+            -- Customer was succesfully created. Now save bookings.
+            -- TODO: This was not checked
+            let mod c = { c | customer_id = Just id }
+                b = model.bookings |> Array.toList
+                save = List.map (Db.saveBooking Database id) b
+                  |> Cmd.batch |> effect
+            in
+                { model | customer = mod model.customer } |> save
 
     SelectBooking i ->
         selectBooking i model |> pure
