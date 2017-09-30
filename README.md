@@ -30,7 +30,8 @@ External Dependencies
 ---------------------
 
 ```
-dnf install docker npm postgresql
+dnf install docker docker-compose npm postgresql
+systemctl start docker
 ```
 
 Usage
