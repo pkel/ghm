@@ -36,7 +36,7 @@ type alias Individual =
     }
 
 type alias Room =
-    { room          : Maybe Int
+    { room          : String
     , beds          : Int
     , price_per_bed : Float
     , factor        : Float
@@ -48,7 +48,8 @@ type alias Room =
 
 type alias Booking =
     { booking_id       : Maybe Int
-    , state            : Int
+    , customer_id      : Maybe Int
+    , state            : String
     , deposit_asked    : Maybe Float
     , deposit_got      : Maybe Float
     , no_tax           : Bool
@@ -96,7 +97,8 @@ decode =
     in
         Pipeline.decode Booking
             |> required "booking_id"         (nullable int)
-            |> optional "state"              int 0
+            |> optional "customer_id"        (nullable int) Nothing
+            |> optional "state"              string ""
             |> optional "deposit_asked"      (nullable float) Nothing
             |> optional "deposit_got"        (nullable float) Nothing
             |> optional "no_tax"             bool False
@@ -117,7 +119,8 @@ encode b =
         list f l = List.map f l |> Encode.list
     in
         Encode.object
-            [ ("state",         int           b.state)
+            [ ("customer_id",   (maybe int)   b.customer_id)
+            , ("state",          string       b.state)
             , ("deposit_asked", (maybe float) b.deposit_asked)
             , ("deposit_got",   (maybe float) b.deposit_got)
             , ("no_tax",        bool          b.no_tax)
@@ -166,7 +169,7 @@ decodeRoom =
     in
         -- TODO: Read defaults from config / database
         Pipeline.decode Room
-            |> optional "room"          (nullable int) Nothing
+            |> optional "room"          string ""
             |> optional "beds"          int 2
             |> optional "price_per_bed" float 0.0
             |> optional "factor"        float 1.0
@@ -186,7 +189,7 @@ encodeRoom r =
       int    = Encode.int
   in
       Encode.object
-            [ ("room"          , (maybe int)   r.room          )
+            [ ("room"          ,  string       r.room          )
             , ("beds"          ,  int          r.beds          )
             , ("price_per_bed" ,  float        r.price_per_bed )
             , ("factor"        ,  float        r.factor        )
@@ -206,9 +209,9 @@ emptyIndividual =
 -- TODO: Read default from config / database
 emptyRoom : Room
 emptyRoom =
-    Room Nothing 2 0.0 1.0 "" True Nothing Nothing
+    Room "" 2 0.0 1.0 "" True Nothing Nothing
 
 empty : Booking
 empty =
-    Booking Nothing 0 Nothing Nothing False "" [] []
+    Booking Nothing Nothing "" Nothing Nothing False "" [] []
 

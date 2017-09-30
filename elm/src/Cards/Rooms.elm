@@ -34,14 +34,12 @@ import BufferedInput as Input
 
 import Date exposing (Date)
 
-room : Input.Spec (Maybe Int)
+room : Input.Spec String
 room =
     { key   = "room"
-    , hint  = "1, 2, ..."
+    , hint  = ""
     , label = "Nr."
-    , typeSpec = Input.int
-        |> Input.check (\x -> x > 0)
-        |> Input.maybe
+    , typeSpec = Input.string
     }
 
 beds : Input.Spec Int
