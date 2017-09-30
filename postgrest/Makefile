@@ -11,6 +11,7 @@ init :
 	source ./env ; tools/wait-for-db
 	source ./env ; psql -qf schema/0_internal.sql
 	source ./env ; psql -qf schema/1_public.sql
+	source ./env ; psql -qf etc/ghm-cfg.sql
 
 .PHONY: combit
 combit :
