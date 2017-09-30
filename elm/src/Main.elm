@@ -98,7 +98,8 @@ dirty m = { m | dirty = True }
 -- UPDATE
 
 type Msg
-    = New
+    = NewCustomer
+    | NewBooking
     | Save
     | Abort
     | Previous
@@ -161,8 +162,15 @@ selectBooking i model =
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    New ->
+    NewCustomer ->
         { empty | filter = "" } |> dirty |> pure
+
+    NewBooking ->
+        let i = Array.length model.bookings
+            b = Array.push Booking.empty model.bookings
+        in
+            { model | bookings = b }
+            |> selectBooking i |> dirty |> pure
 
     Save ->
         let c_ = model.customer
@@ -389,7 +397,7 @@ bookingSelectionCfg =
     { mdl = Mdl
     , index = [806]
     , render = Cards.Selection.table fields
-    , add = Ignore -- TODO: Implement Booking creation
+    , add = NewBooking
     , select = SelectBooking
     , title = Nothing
     }
@@ -492,7 +500,7 @@ controls model =
             , button ndirty [2] "chevron_right" Next
             , button ndirty [3] "last_page"     Last
             , Layout.spacer
-            , button ndirty [4] "library_add" New
+            , button ndirty [4] "library_add" NewCustomer
             , button dirty  [5] "save"        Save
             , button dirty  [6] "cancel"      Abort
             ]
