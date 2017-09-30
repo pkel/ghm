@@ -48,8 +48,7 @@ main =
 
 type DbState
     = Syncing
-    | Dirty
-    | InSync
+    | Synced
     | Error Http.Error
 
 type alias Mdl = Material.Model
@@ -66,6 +65,7 @@ type alias Model =
   , bookingNoteCard  : NoteCard.Model
   , bookingCard      : Cards.Booking.Model
   , dbState          : DbState
+  , dirty            : Bool
   , mdl              : Mdl
   }
 
@@ -81,7 +81,8 @@ empty =
     , roomsCard        = Cards.Rooms.init []
     , bookingCard      = Cards.Booking.init Booking.empty
     , focusedBooking   = -1
-    , dbState = Syncing
+    , dbState = Synced
+    , dirty = False
     , mdl = Material.model
     }
 
@@ -91,7 +92,7 @@ init =
   , Db.getLatestCustomer Database "" )
 
 dirty : Model -> Model
-dirty m = { m | dbState = Dirty }
+dirty m = { m | dirty = True }
 
 
 -- UPDATE
@@ -137,7 +138,7 @@ setCustomer c model =
     in
         { model
         | customer = c_
-        , dbState = InSync
+        , dbState = Synced
         , customerCard = CustomerCard.init c
         , customerNoteCard = NoteCard.init c.note
         , bookings = b
@@ -170,11 +171,11 @@ update msg model =
                 Db.saveCustomer Database c
                 |> effect
         in
-        case model.dbState of
-            Dirty   -> { model | dbState = Syncing } |> save
-            Error _ -> { model | dbState = Syncing } |> save
-            InSync  -> model |> pure
-            Syncing -> model |> pure
+            if not model.dirty then pure model else
+              case model.dbState of
+                Error _ -> { model | dbState = Syncing } |> save
+                Synced  -> model |> pure
+                Syncing -> model |> pure
 
     Abort ->
       -- TODO: implement abort
@@ -203,7 +204,7 @@ update msg model =
         case msg_ of
             DbReceived c -> setCustomer c model |> pure
             DbError e -> { model | dbState = Error e } |> pure
-            DbSuccess -> { model | dbState = InSync }  |> pure
+            DbSuccess -> { model | dbState = Synced }  |> pure
 
     SelectBooking i ->
         selectBooking i model |> pure
@@ -463,11 +464,7 @@ controls model =
             , Button.raised
             ] Mdl model.mdl
 
-        dirty = case model.dbState of
-          Dirty   -> True
-          Syncing -> False
-          InSync  -> False
-          Error _ -> False
+        dirty = model.dirty
 
         ndirty = not dirty
 
