@@ -13,6 +13,7 @@ module Booking exposing
 
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline as Pipeline
+import Json.Decode.Extra as DecodeX
 import Json.Encode as Encode
 import Json.Encode.Extra as EncodeX
 
@@ -110,6 +111,9 @@ encode b =
         string = Encode.string
         float  = Encode.float
         bool   = Encode.bool
+        room   = encodeRoom
+        indi   = encodeIndividual
+        list f l = List.map f l |> Encode.list
     in
         Encode.object
             [ ("booking_id",    (maybe int)   b.booking_id)
@@ -118,13 +122,15 @@ encode b =
             , ("deposit_got",   (maybe float) b.deposit_got)
             , ("no_tax",        bool          b.no_tax)
             , ("note",          string        b.note)
+            , ("rooms",         (list room)   b.rooms)
+            , ("individuals",   (list indi)   b.individuals)
             ]
 
 decodeIndividual : Decoder Individual
 decodeIndividual =
     let optional = Pipeline.optional
         nullable = Decode.nullable
-        date     = JsonH.decodeDate
+        date     = DecodeX.date
         string   = Decode.string
     in
         Pipeline.decode Individual
@@ -132,6 +138,19 @@ decodeIndividual =
             -- |> optional "second"        string ""
             |> optional "family"        string ""
             |> optional "date_of_birth" (nullable date) Nothing
+
+encodeIndividual : Individual -> Encode.Value
+encodeIndividual i =
+  let string = Encode.string
+      maybe  = EncodeX.maybe
+      -- TODO: This might go wrong. Is it inverse of DecodeX.date?
+      date d = toString d |> Encode.string
+  in
+      Encode.object
+      [ ("given"        ,  string      i.given         )
+      , ("family"       ,  string      i.family        )
+      , ("date_of_birth", (maybe date) i.date_of_birth )
+      ]
 
 decodeRoom : Decoder Room
 decodeRoom =
@@ -153,6 +172,27 @@ decodeRoom =
             |> optional "breakfast"     bool True
             |> optional "from_date"     (nullable date) Nothing
             |> optional "to_date"       (nullable date) Nothing
+
+encodeRoom : Room -> Encode.Value
+encodeRoom r =
+  let string = Encode.string
+      maybe  = EncodeX.maybe
+      -- TODO: This might go wrong. Is it inverse of DecodeX.date?
+      date d = toString d |> Encode.string
+      float  = Encode.float
+      bool   = Encode.bool
+      int    = Encode.int
+  in
+      Encode.object
+            [ ("room"          , (maybe int)   r.room          )
+            , ("beds"          ,  int          r.beds          )
+            , ("price_per_bed" ,  float        r.price_per_bed )
+            , ("factor"        ,  float        r.factor        )
+            , ("description"   ,  string       r.description   )
+            , ("breakfast"     ,  bool         r.breakfast     )
+            , ("from_date"     , (maybe date)  r.from          )
+            , ("to_date"       , (maybe date)  r.to            )
+            ]
 
 
 -- Constructors
