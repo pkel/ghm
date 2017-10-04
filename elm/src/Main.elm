@@ -222,16 +222,8 @@ update msg model =
           -- TODO: check for overwrites of dbState and dirty
           DbReceived c -> setCustomer c model |> pure
           DbError e -> { model | dbState = Error e } |> pure
-          DbSuccess -> { model | dbState = Synced, dirty = False }  |> pure
-          DbCustomerCreated id ->
-            -- Customer was succesfully created. Now save bookings.
-            -- TODO: This was not checked
-            let mod c = { c | customer_id = Just id }
-                b = model.bookings |> Array.toList
-                save = List.map (Db.saveBooking Database id) b
-                  |> Cmd.batch |> effect
-            in
-                { model | customer = mod model.customer } |> save
+          DbSaved -> { model | dbState = Synced, dirty = False } |> pure
+          DbInternal dbMsg -> effect (Db.update Database dbMsg) model
 
     SelectBooking i ->
         selectBooking i model |> pure

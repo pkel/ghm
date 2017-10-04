@@ -7,6 +7,7 @@ module Database exposing
     , createCustomer
     , saveBooking
     , Msg(..)
+    , update
     )
 
 import Http
@@ -29,10 +30,22 @@ customerSelect =
 type Msg
     = DbError Http.Error
     | DbReceived Customer
-    | DbCustomerCreated Int
-    | DbSuccess
+    | DbSaved
+    | DbInternal InternalMsg
+
+type InternalMsg
+    = CustomerCreated Int
+    | RoomsOK
 
 type alias Callback msg = Msg -> msg
+
+
+update : Callback msg -> InternalMsg -> Cmd msg
+update cb msg =
+  case msg of
+    CustomerCreated i -> Cmd.none
+    RoomsOK -> Cmd.none
+
 
 map f ret =
     case ret of
@@ -45,7 +58,7 @@ customer cb r =
 
 unit : Callback msg -> Result Http.Error a -> msg
 unit cb r =
-    map (\x -> DbSuccess) r |> cb
+    map (\x -> DbSaved) r |> cb
 
 send cb wrap =
     Http.send (wrap cb)
