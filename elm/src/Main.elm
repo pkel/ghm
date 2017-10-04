@@ -144,6 +144,7 @@ setCustomer c model =
         { model
         | customer = c_
         , dbState = Synced
+        , dirty = False
         , customerCard = CustomerCard.init c
         , customerNoteCard = NoteCard.init c.note
         , bookings = b
@@ -218,7 +219,7 @@ update msg model =
 
     Database msg_ ->
         case msg_ of
-          -- TODO: check for overwrites of dbState
+          -- TODO: check for overwrites of dbState and dirty
           DbReceived c -> setCustomer c model |> pure
           DbError e -> { model | dbState = Error e } |> pure
           DbSuccess -> { model | dbState = Synced, dirty = False }  |> pure
