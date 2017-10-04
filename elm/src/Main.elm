@@ -220,7 +220,7 @@ update msg model =
           -- TODO: check for overwrites of dbState
           DbReceived c -> setCustomer c model |> pure
           DbError e -> { model | dbState = Error e } |> pure
-          DbSuccess -> { model | dbState = Synced }  |> pure
+          DbSuccess -> { model | dbState = Synced, dirty = False }  |> pure
           DbCustomerCreated id ->
             -- Customer was succesfully created. Now save bookings.
             -- TODO: This was not checked
