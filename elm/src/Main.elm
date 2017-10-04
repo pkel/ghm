@@ -288,8 +288,7 @@ update msg model =
 
     CustomerCardMsg msg_ ->
         liftCallback
-            { delete = Ignore -- TODO: implement customer deletion
-            , updated = UpdatedCustomer
+            { updated = UpdatedCustomer
             , mdl = Mdl
             }             .customerCard
             (\m x -> { m | customerCard = x })

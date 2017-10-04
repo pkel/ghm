@@ -31,10 +31,11 @@ import Html exposing (Html, text, br)
 import Html.Attributes as Attributes
 
 type alias Model =
-    { dirty  : Bool
-    , tab    : Int
-    , buffer : Input.Buffer
-    , data   : Customer
+    { history : List Modifier
+    , latest  : Modifier
+    , tab     : Int
+    , buffer  : Input.Buffer
+    , data    : Customer
     }
 
 stringSpec : String -> String -> Input.Spec String
@@ -70,31 +71,28 @@ web             = stringSpec "web"             "Website"
 
 type Msg msg
     = Change Input.Updater String
-    | Abort
-    | Delete
-    | Save
+    | Undo
     | SelectTab Int
     | Mdl (Material.Msg msg)
 
 type alias Modifier = Customer -> Customer
 
 type alias Callbacks msg =
-    { delete  : msg
-    , updated : (Modifier) -> msg
+    { updated : (Modifier) -> msg
     , mdl     : Material.Msg msg -> msg
     }
 
+id : Modifier
+id m = m
+
 init : Customer -> Model
 init c =
-    { dirty  = False
+    { history = []
+    , latest = id
     , tab    = 0
     , buffer = initBuffer c
     , data   = c
     }
-
-dirty : Model -> Model
-dirty model =
-    { model | dirty = True }
 
 initBuffer : Customer -> Input.Buffer
 initBuffer c =
@@ -156,24 +154,34 @@ parse model =
         |> f keyword         (\v r -> { r | keyword         = v } )
 
 
+
 update : UpdateCallback msg (Callbacks msg) (Msg msg) Model
 update cb msg model =
     case msg of
         Change up str ->
-            dirty { model | buffer = Input.update up str model.buffer } |> pure
+          { model | buffer = Input.update up str model.buffer }
+          |> \m -> case parse m of
+            Err _ -> pure m
+            Ok  mod ->
+              { m
+              | history = model.latest :: model.history
+              , latest = mod
+              }
+              |> callback (cb.updated mod)
 
-        Abort ->
-            { model | buffer = initBuffer model.data, dirty = False } |> pure
+        Undo ->
+          case model.history of
+            [] -> pure model
+            hd :: tl ->
+              { model
+              | latest = hd
+              , buffer = hd model.data |> initBuffer
+              , history = tl
+              }
+              |> callback (cb.updated hd)
 
         SelectTab i ->
             pure { model | tab = i }
-
-        Save -> case parse model of
-            Err _ -> pure model
-            Ok mod -> { model | data = mod model.data, dirty = False }
-                |> callback (cb.updated mod)
-
-        Delete -> callback cb.delete model
 
         Mdl msg -> callback (cb.mdl msg) model
 
@@ -193,8 +201,12 @@ view cfg mdl model =
             , Button.raised
             ] Mdl mdl (index i)
 
-        actions = [ button model.dirty 1 "cancel" Abort
-                  , button model.dirty 2 "save"   Save
+        dirty = case model.history of
+          [] -> False
+          _ -> True
+
+
+        actions = [ button dirty 1 "undo" Undo
                   ]
 
         tab_labels =
