@@ -193,8 +193,9 @@ update msg model =
                 Syncing -> model |> pure
 
     Abort ->
-      -- TODO: implement abort
-      init
+      case model.customer.customer_id of
+        Nothing -> init
+        Just i  -> effect (Db.getCustomerById Database i) model
 
     Previous ->
         model |> case model.customer.customer_id of
