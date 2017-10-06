@@ -33,6 +33,7 @@ import Cards.Booking
 import Date.Format as DateF
 
 import Database as Db exposing (Msg(..))
+
 import Http
 
 main =
@@ -64,7 +65,7 @@ type alias Model =
   , roomsCard        : Cards.Rooms.Model
   , bookingNoteCard  : NoteCard.Model
   , bookingCard      : Cards.Booking.Model
-  , dbState          : DbState
+  , database         : Db.Model
   , dirty            : Bool
   , mdl              : Mdl
   }
@@ -81,15 +82,19 @@ empty =
     , roomsCard        = Cards.Rooms.init []
     , bookingCard      = Cards.Booking.init Booking.empty
     , focusedBooking   = -1
-    , dbState = Synced
+    , database = Db.init
     , dirty = False
     , mdl = Material.model
     }
 
+db : Cmd Db.Msg -> Cmd Msg
+db cmd =
+  Cmd.map Database cmd
+
 init : (Model, Cmd Msg)
 init =
   ( empty
-  , Db.getLatestCustomer Database "" )
+  , Db.getLatestCustomer "" |> db )
 
 dirty : Model -> Model
 dirty m = { m | dirty = True }
@@ -143,7 +148,6 @@ setCustomer c model =
     in
         { model
         | customer = c_
-        , dbState = Synced
         , dirty = False
         , customerCard = CustomerCard.init c
         , customerNoteCard = NoteCard.init c.note
@@ -166,6 +170,13 @@ selectBooking i model =
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
+  let dbEffect dbCmd mdl =
+        effect (db dbCmd) mdl
+      lift get set map update msg model =
+        let (mdl, cmd) = update (get model) msg
+        in (set model mdl, Cmd.map map cmd)
+
+  in
   case msg of
     NewCustomer ->
         { empty | filter = "" } |> dirty |> pure
@@ -178,52 +189,45 @@ update msg model =
             |> selectBooking i |> dirty |> pure
 
     Save ->
-        let c = model.customer
-            save = case c.customer_id of
-              Nothing -> Db.createCustomer Database c |> effect
-              Just id ->
-                let savec = Db.patchCustomer Database c id
-                    b = model.bookings |> Array.toList
-                    saveb = List.map (Db.saveBooking Database id) b
-                in savec :: saveb |> Cmd.batch |> effect
-        in
-            if not model.dirty then pure model else
-              case model.dbState of
-                Error _ -> { model | dbState = Syncing } |> save
-                Synced  -> { model | dbState = Syncing } |> save
-                Syncing -> model |> pure
+      let c = model.customer
+          c_ = { c | bookings = model.bookings |> Array.toList }
+      in
+      dbEffect (Db.saveCustomer c) model
 
     Abort ->
       case model.customer.customer_id of
         Nothing -> init
-        Just i  -> effect (Db.getCustomerById Database i) model
+        Just i  -> dbEffect (Db.getCustomerById i) model
 
     Previous ->
         model |> case model.customer.customer_id of
           Nothing -> pure
-          Just i  -> effect <|
-              Db.getPrevCustomerById Database model.filter i
+          Just i  -> dbEffect
+            <| Db.getPrevCustomerById model.filter i
 
     Next ->
         model |> case model.customer.customer_id of
           Nothing -> pure
-          Just i  -> effect <|
-              Db.getNextCustomerById Database model.filter i
+          Just i  -> dbEffect <|
+              Db.getNextCustomerById model.filter i
 
     Last ->
-        model |> effect (Db.getLatestCustomer Database model.filter)
+        dbEffect (Db.getLatestCustomer model.filter) model
 
     FilterChanged str ->
         { model | filter = str } |>
-        effect (Db.getLatestCustomer Database str)
+        dbEffect (Db.getLatestCustomer str)
 
     Database msg_ ->
         case msg_ of
-          -- TODO: check for overwrites of dbState and dirty
-          DbReceived c -> setCustomer c model |> pure
-          DbError e -> { model | dbState = Error e } |> pure
-          DbSaved -> { model | dbState = Synced, dirty = False } |> pure
-          DbInternal dbMsg -> effect (Db.update Database dbMsg) model
+          DbReturnCustomer c -> setCustomer c model |> pure
+          DbSavedCustomer -> pure { model | dirty = False }
+          DbMsg dbMsg ->
+            lift          .database
+            (\m x -> { m | database = x })
+            Database
+            Db.update
+            dbMsg model
 
     SelectBooking i ->
         selectBooking i model |> pure

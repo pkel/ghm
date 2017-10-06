@@ -3,24 +3,28 @@ module Database exposing
     , getPrevCustomerById
     , getNextCustomerById
     , getLatestCustomer
-    , patchCustomer
-    , createCustomer
-    , saveBooking
+    , saveCustomer
     , Msg(..)
+    , State(..)
+    , init
+    , Model
+    , DbError
     , update
+    , state
     )
 
 import Http
 import Json.Encode as Encode
 import Json.Decode as Decode
+import Material.Helpers exposing (pure, effect)
 
 import Config
 import Customer as C exposing (Customer)
 import Booking  as B exposing (Booking)
 
 res =
-    { customers    = Config.apiUrl ++ "/customers"
-    , bookings     = Config.apiUrl ++ "/bookings"
+    { customers = Config.apiUrl ++ "/customers"
+    , bookings  = Config.apiUrl ++ "/bookings"
     }
 
 customerSelect : String
@@ -28,58 +32,81 @@ customerSelect =
     "select=*,bookings{*}"
 
 type Msg
-    = DbError Http.Error
-    | DbReceived Customer
-    | DbSaved
-    | DbInternal InternalMsg
+  = DbReturnCustomer Customer
+  | DbSavedCustomer
+  | DbMsg InternalMsg
+
+type alias DbError =
+  { action : String
+  , http_err : Http.Error
+  }
 
 type InternalMsg
     = CustomerCreated Int
     | RoomsOK
+    | Error DbError
+    | Success
 
-type alias Callback msg = Msg -> msg
+type State
+  = Idle
+  | Busy
+  | Failed (List DbError)
 
+type alias Model =
+  { errors : List DbError
+  , task_count : Int
+  }
 
-update : Callback msg -> InternalMsg -> Cmd msg
-update cb msg =
-  case msg of
-    CustomerCreated i -> Cmd.none
-    RoomsOK -> Cmd.none
+init : Model
+init =
+  { errors = []
+  , task_count = 0
+  }
 
+state : Model -> State
+state m =
+  case m.errors of
+    [] -> if m.task_count > 0 then Busy else Idle
+    l  -> Failed l
 
-map f ret =
-    case ret of
-        Err e -> DbError e
-        Ok  x -> f x
+update : Model -> InternalMsg -> (Model, Cmd Msg)
+update m imsg =
+  case imsg of
+    --TODO: Obviously not finished
+    CustomerCreated i -> pure m
+    RoomsOK -> pure m
+    Success -> pure m
+    Error e -> { m | errors = e :: m.errors } |> pure
 
-customer : Callback msg -> Result Http.Error Customer -> msg
-customer cb r =
-    map DbReceived r |> cb
+error : String -> Http.Error -> Msg
+error action err =
+  { action = action
+  , http_err = err
+  } |> Error |> DbMsg
 
-unit : Callback msg -> Result Http.Error a -> msg
-unit cb r =
-    map (\x -> DbSaved) r |> cb
-
-send cb wrap =
-    Http.send (wrap cb)
 
 ---------------
 -- Customers --
 ---------------
 
-getCustomerById : Callback msg -> Int -> Cmd msg
-getCustomerById cb id =
+getCustomerById : Int -> Cmd Msg
+getCustomerById id =
     let params =
             [ "customer_id=eq." ++ (toString id)
             , customerSelect
             ]
 
         uri = buildUri res.customers params Nothing
+        return res =
+          case res of
+            Err e -> error "getCustomerById" e
+            Ok  c -> DbReturnCustomer c
     in
-        Http.send (customer cb) (Http.get uri C.jsonDecoderFirst)
+        Http.get uri C.jsonDecoderFirst
+        |> Http.send return
 
-getPrevCustomerById : Callback msg -> String -> Int -> Cmd msg
-getPrevCustomerById cb filter id =
+getPrevCustomerById : String -> Int -> Cmd Msg
+getPrevCustomerById filter id =
     let params =
             [ "customer_id=lt." ++ (toString id)
             , customerSelect
@@ -88,12 +115,16 @@ getPrevCustomerById cb filter id =
             ]
 
         uri = buildUri res.customers params (Just filter)
+        return res =
+          case res of
+            Err e -> error "getPrevCustomerById" e
+            Ok  c -> DbReturnCustomer c
     in
         Http.get uri C.jsonDecoderFirst
-        |> send cb customer
+        |> Http.send return
 
-getNextCustomerById : Callback msg -> String -> Int -> Cmd msg
-getNextCustomerById cb filter id =
+getNextCustomerById : String -> Int -> Cmd Msg
+getNextCustomerById filter id =
     let params =
             [ "customer_id=gt." ++ (toString id)
             , customerSelect
@@ -102,12 +133,16 @@ getNextCustomerById cb filter id =
             ]
 
         uri = buildUri res.customers params (Just filter)
+        return res =
+          case res of
+            Err e -> error "getNextCustomerById" e
+            Ok  c -> DbReturnCustomer c
     in
         Http.get uri C.jsonDecoderFirst
-        |> send cb customer
+        |> Http.send return
 
-getLatestCustomer : Callback msg -> String -> Cmd msg
-getLatestCustomer cb filter =
+getLatestCustomer : String -> Cmd Msg
+getLatestCustomer filter =
     let params =
             [ "order=customer_id.desc"
             , customerSelect
@@ -115,12 +150,23 @@ getLatestCustomer cb filter =
             ]
 
         uri = buildUri res.customers params (Just filter)
+        return res =
+          case res of
+            Err e -> error "getLatestCustomer" e
+            Ok  c -> DbReturnCustomer c
     in
         Http.get uri C.jsonDecoderFirst
-        |> send cb customer
+        |> Http.send return
 
-patchCustomer : Callback msg -> Customer -> Int -> Cmd msg
-patchCustomer cb c id =
+
+saveCustomer : Customer -> Cmd Msg
+saveCustomer c =
+  case c.customer_id of
+    Nothing -> createCustomer   c
+    Just id -> patchCustomer id c
+
+patchCustomer : Int -> Customer -> Cmd Msg
+patchCustomer id c =
     let params =
             [ "customer_id=eq." ++ (toString id)
             ]
@@ -128,40 +174,57 @@ patchCustomer cb c id =
         uri = buildUri res.customers params Nothing
 
         json = C.jsonEncode c
+        return res =
+          case res of
+            Err e -> error "patchCustomer" e
+            -- TODO: Save Bookings
+            Ok  _ -> DbSavedCustomer
     in
         patchJson uri json C.jsonDecoderFirst
-        |> send cb unit
+        |> Http.send return
 
-createCustomer : Callback msg -> Customer -> Cmd msg
-createCustomer cb c =
+createCustomer : Customer -> Cmd Msg
+createCustomer c =
     let json = C.jsonEncode c
+        return res =
+          case res of
+            Err e -> error "createCustomer" e
+            -- TODO: Save Bookings
+            Ok  _ -> DbSavedCustomer
     in
-        -- TODO: Return CustomerCreated id
         postJson res.customers json C.jsonDecoder
-        |> send cb unit
+        |> Http.send return
 
-saveBooking : Callback msg -> Int -> Booking -> Cmd msg
-saveBooking cb customer_id b =
+saveBooking : Int -> Booking -> Cmd Msg
+saveBooking customer_id b =
   let b_ = { b | customer_id = Just customer_id }
   in case b.booking_id of
-      Nothing -> createBooking cb b_
-      Just id -> patchBooking cb b_ id
+      Nothing -> createBooking b_
+      Just id -> patchBooking b_ id
 
-patchBooking : Callback msg -> Booking -> Int -> Cmd msg
-patchBooking cb b id =
+patchBooking : Booking -> Int -> Cmd Msg
+patchBooking b id =
     let params = [ "booking_id=eq." ++ (toString id) ]
         uri = buildUri res.bookings params Nothing
         json = B.encode b
+        return res =
+          case res of
+            Err e -> error "patchBooking" e
+            Ok  _ -> DbMsg Success
     in
         patchJson uri json B.decode
-        |> send cb unit
+        |> Http.send return
 
-createBooking : Callback msg -> Booking -> Cmd msg
-createBooking cb b =
+createBooking : Booking -> Cmd Msg
+createBooking b =
     let json = B.encode b
+        return res =
+          case res of
+            Err e -> error "createBooking" e
+            Ok  _ -> DbMsg Success
     in
         postJson res.bookings json B.decode
-        |> send cb unit
+        |> Http.send return
 
 
 
