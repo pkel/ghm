@@ -73,7 +73,7 @@ type alias Model =
 empty : Model
 empty =
     { customer = Customer.empty
-    , bookings = Array.fromList [Booking.empty]
+    , bookings = Array.fromList []
     , filter = ""
     , customerCard = CustomerCard.init Customer.empty
     , customerNoteCard = NoteCard.init ""
@@ -83,7 +83,7 @@ empty =
     , bookingCard      = Cards.Booking.init Booking.empty
     , focusedBooking   = -1
     , database = Db.init
-    , dirty = False
+    , dirty = True
     , mdl = Material.model
     }
 
@@ -139,34 +139,31 @@ type Msg
 
 setCustomer : Customer -> Model -> Model
 setCustomer c model =
-    let b  =
-          case c.bookings of
-            [] ->  Array.fromList [Booking.empty]
-            lst -> Array.fromList lst
-
-        c_ = { c | bookings = [] }
-    in
-        { model
-        | customer = c_
-        , dirty = False
-        , customerCard = CustomerCard.init c
-        , customerNoteCard = NoteCard.init c.note
-        , bookings = b
-        }
-        |> selectBooking 0
+  { model
+  -- Bookings are kept separately. Delete unused copy to avoid confusion
+  | customer = { c | bookings = [] }
+  , dirty = False
+  , customerCard = CustomerCard.init c
+  , customerNoteCard = NoteCard.init c.note
+  , bookings = Array.fromList c.bookings
+  }
+  |> selectBooking (List.length c.bookings - 1)
 
 selectBooking : Int -> Model -> Model
 selectBooking i model =
     case Array.get i model.bookings of
-        Nothing -> model
+        Nothing ->
+          { model
+          | focusedBooking  = i
+          }
         Just booking ->
-            { model
-            | focusedBooking  = i
-            , individualsCard = Cards.Individuals.init booking.individuals
-            , roomsCard       = Cards.Rooms.init       booking.rooms
-            , bookingNoteCard = NoteCard.init booking.note
-            , bookingCard     = Cards.Booking.init booking
-            }
+          { model
+          | focusedBooking  = i
+          , individualsCard = Cards.Individuals.init booking.individuals
+          , roomsCard       = Cards.Rooms.init       booking.rooms
+          , bookingNoteCard = NoteCard.init booking.note
+          , bookingCard     = Cards.Booking.init booking
+          }
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -371,26 +368,28 @@ customerCfg : CustomerCard.Cfg Msg
 customerCfg =
     { lift  = CustomerCardMsg
     , index = [802]
+    , title = Just "Stammdaten"
     }
 
 individualsCfg : Cards.Individuals.Cfg Msg
 individualsCfg =
     { lift  = IndividualsCardMsg
     , index = [803]
-    , title = Nothing
+    , title = Just "Gäste"
     }
 
 roomsCfg : Cards.Rooms.Cfg Msg
 roomsCfg =
     { lift  = RoomsCardMsg
     , index = [804]
-    , title = Nothing
+    , title = Just "Zimmer"
     }
 
 bookingCfg : Cards.Booking.Cfg Msg
 bookingCfg =
     { lift  = BookingCardMsg
     , index = [805]
+    , title = Just "Gewählte Buchung"
     }
 
 -- TODO: This seems to have deprecated Card Api
@@ -412,13 +411,16 @@ bookingSelectionCfg =
     , render = Cards.Selection.table fields
     , add = NewBooking
     , select = SelectBooking
-    , title = Nothing
+    , title = Just "Buchungen"
     }
 
 body : Model -> Html Msg
 body model =
-    let -- TODO: Helpers.Maybe
-        maybeMapDefault default f x = Maybe.map f x |> Maybe.withDefault default
+    let -- helper for hide if no booking selected
+        condition html =
+          case Array.get model.focusedBooking model.bookings of
+            Just _  -> html
+            Nothing -> Html.div [] []
 
         -- customer data
 
@@ -447,6 +449,7 @@ body model =
             bookingCfg
             model.mdl
             model.bookingCard
+            |> condition
 
         -- list of individuals, editable
 
@@ -454,6 +457,7 @@ body model =
             individualsCfg
             model.mdl
             model.individualsCard
+            |> condition
 
         -- list of rooms, editable
 
@@ -461,6 +465,7 @@ body model =
             roomsCfg
             model.mdl
             model.roomsCard
+            |> condition
 
         -- booking note
 
@@ -468,13 +473,14 @@ body model =
             bookingNoteCfg
             model.mdl
             model.bookingNoteCard
+            |> condition
     in
         grid
             [ Grid.noSpacing
             ]
-            [ cell [ size All 4 ] [ customer, selection, customerNote ]
-            , cell [ size All 4 ] [ booking, rooms ]
-            , cell [ size All 4 ] [ individuals, bookingNote ]
+            [ cell [ size All 4 ] [ customer, customerNote ]
+            , cell [ size All 4 ] [ selection, booking, bookingNote ]
+            , cell [ size All 4 ] [ rooms, individuals ]
             ]
 
 

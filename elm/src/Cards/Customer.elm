@@ -190,6 +190,7 @@ update cb msg model =
 type alias Cfg msg =
     { index      : List Int
     , lift       : Msg msg -> msg
+    , title      : Maybe String
     }
 
 view : Cfg msg -> Material.Model -> Model -> Html msg
@@ -279,13 +280,14 @@ view cfg mdl model =
                     2 -> contactTab
                     _ -> nameTab
                 ]
-
-        cardContent =
-            -- [ Card.title [ Defaults.cardTitle ] [ text model.cache.keyword ]
-            [ Card.actions [] [ tabs ]
-            , Card.actions [ Defaults.actions ] actions
-            ]
     in
-        Card.view [ Defaults.card ] cardContent
+        [ Card.actions [] [ tabs ]
+        , Card.actions [ Defaults.actions ] actions
+        ]
+        |> ( \x -> case cfg.title of
+            Nothing -> x
+            Just title ->
+                Card.title [ Defaults.cardTitle ] [ text title ] :: x )
+        |> Card.view [ Defaults.card ]
         |> Html.map cfg.lift
 

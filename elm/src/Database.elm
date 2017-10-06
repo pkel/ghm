@@ -183,7 +183,6 @@ patchCustomer id c =
         return res =
           case res of
             Err e -> error "patchCustomer" e
-            -- TODO: Save Bookings
             Ok  _ -> DbMsg <| SaveBookings id c.bookings
     in
         patchJson uri json C.jsonDecoder

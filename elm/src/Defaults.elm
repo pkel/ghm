@@ -55,8 +55,8 @@ buttonMini = button_ [ Button.icon ]
 cardTitle : Options.Property c m
 cardTitle =
     Options.many
-        [ Typography.title
-        -- , Options.center
+        [ Typography.subhead
+        , Options.center
         -- , Color.text Color.primaryDark
         ]
 
