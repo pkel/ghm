@@ -38,7 +38,7 @@ type Msg
 
 type alias DbError =
   { action : String
-  , http_err : Http.Error
+  , http_err : Maybe Http.Error
   }
 
 type InternalMsg
@@ -46,6 +46,7 @@ type InternalMsg
     | RoomsOK
     | Error DbError
     | Success
+    | SaveBookings Int (List Booking)
 
 type State
   = Idle
@@ -77,11 +78,19 @@ update m imsg =
     RoomsOK -> pure m
     Success -> pure m
     Error e -> { m | errors = e :: m.errors } |> pure
+    SaveBookings customer_id bookings ->
+      ( m , saveBookings (getCustomerById customer_id) customer_id bookings )
 
 error : String -> Http.Error -> Msg
 error action err =
   { action = action
-  , http_err = err
+  , http_err = Just err
+  } |> Error |> DbMsg
+
+error_ : String -> Msg
+error_ action =
+  { action = action
+  , http_err = Nothing
   } |> Error |> DbMsg
 
 
@@ -178,7 +187,7 @@ patchCustomer id c =
           case res of
             Err e -> error "patchCustomer" e
             -- TODO: Save Bookings
-            Ok  _ -> DbSavedCustomer
+            Ok  _ -> DbMsg <| SaveBookings id c.bookings
     in
         patchJson uri json C.jsonDecoderFirst
         |> Http.send return
@@ -190,38 +199,48 @@ createCustomer c =
           case res of
             Err e -> error "createCustomer" e
             -- TODO: Save Bookings
-            Ok  _ -> DbSavedCustomer
+            Ok c_ ->
+              case c_.customer_id of
+                Nothing -> error_ "createCustomerResponseID"
+                Just id -> DbMsg <| SaveBookings id c.bookings
     in
         postJson res.customers json C.jsonDecoder
         |> Http.send return
 
-saveBooking : Int -> Booking -> Cmd Msg
-saveBooking customer_id b =
+saveBookings : Cmd Msg -> Int -> List Booking -> Cmd Msg
+saveBookings success customer_id lst =
+  case lst of
+    [] -> success
+    hd :: tl ->
+      saveBooking (SaveBookings customer_id tl |> DbMsg) customer_id hd
+
+saveBooking : Msg -> Int -> Booking -> Cmd Msg
+saveBooking success customer_id b =
   let b_ = { b | customer_id = Just customer_id }
   in case b.booking_id of
-      Nothing -> createBooking b_
-      Just id -> patchBooking b_ id
+      Nothing -> createBooking success b_
+      Just id -> patchBooking  success b_ id
 
-patchBooking : Booking -> Int -> Cmd Msg
-patchBooking b id =
+patchBooking : Msg -> Booking -> Int -> Cmd Msg
+patchBooking success b id =
     let params = [ "booking_id=eq." ++ (toString id) ]
         uri = buildUri res.bookings params Nothing
         json = B.encode b
         return res =
           case res of
             Err e -> error "patchBooking" e
-            Ok  _ -> DbMsg Success
+            Ok  _ -> success
     in
         patchJson uri json B.decode
         |> Http.send return
 
-createBooking : Booking -> Cmd Msg
-createBooking b =
+createBooking : Msg -> Booking -> Cmd Msg
+createBooking success b =
     let json = B.encode b
         return res =
           case res of
             Err e -> error "createBooking" e
-            Ok  _ -> DbMsg Success
+            Ok  _ -> success
     in
         postJson res.bookings json B.decode
         |> Http.send return
