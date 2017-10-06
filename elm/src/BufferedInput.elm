@@ -21,10 +21,9 @@ module BufferedInput exposing
 
 import Dict exposing (Dict)
 
-import Date exposing (Date)
-import Date.Format
-
 import String exposing (trim)
+import Date exposing (Date)
+import Defaults
 
 type alias R a = Result String a
 
@@ -149,11 +148,11 @@ float =
 
 date_p : Parse Date
 date_p s =
-    trim s |> Date.fromString |> Result.mapError (\x -> "not a date")
+    trim s |> Defaults.parseDate |> Result.mapError (\x -> "not a date")
 
 date_i : Init Date
 date_i =
-    Date.Format.format "%Y-%m-%d"
+  Defaults.dateToString
 
 date : TypeSpec Date
 date =

@@ -393,17 +393,12 @@ bookingCfg =
     }
 
 -- TODO: This seems to have deprecated Card Api
-bookingSelectionCfg : Cards.Selection.Cfg Msg Booking.Summary
+bookingSelectionCfg : Cards.Selection.Cfg Msg Booking.TextSummary
 bookingSelectionCfg =
-    let date  d  = Maybe.withDefault "" (Maybe.map (DateF.format "%d.%m.%y") d)
-        range el = text (date el.from ++ " bis " ++ date el.to)
-        int   i  = text (toString i)
-        beds  el = int el.n_beds
-        rooms el = int el.n_rooms
-        fields =
-            [ ( Icon.i "date_range" , range )
-            , ( Icon.i "hotel"      , beds  )
-            , ( Icon.i "vpn_key"    , rooms )
+    let fields =
+            [ ( Icon.i "date_range" , .when )
+            , ( Icon.i "hotel"      , .n_beds  )
+            , ( Icon.i "vpn_key"    , .n_rooms )
             ]
     in
     { mdl = Mdl
@@ -441,7 +436,7 @@ body model =
         selection = Cards.Selection.view
             bookingSelectionCfg
             model.mdl
-            (Array.map Booking.summary model.bookings)
+            (Array.map Booking.textSummary model.bookings)
             model.focusedBooking
 
         -- booking meta information

@@ -35,7 +35,7 @@ type alias Render msg element =
     , fold   : List (Html msg) -> Html msg
     }
 
-table : List ( Html msg, (element -> Html msg) ) -> Render msg element
+table : List ( Html msg, (element -> String) ) -> Render msg element
 table fields =
     let (hd, fieldFns ) = List.unzip fields
         c = Options.css "text-align" "center"
@@ -45,7 +45,7 @@ table fields =
                 , Table.selected
                     |> Options.when (focus == i)
                 ]
-                ( List.map (\f -> Table.td [c] [f el]) fieldFns )
+                ( List.map (\f -> Table.td [c] [text (f el)]) fieldFns )
 
         head = List.map (\x -> Table.th [c] [x]) hd
             |> Table.thead []

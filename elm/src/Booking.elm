@@ -3,7 +3,9 @@ module Booking exposing
     , Individual
     , Room
     , Summary
+    , TextSummary
     , summary
+    , textSummary
     , decode
     , encode
     , empty
@@ -21,6 +23,7 @@ import Helpers.List as ListH
 import Helpers.Json as JsonH
 
 import Date exposing (Date)
+import Defaults
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -65,6 +68,11 @@ type alias Summary =
     , n_beds    : Int
     }
 
+type alias TextSummary =
+  { when    : String
+  , n_rooms : String
+  , n_beds  : String
+  }
 
 -- Functions
 
@@ -79,6 +87,23 @@ summary b =
         conv    = Maybe.map Date.fromTime
     in
         Summary (conv from) (conv to) n_rooms n_beds
+
+textSummary : Booking -> TextSummary
+textSummary b =
+  let s = summary b
+      dts = Defaults.dateToString
+      when =
+        case (s.from, s.to) of
+          (Nothing, Nothing) -> "n/a"
+          (Just  x, Nothing) -> "ab "  ++ dts x
+          (Nothing, Just  x) -> "bis " ++ dts x
+          (Just  x, Just  y) -> dts x ++ " bis " ++ dts y
+      n_rooms =
+        if s.n_rooms < 1 then "n/a" else toString s.n_rooms
+      n_beds  =
+        if s.n_beds  < 1 then "n/a" else toString s.n_beds
+  in
+      { when = when, n_rooms = n_rooms, n_beds = n_beds }
 
 
 -- Json

@@ -13,6 +13,9 @@ import Markdown
 
 import Html exposing (Html)
 
+import Date exposing (Date)
+import Date.Format
+
 card : Options.Property c m
 card =
     Options.many
@@ -70,6 +73,11 @@ markdown =
         , smartypants = True
         }
 
+dateToString : Date -> String
+dateToString d =
+  Date.Format.format "%Y-%m-%d" d
 
-
+parseDate : String -> Result String Date
+parseDate s =
+  Date.fromString s
 
