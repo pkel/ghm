@@ -192,7 +192,7 @@ update msg model =
       let c = model.customer
           c_ = { c | bookings = model.bookings |> Array.toList }
       in
-      dbEffect (Db.saveCustomer c) model
+      dbEffect (Db.saveCustomer c_) model
 
     Abort ->
       case model.customer.customer_id of
@@ -221,7 +221,6 @@ update msg model =
     Database msg_ ->
         case msg_ of
           DbReturnCustomer c -> setCustomer c model |> pure
-          DbSavedCustomer -> pure { model | dirty = False }
           DbMsg dbMsg ->
             lift          .database
             (\m x -> { m | database = x })

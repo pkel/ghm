@@ -33,7 +33,6 @@ customerSelect =
 
 type Msg
   = DbReturnCustomer Customer
-  | DbSavedCustomer
   | DbMsg InternalMsg
 
 type alias DbError =
@@ -42,10 +41,7 @@ type alias DbError =
   }
 
 type InternalMsg
-    = CustomerCreated Int
-    | RoomsOK
-    | Error DbError
-    | Success
+    = Error DbError
     | SaveBookings Int (List Booking)
 
 type State
@@ -73,13 +69,14 @@ state m =
 update : Model -> InternalMsg -> (Model, Cmd Msg)
 update m imsg =
   case imsg of
-    --TODO: Obviously not finished
-    CustomerCreated i -> pure m
-    RoomsOK -> pure m
-    Success -> pure m
-    Error e -> { m | errors = e :: m.errors } |> pure
-    SaveBookings customer_id bookings ->
-      ( m , saveBookings (getCustomerById customer_id) customer_id bookings )
+    Error e -> { m | errors = (Debug.log "DbErr" e) :: m.errors } |> pure
+
+    SaveBookings cid bookings ->
+      case bookings of
+        [] ->
+          ( m , getCustomerById cid )
+        hd :: tl ->
+          ( m , saveBooking (SaveBookings cid tl |> DbMsg) cid hd )
 
 error : String -> Http.Error -> Msg
 error action err =
@@ -189,7 +186,7 @@ patchCustomer id c =
             -- TODO: Save Bookings
             Ok  _ -> DbMsg <| SaveBookings id c.bookings
     in
-        patchJson uri json C.jsonDecoderFirst
+        patchJson uri json C.jsonDecoder
         |> Http.send return
 
 createCustomer : Customer -> Cmd Msg
@@ -206,13 +203,6 @@ createCustomer c =
     in
         postJson res.customers json C.jsonDecoder
         |> Http.send return
-
-saveBookings : Cmd Msg -> Int -> List Booking -> Cmd Msg
-saveBookings success customer_id lst =
-  case lst of
-    [] -> success
-    hd :: tl ->
-      saveBooking (SaveBookings customer_id tl |> DbMsg) customer_id hd
 
 saveBooking : Msg -> Int -> Booking -> Cmd Msg
 saveBooking success customer_id b =
@@ -280,32 +270,32 @@ emptyJsonList =
 -- Http Requests
 ----------------
 
+postgrestFullResponseHeader =
+  Http.header "Prefer" "return=representation"
+postgrestSingleResposeHeader =
+  Http.header "Accept" "application/vnd.pgrst.object+json"
+
+
 patchJson : String -> Encode.Value -> Decode.Decoder a -> Http.Request a
 patchJson uri json decoder =
-    let postgrestFullResponseHeader =
-            Http.header "Prefer" "return=representation"
-    in
-        Http.request
-            { method = "PATCH"
-            , headers = [postgrestFullResponseHeader]
-            , url = uri
-            , body = Http.jsonBody json
-            , expect = Http.expectJson decoder
-            , timeout = Nothing
-            , withCredentials = False
-            }
+  Http.request
+    { method = "PATCH"
+    , headers = [postgrestFullResponseHeader, postgrestSingleResposeHeader]
+    , url = uri
+    , body = Http.jsonBody json
+    , expect = Http.expectJson decoder
+    , timeout = Nothing
+    , withCredentials = False
+    }
 
 postJson : String -> Encode.Value -> Decode.Decoder a -> Http.Request a
 postJson uri json decoder =
-    let postgrestFullResponseHeader =
-            Http.header "Prefer" "return=representation"
-    in
-        Http.request
-            { method = "POST"
-            , headers = [postgrestFullResponseHeader]
-            , url = uri
-            , body = Http.jsonBody json
-            , expect = Http.expectJson decoder
-            , timeout = Nothing
-            , withCredentials = False
-            }
+   Http.request
+       { method = "POST"
+       , headers = [postgrestFullResponseHeader, postgrestSingleResposeHeader]
+       , url = uri
+       , body = Http.jsonBody json
+       , expect = Http.expectJson decoder
+       , timeout = Nothing
+       , withCredentials = False
+       }
