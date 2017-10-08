@@ -11,6 +11,10 @@ init :
 	source ./env ; tools/wait-for-db
 	source ./env ; psql -qf init.sql
 
+.PHONY: import
+import :
+	source ./env ; psql -qf combit/import.sql
+
 .PHONY: clean
 clean :
 	sudo docker-compose down -v
