@@ -3,6 +3,9 @@ module Main exposing (..)
 import Html exposing (Html, text, br, strong)
 import Html.Attributes as Attributes
 
+import Navigation exposing (Location)
+import Url
+
 import Material
 import Material.Button as Button
 import Material.Color as Color
@@ -37,7 +40,7 @@ import Database as Db exposing (Msg(..))
 import Http
 
 main =
-  Html.program
+  Navigation.program Navigate
   { init = init
   , view = view
   , update = update
@@ -66,12 +69,13 @@ type alias Model =
   , bookingNoteCard  : NoteCard.Model
   , bookingCard      : Cards.Booking.Model
   , database         : Db.Model
+  , location         : Location
   , dirty            : Bool
   , mdl              : Mdl
   }
 
-empty : Model
-empty =
+empty : Location -> Model
+empty loc =
     { customer = Customer.empty
     , bookings = Array.fromList []
     , filter = ""
@@ -83,22 +87,40 @@ empty =
     , bookingCard      = Cards.Booking.init Booking.empty
     , focusedBooking   = -1
     , database = Db.init
+    , location = loc
     , dirty = True
     , mdl = Material.model
     }
+
+clear : Model -> Model
+clear m =
+    empty m.location
 
 db : Cmd Db.Msg -> Cmd Msg
 db cmd =
   Cmd.map Database cmd
 
-init : (Model, Cmd Msg)
-init =
-  ( empty
-  , Db.getLatestCustomer "" |> db )
+init : Location -> (Model, Cmd Msg)
+init loc =
+    let q = case Url.customer_id loc of
+            Just id -> Db.getCustomerById id
+            _ -> Db.getLatestCustomer ""
+    in
+    ( empty (Debug.log "init: Location" loc)
+    , db q )
+
+reinit : Model -> (Model, Cmd Msg)
+reinit m =
+    init m.location
 
 dirty : Model -> Model
 dirty m = { m | dirty = True }
 
+modifyUrl : Model -> (Model, Cmd Msg)
+modifyUrl m =
+    let p = { customer_id = m.customer.customer_id }
+    in
+    (m , Url.url p m.location |> Navigation.modifyUrl)
 
 -- UPDATE
 
@@ -114,6 +136,7 @@ type Msg
     | SelectBooking Int
 
     | Database (Db.Msg)
+    | Navigate Navigation.Location
 
     | Ignore
 
@@ -165,6 +188,7 @@ selectBooking i model =
           , bookingCard     = Cards.Booking.init booking
           }
 
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   let dbEffect dbCmd mdl =
@@ -176,7 +200,8 @@ update msg model =
   in
   case msg of
     NewCustomer ->
-        { empty | filter = "" } |> dirty |> pure
+        let m = clear model in
+        { m | filter = "" } |> dirty |> modifyUrl
 
     NewBooking ->
         let i = Array.length model.bookings
@@ -193,7 +218,7 @@ update msg model =
 
     Abort ->
       case model.customer.customer_id of
-        Nothing -> init
+        Nothing -> reinit model
         Just i  -> dbEffect (Db.getCustomerById i) model
 
     Previous ->
@@ -217,13 +242,15 @@ update msg model =
 
     Database msg_ ->
         case msg_ of
-          DbReturnCustomer c -> setCustomer c model |> pure
+          DbReturnCustomer c -> setCustomer c model |> modifyUrl
           DbMsg dbMsg ->
             lift          .database
             (\m x -> { m | database = x })
             Database
             Db.update
             dbMsg model
+
+    Navigate loc -> Debug.log "location" loc |> \x -> pure model
 
     SelectBooking i ->
         selectBooking i model |> pure
