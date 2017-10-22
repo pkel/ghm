@@ -6,6 +6,9 @@ build:
 watch:
 	npm run watch
 
+serve:
+	npm run serve
+
 minify: all index.html
 	closure-compiler -W QUIET --js elm.js > elm.min.js
 	sed 's/elm\.js/elm\.min\.js/g' index.html > index.min.html
