@@ -213,7 +213,8 @@ view cfg mdl model =
                     |> Options.when (not <| Input.valid spec el)
                 action str = Change nth (Input.updater spec) str
             in
-            Form.textfield Mdl (nth::(id i)) mdl [error] spec.label action val
+            Form.textfield Mdl (nth::(id i)) mdl [error]
+                spec.label Nothing action val
 
         miniButton = Defaults.buttonMini Mdl mdl
 

@@ -218,8 +218,8 @@ view cfg mdl model =
                         , Options.css "cursor" "pointer"
                         ] l )
 
-        tf i spec =
-            Form.textfield Mdl (index i) mdl [] spec.label
+        tf i spec data =
+            Form.textfield Mdl (index i) mdl [] spec.label data
                 (Change (Input.updater spec)) (Input.get spec model.buffer)
 
         s        = Grid.size
@@ -228,45 +228,51 @@ view cfg mdl model =
         three4th = [ s Desktop 9 , s Tablet 6, s Phone 3 ]
         half     = [ s Desktop 6 , s Tablet 4, s Phone 2 ]
 
-        f size i spec =
-            Form.cell size [ tf i spec ]
+        f size i spec data =
+            Form.cell size [ tf i spec data ]
 
         grid = Form.grid
 
+        titleOp = Just ["Herr", "Frau"]
+        titleLOp = Just
+            [ "Sehr geehrter Herr"
+            , "Sehr geehrte Frau"
+            ]
+
         nameTab =
             grid
-                [ f full     5  keyword
-                , f one4th   6  title
-                , f three4th 7  title_letter
-                , f half     8  given
-                , f half     9  second
-                , f full     10 family
+                [ f full     5  keyword      Nothing
+                , f one4th   6  title        titleOp
+                , f three4th 7  title_letter titleLOp
+                , f half     8  given        Nothing
+                , f half     9  second       Nothing
+                , f full     10 family       Nothing
                 ]
             |> Form.contain
 
         addressTab =
             grid
-                [ f three4th 21 street
-                , f one4th   22 street_number
-                , f one4th   24 postal_code
-                , f three4th 23 city
-                , f three4th 25 country
-                , f one4th   26 country_code
-                , f full     27 company
-                , f full     28 company_address
+                [ f three4th 21 street          Nothing
+                , f one4th   22 street_number   Nothing
+                , f one4th   24 postal_code     Nothing
+                , f three4th 23 city            Nothing
+                , f three4th 25 country         Nothing
+                , f one4th   26 country_code    Nothing
+                , f full     27 company         Nothing
+                , f full     28 company_address Nothing
                 ]
             |> Form.contain
 
         contactTab =
             grid
-                [ f half 41 phone
-                , f half 42 phone2
-                , f full 43 mobile
-                , f half 44 fax
-                , f half 45 fax2
-                , f full 46 mail
-                , f full 47 mail2
-                , f full 48 web
+                [ f half 41 phone  Nothing
+                , f half 42 phone2 Nothing
+                , f full 43 mobile Nothing
+                , f half 44 fax    Nothing
+                , f half 45 fax2   Nothing
+                , f full 46 mail   Nothing
+                , f full 47 mail2  Nothing
+                , f full 48 web    Nothing
                 ]
             |> Form.contain
 

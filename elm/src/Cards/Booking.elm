@@ -151,7 +151,8 @@ view cfg mdl model =
                     |> Options.when (not <| Input.valid spec model.buffer)
                 action str = Change (Input.updater spec) str
             in
-            Form.textfield Mdl (index i) mdl [error] spec.label action val
+            Form.textfield Mdl (index i) mdl [error]
+                spec.label Nothing action val
 
         s        = Grid.size
         full     = [ s Desktop 12, s Tablet 8, s Phone 4 ]
