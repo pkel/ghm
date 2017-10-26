@@ -76,10 +76,12 @@ type alias Model =
 
 empty : Location -> Model
 empty loc =
-    { customer = Customer.empty
+    let c = Customer.empty
+    in
+    { customer = c
     , bookings = Array.fromList []
     , filter = ""
-    , customerCard = CustomerCard.init Customer.empty
+    , customerCard = CustomerCard.init c
     , customerNoteCard = NoteCard.init ""
     , bookingNoteCard  = NoteCard.init ""
     , individualsCard  = Cards.Individuals.init []
