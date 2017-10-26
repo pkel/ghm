@@ -66,8 +66,8 @@ state m =
     [] -> if m.task_count > 0 then Busy else Idle
     l  -> Failed l
 
-update : Model -> InternalMsg -> (Model, Cmd Msg)
-update m imsg =
+update : InternalMsg -> Model -> (Model, Cmd Msg)
+update imsg m =
   case imsg of
     Error e -> { m | errors = (Debug.log "DbErr" e) :: m.errors } |> pure
 

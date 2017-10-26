@@ -15,7 +15,7 @@ import Material.Grid as Grid exposing (grid, cell, size, Device(..))
 import Material.Layout as Layout
 import Material.Options as Options
 import Material.Textfield as Textfield
-import Material.Helpers exposing (pure, effect)
+import Material.Helpers exposing (pure, effect, cmd)
 import Material.HelpersX exposing (liftCallback)
 
 import Customer exposing (Customer)
@@ -27,7 +27,7 @@ import Array exposing (Array)
 import Helpers.Array as ArrayX
 
 import Cards.Note as NoteCard
-import Cards.Customer as CustomerCard
+import Cards.Customer exposing (Msg(..))
 import Cards.Selection
 import Cards.Rooms
 import Cards.Individuals
@@ -62,7 +62,7 @@ type alias Model =
   , bookings         : Array Booking
   , filter           : String
   , focusedBooking   : Int
-  , customerCard     : CustomerCard.Model
+  , customerCard     : Cards.Customer.Model
   , customerNoteCard : NoteCard.Model
   , individualsCard  : Cards.Individuals.Model
   , roomsCard        : Cards.Rooms.Model
@@ -81,7 +81,7 @@ empty loc =
     { customer = c
     , bookings = Array.fromList []
     , filter = ""
-    , customerCard = CustomerCard.init c
+    , customerCard = Cards.Customer.init c
     , customerNoteCard = NoteCard.init ""
     , bookingNoteCard  = NoteCard.init ""
     , individualsCard  = Cards.Individuals.init []
@@ -138,12 +138,13 @@ type Msg
     | SelectBooking Int
 
     | Database (Db.Msg)
+    | CustomerCard (Cards.Customer.Msg Msg)
+
     | Navigate Navigation.Location
 
     | Ignore
 
     -- Incoming changes from forms
-    | UpdatedCustomer    (Customer -> Customer)
     | UpdatedCustomerNote String
     | UpdatedBookingNote  String
     | UpdatedIndividuals (List Individual)
@@ -151,7 +152,6 @@ type Msg
     | UpdatedBooking     (Booking -> Booking)
 
     -- Pass through
-    | CustomerCardMsg     (CustomerCard.Msg Msg)
     | CustomerNoteCardMsg (NoteCard.Msg Msg)
     | BookingNoteCardMsg  (NoteCard.Msg Msg)
     | IndividualsCardMsg  (Cards.Individuals.Msg Msg)
@@ -168,7 +168,7 @@ setCustomer c model =
   -- Bookings are kept separately. Delete unused copy to avoid confusion
   | customer = { c | bookings = [] }
   , dirty = False
-  , customerCard = CustomerCard.init c
+  , customerCard = Cards.Customer.init c
   , customerNoteCard = NoteCard.init c.note
   , bookings = Array.fromList c.bookings
   }
@@ -196,7 +196,7 @@ update msg model =
   let dbEffect dbCmd mdl =
         effect (db dbCmd) mdl
       lift get set map update msg model =
-        let (mdl, cmd) = update (get model) msg
+        let (mdl, cmd) = update msg (get model)
         in (set model mdl, Cmd.map map cmd)
 
   in
@@ -252,6 +252,18 @@ update msg model =
             Db.update
             dbMsg model
 
+    CustomerCard msg_ ->
+        case msg_ of
+            CCUpdated mod -> { model | customer = mod model.customer }
+                |> dirty |> pure
+            CCMdl mdl -> ( model , Mdl mdl |> cmd )
+            CCMsg imsg ->
+                lift          .customerCard
+                (\m x -> { m | customerCard = x })
+                CustomerCard
+                Cards.Customer.update
+                imsg model
+
     Navigate loc -> Debug.log "location" loc |> \x -> pure model
 
     SelectBooking i ->
@@ -260,11 +272,6 @@ update msg model =
     Ignore ->
         -- TODO: Where is this needed?
         pure model
-
-    UpdatedCustomer mod ->
-        { model | customer = mod model.customer }
-        |> dirty
-        |> pure
 
     UpdatedCustomerNote str ->
         let mod c = { c | note = str }
@@ -307,16 +314,6 @@ update msg model =
         | bookings = ArrayX.modify model.focusedBooking mod model.bookings
         }
         |> dirty |> pure
-
-
-    CustomerCardMsg msg_ ->
-        liftCallback
-            { updated = UpdatedCustomer
-            , mdl = Mdl
-            }             .customerCard
-            (\m x -> { m | customerCard = x })
-            CustomerCard.update
-            msg_ model
 
     BookingCardMsg msg_ ->
         liftCallback
@@ -393,9 +390,9 @@ bookingNoteCfg =
     , title = "Notiz zur Buchung"
     }
 
-customerCfg : CustomerCard.Cfg Msg
+customerCfg : Cards.Customer.Cfg Msg
 customerCfg =
-    { lift  = CustomerCardMsg
+    { lift  = CustomerCard
     , index = [802]
     , title = Just "Stammdaten"
     }
@@ -448,7 +445,7 @@ body model =
 
         -- customer data
 
-        customer = CustomerCard.view
+        customer = Cards.Customer.view
             customerCfg
             model.mdl
             model.customerCard

@@ -1,16 +1,14 @@
 module Cards.Customer exposing
     ( Model
     , Cfg
-    , Callbacks
-    , Msg
+    , Msg(..)
     , view
     , init
     , update
     )
 
 import Material
-import Material.Helpers  exposing (pure, effect)
-import Material.HelpersX exposing (callback, UpdateCallback)
+import Material.Helpers  exposing (pure, effect, cmd)
 
 import Material.Card as Card
 import Material.Grid as Grid exposing (Device(..))
@@ -70,17 +68,16 @@ mail2           = stringSpec "mail2"           "Email"
 web             = stringSpec "web"             "Website"
 
 type Msg msg
+    = CCMsg InternMsg
+    | CCUpdated Modifier
+    | CCMdl (Material.Msg msg)
+
+type InternMsg
     = Change Input.Updater String
     | Undo
     | SelectTab Int
-    | Mdl (Material.Msg msg)
 
 type alias Modifier = Customer -> Customer
-
-type alias Callbacks msg =
-    { updated : (Modifier) -> msg
-    , mdl     : Material.Msg msg -> msg
-    }
 
 id : Modifier
 id m = m
@@ -155,8 +152,8 @@ parse model =
 
 
 
-update : UpdateCallback msg (Callbacks msg) (Msg msg) Model
-update cb msg model =
+update : InternMsg -> Model -> (Model, Cmd (Msg msg))
+update msg model =
     case msg of
         Change up str ->
           { model | buffer = Input.update up str model.buffer }
@@ -167,8 +164,7 @@ update cb msg model =
               | history = model.latest :: model.history
               , latest = mod
               }
-              |> callback (cb.updated mod)
-
+              |> effect (CCUpdated mod |> cmd)
         Undo ->
           case model.history of
             [] -> pure model
@@ -178,19 +174,17 @@ update cb msg model =
               , buffer = hd model.data |> initBuffer
               , history = tl
               }
-              |> callback (cb.updated hd)
+              |> effect (CCUpdated hd |> cmd)
 
         SelectTab i ->
             pure { model | tab = i }
 
-        Mdl msg -> callback (cb.mdl msg) model
-
 -- View
 
 type alias Cfg msg =
-    { index      : List Int
-    , lift       : Msg msg -> msg
-    , title      : Maybe String
+    { index : List Int
+    , lift  : Msg msg -> msg
+    , title : Maybe String
     }
 
 view : Cfg msg -> Material.Model -> Model -> Html msg
@@ -200,14 +194,18 @@ view cfg mdl model =
         button cond i = Defaults.button_
             [ Button.disabled |> Options.when (not cond)
             , Button.raised
-            ] Mdl mdl (index i)
+            ] CCMdl mdl (index i)
 
         dirty = case model.history of
           [] -> False
           _ -> True
 
+        change a b = CCMsg (Change a b)
+        selectTab i = CCMsg (SelectTab i)
+        undo = CCMsg Undo
 
-        actions = [ button dirty 1 "undo" Undo
+
+        actions = [ button dirty 1 "undo" undo
                   ]
 
         tab_labels =
@@ -219,8 +217,8 @@ view cfg mdl model =
                         ] l )
 
         tf i spec data =
-            Form.textfield Mdl (index i) mdl [] spec.label data
-                (Change (Input.updater spec)) (Input.get spec model.buffer)
+            Form.textfield CCMdl (index i) mdl [] spec.label data
+                (change (Input.updater spec)) (Input.get spec model.buffer)
 
         s        = Grid.size
         full     = [ s Desktop 12, s Tablet 8, s Phone 4 ]
@@ -276,8 +274,8 @@ view cfg mdl model =
                 ]
             |> Form.contain
 
-        tabs = Tabs.render Mdl (index 4) mdl
-                [ Tabs.onSelectTab SelectTab
+        tabs = Tabs.render CCMdl (index 4) mdl
+                [ Tabs.onSelectTab selectTab
                 , Tabs.activeTab model.tab
                 ]
                 tab_labels
