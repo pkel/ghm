@@ -1,4 +1,4 @@
-.PHONY: build clean distclean dependencies minify watch dev
+.PHONY: build clean distclean dependencies minify watch dev serve
 
 build:
 	npm run build
