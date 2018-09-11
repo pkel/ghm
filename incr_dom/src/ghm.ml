@@ -3,12 +3,16 @@ open Async_kernel
 open Incr_dom
 
 module Model = struct
-  type t = { counter : int } [@@deriving fields, compare]
+  type t =
+    { counter : int
+    ; customers : Customer.t list
+    }
+  [@@deriving fields, compare]
 
   let cutoff t1 t2 = compare t1 t2 = 0
 end
 
-let initial_model = { Model.counter = 0 }
+let initial_model = { Model.counter = 0 ; customers = []}
 
 module Action = struct
   type t = Increment [@@deriving sexp_of]
@@ -22,7 +26,7 @@ end
 
 let apply_action (action: Action.t) (model: Model.t) _state : Model.t =
   match action with
-  | Increment -> { counter = model.counter + 1 }
+  | Increment -> { model with counter = model.counter + 1 }
 
 let update_visibility x = x
 
