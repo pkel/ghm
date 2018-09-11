@@ -3,16 +3,24 @@ open Async_kernel
 open Incr_dom
 
 module Model = struct
-  type t =
+
+  type customer =
+    { t : Customer.t
+    ; bookings : Booking.t Int.Map.t
+    }
+
+  and t =
     { counter : int
-    ; customers : Customer.t list
+    ; store : customer Int.Map.t
     }
   [@@deriving fields, compare]
 
   let cutoff t1 t2 = compare t1 t2 = 0
 end
 
-let initial_model = { Model.counter = 0 ; customers = []}
+let initial_model =
+  { Model.counter = 0
+  ; store = Int.Map.empty }
 
 module Action = struct
   type t = Increment [@@deriving sexp_of]

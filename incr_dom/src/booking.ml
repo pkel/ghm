@@ -1,8 +1,7 @@
 open Core_kernel
 
 type t =
-  { booking_id    : int option
-  ; state         : string
+  { state         : string
   ; deposit_asked : float option
   ; deposit_got   : float option
   ; no_tax        : bool

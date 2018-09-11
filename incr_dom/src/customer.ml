@@ -1,9 +1,7 @@
 open Core_kernel
 
 type t =
-  { customer_id      : int option
-
-  ; title            : string
+  { title            : string
   ; title_letter     : string
 
   ; given            : string
@@ -31,6 +29,4 @@ type t =
 
   ; keyword          : string
   ; note             : string
-
-  ; bookings         : Booking.t list
   } [@@deriving fields, compare]
