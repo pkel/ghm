@@ -1,0 +1,3 @@
+(executable
+ (name main)
+ (libraries incr_dom ghm))
