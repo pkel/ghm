@@ -1,0 +1,3 @@
+(executables
+  (names combit)
+  (libraries csv ghm))
