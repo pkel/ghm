@@ -1,11 +1,10 @@
 open Core_kernel
 
 type t =
-  { state         : string
-  ; deposit_asked : float option
+  { deposit_asked : float option
   ; deposit_got   : float option
   ; no_tax        : bool
-  ; booking_note  : string
+  ; note          : string
   ; company       : individual list
   ; rooms         : room list
   }
@@ -27,4 +26,4 @@ and room =
   ; from          : Date.t option
   ; to_           : Date.t option
   }
-[@@deriving fields, compare]
+[@@deriving fields, compare, sexp]
