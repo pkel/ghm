@@ -1,7 +1,7 @@
 .PHONY: all watch
 
 all:
-	dune build {main.bc.js,index.html}
+	opam exec dune build {main.bc.js,index.html}
 
 watch:
-	fd 'ml|dune' | entr -s 'dune build {main.bc.js,index.html}'
+	fd 'ml|dune' | entr -s 'make all'

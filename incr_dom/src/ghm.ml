@@ -32,9 +32,9 @@ module State = struct
   type t = unit
 end
 
-let apply_action (action: Action.t) (model: Model.t) _state : Model.t =
-  match action with
-  | Increment -> { model with counter = model.counter + 1 }
+let apply_action (a: Action.t) (m: Model.t) _state ~schedule_action:_ =
+  match a with
+  | Increment -> { m with counter = m.counter + 1 }
 
 let update_visibility x = x
 
@@ -47,8 +47,8 @@ let view model ~inject:_ =
   in
   Vdom.Node.body [] [ counter ]
 
-let on_startup ~schedule _model =
-  every (Time_ns.Span.of_sec 1.) (fun () -> schedule Action.Increment);
+let on_startup ~schedule_action _model =
+  every (Time_ns.Span.of_sec 1.) (fun () -> schedule_action Action.Increment);
   Deferred.unit
 
-let on_display ~old:_ _model _state = ()
+let on_display ~old_model:_ _model _state ~schedule_action:_ = ()
