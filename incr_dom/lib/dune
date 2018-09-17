@@ -1,0 +1,4 @@
+(library
+ (name ghm)
+ (libraries core_kernel)
+ (preprocess (pps ppx_jane ppxlib.runner)))

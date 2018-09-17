@@ -1,4 +1,5 @@
 open Core_kernel
+open Ghm
 open Async_kernel
 open Incr_dom
 
