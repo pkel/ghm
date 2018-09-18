@@ -1,0 +1,6 @@
+localhost:2015 {
+  root _build/default/gui
+  gzip {
+    ext *
+  }
+}
