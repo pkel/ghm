@@ -132,13 +132,17 @@ let row r =
   in
   Hashtbl.replace db cid (customer_of_row r, booking_of_row r :: bl)
 
+(* TODO: postgrest/import.sql does some smart coalescing in order to lift
+   very old entries to latest version *)
+
 let main () =
   (* Read *)
   let ch = if Array.length Sys.argv > 1 then open_in Sys.argv.(1) else stdin in
   Csv.of_channel ~separator:';' ~has_header:true ch |> Csv.Rows.iter ~f:row;
   (* Write *)
-  Printf.printf "%d customers read\n" (Hashtbl.length db);
   Hashtbl.iter (fun _i c ->
-      Format.printf "%a\n%!" Sexplib.Sexp.pp_hum (sexp_of_customer c)) db
+      Format.printf "%a\n%!" Sexplib.Sexp.pp_hum (sexp_of_customer c)) db;
+  (* Status *)
+  Printf.eprintf "%d customers processed.\n%!" (Hashtbl.length db)
 
 let () = main ()
