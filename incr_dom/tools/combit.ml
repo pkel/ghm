@@ -1,9 +1,4 @@
 open Ghm
-open Sexplib.Std
-
-type customer = Customer.t * Booking.t list [@@deriving sexp]
-type db = (int, customer) Hashtbl.t
-let db : db = Hashtbl.create 15000
 
 let str r f = Csv.Row.find r f |> String.trim
 let flt_opt r f =
@@ -117,7 +112,7 @@ let booking_of_row r : Booking.t =
   ; rooms = rooms_of_row r
   }
 
-let row r =
+let row db r =
   let bids = Csv.Row.find r "RECORDID" in
   let cids = Csv.Row.find r "GROUPID" in
   let bid = int_of_string bids in
@@ -126,11 +121,11 @@ let row r =
     | Some cid -> cid
   in
   let bl =
-    match Hashtbl.find_opt db cid with
+    match Storage.load db cid with
     | Some (_, bl) -> bl
     | None -> []
   in
-  Hashtbl.replace db cid (customer_of_row r, booking_of_row r :: bl)
+  Storage.save db ~key:cid ~data:(customer_of_row r, booking_of_row r :: bl)
 
 (* TODO: postgrest/import.sql does some smart coalescing in order to lift
    very old entries to latest version *)
@@ -138,11 +133,13 @@ let row r =
 let main () =
   (* Read *)
   let ch = if Array.length Sys.argv > 1 then open_in Sys.argv.(1) else stdin in
-  Csv.of_channel ~separator:';' ~has_header:true ch |> Csv.Rows.iter ~f:row;
+  let db =
+    Csv.of_channel ~separator:';' ~has_header:true ch
+    |> Csv.Rows.fold_left ~f:row ~init:Storage.empty
+  in
   (* Write *)
-  Hashtbl.iter (fun _i c ->
-      Format.printf "%a\n%!" Sexplib.Sexp.pp_hum (sexp_of_customer c)) db;
+  Storage.pp_hum Format.std_formatter db;
   (* Status *)
-  Printf.eprintf "%d customers processed.\n%!" (Hashtbl.length db)
+  Printf.eprintf "%d customers processed.\n%!" (Storage.size db)
 
 let () = main ()
