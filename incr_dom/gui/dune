@@ -1,4 +1,4 @@
 (executable
  (name app)
- (libraries ghm core_kernel incr_dom)
+ (libraries ghm core_kernel incr_dom incr_dom_widgets)
  (preprocess (pps js_of_ocaml-ppx ppx_jane ppxlib.runner)))
