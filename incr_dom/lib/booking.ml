@@ -22,7 +22,25 @@ and room =
   ; price_per_bed : float
   ; factor        : float
   ; description   : string
-  ; breakfast     : bool
-  ; nights        : (Date.t * Date.t) option
+  ; period        : Period.t
   }
 [@@deriving fields, compare, sexp]
+
+type summary =
+  { rooms  : int
+  ; beds   : int
+  ; guests : int
+  ; period : Period.t option
+  }
+
+let summarize (t: t) : summary =
+  let guests = List.length t.guests
+  and rooms, beds, period =
+    List.fold_left t.rooms
+      ~init:(0,0,None)
+      ~f:(fun (r, b, p) e ->
+          ( r + 1
+          , b + e.beds
+          , Some Option.(map ~f:(Period.cover e.period) p
+                         |> value ~default:e.period)))
+  in {rooms; guests; period; beds}

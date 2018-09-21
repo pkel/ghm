@@ -1,5 +1,6 @@
 open Ghm
 module Date = Core_kernel.Date
+module Option = Core_kernel.Option
 
 let str r f = Csv.Row.find r f |> String.trim
 let flt_opt r f =
@@ -25,14 +26,16 @@ let coalesc prefer fallback =
   | None -> fallback
   | _ -> prefer
 
-let nights_of_row r : (Date.t * Date.t) option =
+let period_of_row r : Period.t option =
   let from = coalesc (dat_opt r "AVON") (dat_opt r "ABIS")
   and till = coalesc (dat_opt r "ANREISE") (dat_opt r "ABREISE")
-  in match from, till with
-  | None, None -> None
-  | Some a, Some b -> Some (a, b)
-  | Some a, None -> Some (a, Date.add_days a 1)
-  | None, Some b -> Some (Date.add_days b (-1), b)
+  in
+  ( match from, till with
+    | None, None -> None
+    | Some a, Some b -> Some (a, b)
+    | Some a, None -> Some (a, Date.add_days a 1)
+    | None, Some b -> Some (Date.add_days b (-1), b)
+  ) |> Option.map ~f:(function from, till -> Period.of_dates from till)
 
 let customer_note_of_row r : string =
   let f key prefix acc =
@@ -118,17 +121,17 @@ let guests_of_row r : Booking.guest list =
 
 let rooms_of_row r : Booking.room list =
   let open Booking in
-  let nights = nights_of_row r in
   (* TODO: import more fields *)
-  let room = { nights
-             ; room="n/a"
-             ; beds=0
-             ; price_per_bed=0.
-             ; factor=1.
-             ; breakfast=true
-             ; description="aus Combit"
-             }
-  in [room]
+  match period_of_row r with
+  | Some period ->
+    [{ period
+     ; room="n/a"
+     ; beds=0
+     ; price_per_bed=0.
+     ; factor=1.
+     ; description="aus Combit"
+     }]
+  | None -> []
 
 let booking_of_row r : Booking.t =
   { deposit_asked = flt_nz_opt r "AGEF"
