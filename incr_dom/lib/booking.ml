@@ -26,14 +26,16 @@ and room =
   }
 [@@deriving fields, compare, sexp]
 
-type summary =
-  { rooms  : int
-  ; beds   : int
-  ; guests : int
-  ; period : Period.t option
-  }
+module Summary = struct
+  type t =
+    { rooms  : int
+    ; beds   : int
+    ; guests : int
+    ; period : Period.t option
+    } [@@deriving fields]
+end
 
-let summarize (t: t) : summary =
+let summarize (t: t) : Summary.t =
   let guests = List.length t.guests
   and rooms, beds, period =
     List.fold_left t.rooms

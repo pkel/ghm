@@ -77,6 +77,7 @@ let customer_of_row r : Customer.t =
   ; mail2           = f "EMAIL2"
   ; web             = f "INTERNET"
   ; note            = customer_note_of_row r
+  ; bookings        = []
   }
 
 let booking_note_of_row r : string =
@@ -150,12 +151,15 @@ let row db r =
     | None -> bid
     | Some cid -> cid
   in
-  let bl =
+  let bookings =
+    let open Customer in
     match Storage.load db cid with
-    | Some (_, bl) -> bl
+    | Some {bookings;_} -> bookings
     | None -> []
   in
-  Storage.save db ~key:cid ~data:(customer_of_row r, booking_of_row r :: bl)
+  let b = booking_of_row r in
+  let c = customer_of_row r in
+  Storage.save db ~key:cid ~data:{ c with bookings = b :: bookings }
 
 (* TODO: postgrest/import.sql does some smart coalescing in order to lift
    very old entries to latest version *)

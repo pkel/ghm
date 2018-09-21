@@ -29,4 +29,11 @@ type t =
 
   ; keyword         : string
   ; note            : string
+
+  ; bookings        : Booking.t list
   } [@@deriving fields, compare, sexp]
+
+let first_booking t : Booking.t option =
+  match t.bookings with
+  | [] -> None
+  | hd :: _ -> Some hd

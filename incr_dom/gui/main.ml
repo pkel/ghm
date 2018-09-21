@@ -2,11 +2,12 @@ open Core_kernel
 open Ghm
 open Async_kernel
 open Incr_dom
+module Incr_map = Incr_map.Make(Incr)
 
 module Model = struct
 
   type t =
-    { customers : (Customer.t * Booking.t list) Int.Map.t
+    { customers : Customer.t Int.Map.t
     ; table : Table.Model.t
     }
   [@@deriving compare, fields]
@@ -44,7 +45,9 @@ let create_table_component (model : Model.t Incr.t) ~old_model ~inject =
   let open Incr.Let_syntax in
   let columns = List.map ~f:Column.to_table_widget_column Row.Model.columns in
   let columns = Incr.const (List.mapi columns ~f:(fun i col -> i, col)) in
-  let rows = model >>| Model.customers >>| Int.Map.map ~f:fst
+  let customers = model >>| Model.customers in
+  let rows = Incr_map.mapi ~f:(fun ~key:_ ~data -> Row.Model.of_customer data)
+      customers
   and table = model >>| Model.table
   and old_table = old_model >>| Model.table >>| Option.some
   in Table.create table

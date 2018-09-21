@@ -2,17 +2,19 @@ open Core_kernel
 open Incr_dom
 module Sort_key = Incr_dom_widgets.Table.Default_sort_spec.Sort_key
 
+module type CONTENTS = sig
+  type t
+  val to_string: t -> string
+end
+
 module type T = sig
   type row
 
-  module Contents : Stringable
+  module Contents : CONTENTS
 
   val name : string
   val group : string option
   val get : row -> Contents.t
-  val set : row -> Contents.t -> row
-  val editable : bool
-  val focus_on_edit : bool
   val sort_by : Contents.t -> Sort_key.t
 end
 
@@ -23,11 +25,8 @@ let create
       ~name
       ?group
       ?sort_by
-      ?focus_on_edit
-      (module Contents : Stringable with type t = contents)
-      ~editable
+      (module Contents : CONTENTS with type t = contents)
       ~get
-      ~set
   =
   let sort_by =
     match sort_by with
@@ -42,14 +41,7 @@ let create
     let name = name
     let group = group
     let get = get
-    let set = set
-    let editable = editable
     let sort_by = sort_by
-
-    let focus_on_edit =
-      match focus_on_edit with
-      | None -> false
-      | Some () -> true
   end : T with type row = row )
 
 let of_field
@@ -58,33 +50,21 @@ let of_field
       ?name
       ?group
       ?sort_by
-      ?focus_on_edit
-      (module Contents : Stringable with type t = contents)
-      ~editable
+      (module Contents : CONTENTS with type t = contents)
   =
   let name = Option.value ~default:(Field.name field) name in
   create
     ~name
     ?group
     ?sort_by
-    ?focus_on_edit
     (module Contents)
-    ~editable
     ~get:(Field.get field)
-    ~set:(Field.fset field)
 
 let name (type row) (module T : T with type row = row) = T.name
 let group (type row) (module T : T with type row = row) = T.group
-let editable (type row) (module T : T with type row = row) = T.editable
-let focus_on_edit (type row) (module T : T with type row = row) = T.focus_on_edit
 
 let get (type row) (module T : T with type row = row) row =
   T.Contents.to_string (T.get row)
-
-let set (type row) (module T : T with type row = row) row string =
-  let open Or_error.Let_syntax in
-  let%map v = Or_error.try_with (fun () -> T.Contents.of_string string) in
-  T.set row v
 
 let sort_by (type row) (module T : T with type row = row) row = T.sort_by (T.get row)
 

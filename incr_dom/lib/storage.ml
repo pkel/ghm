@@ -1,6 +1,6 @@
 open Core_kernel
 
-type t = (Customer.t * Booking.t list) Int.Map.t [@@deriving compare, sexp]
+type t = Customer.t Int.Map.t [@@deriving compare, sexp]
 
 let empty = Int.Map.empty
 let save = Int.Map.set
