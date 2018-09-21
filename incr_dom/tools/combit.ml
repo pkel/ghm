@@ -1,4 +1,5 @@
 open Ghm
+module Date = Core_kernel.Date
 
 let str r f = Csv.Row.find r f |> String.trim
 let flt_opt r f =
@@ -16,8 +17,22 @@ let dat_opt r k = match str r k with
   | "" -> None
   | s -> match String.split_on_char '.' s with
       | [d;m;y] -> let s = Printf.sprintf "%s-%s-%s" y m d in
-        Some (Core_kernel.Date.of_string s)
+        Some (Date.of_string s)
       | _ -> raise (Invalid_argument s)
+
+let coalesc prefer fallback =
+  match prefer with
+  | None -> fallback
+  | _ -> prefer
+
+let nights_of_row r : (Date.t * Date.t) option =
+  let from = coalesc (dat_opt r "AVON") (dat_opt r "ABIS")
+  and till = coalesc (dat_opt r "ANREISE") (dat_opt r "ABREISE")
+  in match from, till with
+  | None, None -> None
+  | Some a, Some b -> Some (a, b)
+  | Some a, None -> Some (a, Date.add_days a 1)
+  | None, Some b -> Some (Date.add_days b (-1), b)
 
 let customer_note_of_row r : string =
   let f key prefix acc =
@@ -101,7 +116,19 @@ let guests_of_row r : Booking.guest list =
   |> f "P_VORNAME5" "P_NAME5" "GEB_DAT05"
   |> f "P_VORNAME6" "P_NAME6" "GEB_DAT06"
 
-let rooms_of_row _r : Booking.room list = []
+let rooms_of_row r : Booking.room list =
+  let open Booking in
+  let nights = nights_of_row r in
+  (* TODO: import more fields *)
+  let room = { nights
+             ; room="n/a"
+             ; beds=0
+             ; price_per_bed=0.
+             ; factor=1.
+             ; breakfast=true
+             ; description="aus Combit"
+             }
+  in [room]
 
 let booking_of_row r : Booking.t =
   { deposit_asked = flt_nz_opt r "AGEF"
