@@ -29,7 +29,7 @@ let init ()  = Model.init ()
 
 module Action = struct
   type t =
-    | LoadDump of string
+    | GotChunk of int * string
     | Table of Table.Action.t
   [@@deriving sexp_of]
 end
@@ -70,11 +70,18 @@ let update_visibility table (m : Model.t Incr.t) =
     let table = table_update_visibility () in
     { m with table }
 
+let get_chunk ~schedule_action i =
+  let url= Printf.sprintf "../data/chunks/chunk-%d.sexp" i in
+  Async_js.Http.get url >>| function
+  | Ok s -> schedule_action (Action.GotChunk (i,s))
+  | _ -> ()
+
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
   let table = create_table_component ~old_model ~inject model in
   let%map apply_action =
     let%map model = model
+    and customers = model >>| Model.customers
     and table_apply_action = table >>| Component.apply_action in
     fun (a : Action.t) state ~schedule_action ->
       let schedule_table_action action =
@@ -83,8 +90,15 @@ let create model ~old_model ~inject =
         table_apply_action action state ~schedule_action:schedule_table_action
       in
       match a with
-      | LoadDump s ->
-        { model with Model.customers = Storage.of_string s }
+      | GotChunk (i, s) ->
+        let chunk = Storage.of_string s in
+        let customers = match Storage.append customers chunk with
+          | `Ok db -> db
+          | `Overlapping_key_ranges -> raise (Failure (
+              Printf.sprintf "Overlapping_key_ranges on chunk %d" i))
+        in
+        don't_wait_for (get_chunk ~schedule_action (i + 1));
+        { model with Model.customers }
       | Table a ->
         { model with table = apply_table_action a }
   and view =
@@ -102,6 +116,4 @@ let create model ~old_model ~inject =
   Component.create ~update_visibility ~apply_action ~on_display model view
 
 let on_startup ~schedule_action _model =
-  Async_js.Http.get "data.sexp" >>| function
-  | Ok s -> schedule_action (Action.LoadDump s)
-  | _ -> ()
+  get_chunk ~schedule_action 0

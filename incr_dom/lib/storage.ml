@@ -22,3 +22,6 @@ let chunks size t =
         (l, sz - 1, save c ~key ~data))
     ~init:([],size,empty)
   in c :: l
+
+let append t c =
+  Int.Map.append ~lower_part:t ~upper_part:c
