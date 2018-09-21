@@ -12,3 +12,13 @@ let pp_hum fmt t =
 
 let of_string s =
   Sexp.of_string s |> t_of_sexp
+
+let chunks size t =
+  if size <= 0 then raise (Invalid_argument "size must be grater zero");
+  let l,_,c = Int.Map.fold_right t ~f:(fun ~key ~data (l, sz, c) ->
+      if sz = 0 then
+        (c :: l, size, Int.Map.singleton key data)
+      else
+        (l, sz - 1, save c ~key ~data))
+    ~init:([],size,empty)
+  in c :: l

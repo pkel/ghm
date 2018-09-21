@@ -133,13 +133,36 @@ let row db r =
 let main () =
   (* Read *)
   let ch = if Array.length Sys.argv > 1 then open_in Sys.argv.(1) else stdin in
+  Printf.eprintf "reading...%!";
   let db =
     Csv.of_channel ~separator:';' ~has_header:true ch
     |> Csv.Rows.fold_left ~f:row ~init:Storage.empty
   in
   (* Write *)
-  Storage.pp_hum Format.std_formatter db;
-  (* Status *)
-  Printf.eprintf "%d customers processed.\n%!" (Storage.size db)
+  if Array.length Sys.argv > 2 then begin (* chunks into folder *)
+    let d = Sys.argv.(2) in
+    if not (Sys.is_directory d) then
+      raise (Invalid_argument (d ^ "is not a directory"));
+    let is_chunk s =
+      let r = Str.regexp "^chunk-[0-9]+.sexp$" in
+      Str.string_match r s 0
+    in
+    Printf.eprintf "\rcleaning...%!";
+    Array.iter (fun f -> if is_chunk f then Sys.remove (d ^ "/" ^ f))
+      (Sys.readdir d);
+    let n = List.fold_left (fun i c ->
+        Printf.eprintf "\rbuilding chunk %d%!" i;
+        let oc = open_out (d ^ "/chunk-" ^ string_of_int i ^ ".sexp") in
+        let fmt = Format.formatter_of_out_channel oc in
+        Storage.pp_hum fmt c;
+        close_out oc;
+        i + 1
+      ) 0 (Storage.chunks 147 db) in
+    Printf.eprintf "\r%d customers processed into %d chunks.\n%!"
+      (Storage.size db) n
+  end else begin
+    Storage.pp_hum Format.std_formatter db;
+    Printf.eprintf "\r%d customers processed.\n%!" (Storage.size db)
+  end
 
 let () = main ()
