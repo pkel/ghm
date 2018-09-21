@@ -27,8 +27,8 @@ let coalesc prefer fallback =
   | _ -> prefer
 
 let period_of_row r : Period.t option =
-  let from = coalesc (dat_opt r "AVON") (dat_opt r "ABIS")
-  and till = coalesc (dat_opt r "ANREISE") (dat_opt r "ABREISE")
+  let from = coalesc (dat_opt r "AVON") (dat_opt r "ANREISE")
+  and till = coalesc (dat_opt r "ABIS") (dat_opt r "ABREISE")
   in
   ( match from, till with
     | None, None -> None
