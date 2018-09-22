@@ -90,6 +90,11 @@ module Model = struct
     and till = period |> Option.map ~f:Period.till
     in
     { given; family; company; keyword; from; till; guests; rooms; beds }
+
+  let matches_pattern t pattern : bool =
+    let substring = String.lowercase pattern in
+    let matches s = String.is_substring ~substring (String.lowercase s) in
+    matches t.keyword
 end
 
 module Action = struct

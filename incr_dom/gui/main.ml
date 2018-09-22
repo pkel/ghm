@@ -9,6 +9,7 @@ module Model = struct
   type t =
     { customers : Customer.t Int.Map.t
     ; table : Table.Model.t
+    ; pattern : string
     }
   [@@deriving compare, fields]
 
@@ -23,6 +24,7 @@ module Model = struct
           ~float_first_col:Edge
           ~height_guess:43.
           ()
+    ; pattern = ""
     }
 end
 
@@ -32,6 +34,7 @@ module Action = struct
   type t =
     | GotChunk of int * string
     | Table of Table.Action.t
+    | Pattern of string
   [@@deriving sexp_of, variants]
 end
 
@@ -45,11 +48,15 @@ let get_chunk ~schedule_action i =
   | Ok s -> schedule_action (Action.GotChunk (i,s))
   | _ -> ()
 
-let create_table customers model ~old_model ~inject =
+let create_table customers pattern model ~old_model ~inject =
+  let open Incr.Let_syntax in
+  let%bind pattern = pattern in
   let columns = List.map ~f:Column.to_table_widget_column Row.Model.columns in
   let columns = Incr.const (List.mapi columns ~f:(fun i col -> i, col)) in
-  let rows = Incr_map.mapi ~f:(fun ~key:_ ~data -> Row.Model.of_customer data)
-      customers
+  let rows =
+    Incr.Map.filter_mapi customers ~f:(fun ~key:_ ~data ->
+        let row = Row.Model.of_customer data in
+        Option.some_if (Row.Model.matches_pattern row pattern) row)
   and render_row = fun ~row_id:_ ~row -> Row.view row
   in Table.create model
     ~old_model
@@ -61,11 +68,14 @@ let create_table customers model ~old_model ~inject =
 
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
-  let customers = model >>| Model.customers in
-  let%map table =
+  let customers = model >>| Model.customers
+  and pattern = model >>| Model.pattern in
+  let table =
     let model = model >>| Model.table
     and old_model = old_model >>| Model.table >>| Option.some in
-    create_table customers ~old_model ~inject model
+    create_table customers pattern ~old_model ~inject model
+  in
+  let%map table = table
   and model = model
   and customers = customers
   and size = customers >>| Storage.size in
@@ -85,22 +95,40 @@ let create model ~old_model ~inject =
         let schedule_action = Fn.compose schedule_action Action.table in
         let table = Component.apply_action ~schedule_action table a () in
         { model with table }
+      | Pattern pattern -> { model with pattern }
   and view =
+    let open Vdom in
+    let search =
+      Node.div
+        [ Attr.id "search-container" ]
+        [ Node.input
+            [ Attr.id "search-input"
+            ; Attr.create "placeholder" "Suche"
+            ; Attr.create "type" "text"
+            ; Attr.on_input (fun _ev text -> inject (Pattern text))
+            ]
+            []
+        ]
+    in
     let counter =
-      Vdom.Node.div [] [ Vdom.Node.text (Int.to_string size)
-                       ; Vdom.Node.text " Kunden geladen."]
+      let s = Printf.sprintf "%d Kunden geladen." size in
+      Node.div [] [ Node.text s ]
     and table = Component.view table in
-    Vdom.(Node.body [] [ counter
-                       ; table ])
-  and update_visibility ~schedule_action : Model.t =
-    let schedule_action = Fn.compose schedule_action Action.table in
-    let table = Component.update_visibility table ~schedule_action in
-    { model with table }
-  and on_display _state ~schedule_action =
-    let schedule_action = Fn.compose schedule_action Action.table in
-    Component.on_display table ~schedule_action ()
-  in
-  Component.create ~update_visibility ~apply_action ~on_display model view
+    Node.body
+      [ Attr.on "scroll" (fun _ -> Event.Viewport_changed)
+      ; Attr.style Css.(height Length.percent100) ]
+      [ counter
+      ; search
+      ; table ]
+    and update_visibility ~schedule_action : Model.t =
+      let schedule_action = Fn.compose schedule_action Action.table in
+      let table = Component.update_visibility table ~schedule_action in
+      { model with table }
+    and on_display _state ~schedule_action =
+      let schedule_action = Fn.compose schedule_action Action.table in
+      Component.on_display table ~schedule_action ()
+    in
+    Component.create ~update_visibility ~apply_action ~on_display model view
 
 let on_startup ~schedule_action _model =
   get_chunk ~schedule_action 0
