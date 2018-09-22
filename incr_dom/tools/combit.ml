@@ -134,14 +134,17 @@ let rooms_of_row r : Booking.room list =
      }]
   | None -> []
 
-let booking_of_row r : Booking.t =
-  { deposit_asked = flt_nz_opt r "AGEF"
-  ; deposit_got = flt_nz_opt r "AEING"
-  ; note = booking_note_of_row r
-  ; no_tax = false
-  ; guests = guests_of_row r
-  ; rooms = rooms_of_row r
-  }
+let booking_of_row r : Booking.t option =
+  match rooms_of_row r with
+  | [] -> None
+  | rooms -> Some
+    { deposit_asked = flt_nz_opt r "AGEF"
+    ; deposit_got = flt_nz_opt r "AEING"
+    ; note = booking_note_of_row r
+    ; no_tax = false
+    ; guests = guests_of_row r
+    ; rooms
+    }
 
 let row db r =
   let bids = Csv.Row.find r "RECORDID" in
@@ -157,12 +160,13 @@ let row db r =
     | Some {bookings;_} -> bookings
     | None -> []
   in
-  let b = booking_of_row r in
+  let bookings =
+    match booking_of_row r with
+    | Some b -> b :: bookings
+    | None -> bookings
+  in
   let c = customer_of_row r in
-  Storage.save db ~key:cid ~data:{ c with bookings = b :: bookings }
-
-(* TODO: postgrest/import.sql does some smart coalescing in order to lift
-   very old entries to latest version *)
+  Storage.save db ~key:cid ~data:{ c with bookings }
 
 let main () =
   (* Read *)
