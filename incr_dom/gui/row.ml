@@ -101,9 +101,13 @@ module Action = struct
   type t = unit [@@deriving sexp]
 end
 
-let view (m : Model.t Incr.t) =
+let view ?on_click (m : Model.t Incr.t) =
   let%map m = m in
-  let row_attrs = Rn_spec.Attrs.create () in
+  let attrs = match on_click with
+    | None -> []
+    | Some ev -> [Attr.on_click (fun _ -> ev)]
+  in
+  let row_attrs = Rn_spec.Attrs.create ~attrs () in
   let cells =
     List.map Model.columns ~f:(fun col ->
         { Rn_spec.Cell.attrs = Rn_spec.Attrs.create ()
