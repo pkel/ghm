@@ -15,7 +15,7 @@ let of_string s =
 
 let chunks size t =
   if size <= 0 then raise (Invalid_argument "size must be grater zero");
-  let l,_,c = Int.Map.fold_right t ~f:(fun ~key ~data (l, sz, c) ->
+  let l,_,c = Int.Map.fold t ~f:(fun ~key ~data (l, sz, c) ->
       if sz = 0 then
         (c :: l, size, Int.Map.singleton key data)
       else
@@ -24,4 +24,4 @@ let chunks size t =
   in c :: l
 
 let append t c =
-  Int.Map.append ~lower_part:t ~upper_part:c
+  Int.Map.append ~lower_part:c ~upper_part:t

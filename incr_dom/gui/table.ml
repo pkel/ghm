@@ -1,2 +1,6 @@
 open Incr_dom_widgets
-include Table.Make (Core_kernel.Int) (Core_kernel.Int) (Table.Default_sort_spec)
+module RowId = struct
+  include Core_kernel.Int
+  let compare a b = compare b a
+end
+include Table.Make (RowId) (Core_kernel.Int) (Table.Default_sort_spec)
