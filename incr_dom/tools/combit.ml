@@ -195,7 +195,7 @@ let main () =
         Storage.pp_hum fmt c;
         close_out oc;
         i + 1
-      ) 0 (Storage.chunks 181 db) in
+      ) 0 (Storage.chunks ~firstsize:97 ~size:587 db) in
     Printf.eprintf "\r%d customers processed into %d chunks.\n%!"
       (Storage.size db) n
   end else begin

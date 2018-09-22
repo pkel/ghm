@@ -84,11 +84,7 @@ let create model ~old_model ~inject =
       match a with
       | GotChunk (i, s) ->
         let chunk = Storage.of_string s in
-        let customers = match Storage.append customers chunk with
-          | `Ok db -> db
-          | `Overlapping_key_ranges -> raise (Failure (
-              Printf.sprintf "Overlapping_key_ranges on chunk %d" i))
-        in
+        let customers = Storage.add_chunk customers ~chunk in
         don't_wait_for (get_chunk ~schedule_action (i + 1));
         { model with customers }
       | Table a ->

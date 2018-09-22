@@ -13,15 +13,27 @@ let pp_hum fmt t =
 let of_string s =
   Sexp.of_string s |> t_of_sexp
 
-let chunks size t =
+let chunks ?(ascending=false) ?firstsize ~size t =
+  let fst = Option.value ~default:size firstsize in
+  let fold = if ascending then Int.Map.fold else Int.Map.fold_right in
   if size <= 0 then raise (Invalid_argument "size must be grater zero");
-  let l,_,c = Int.Map.fold t ~f:(fun ~key ~data (l, sz, c) ->
+  let l,_,c = fold t ~f:(fun ~key ~data (l, sz, c) ->
       if sz = 0 then
         (c :: l, size, Int.Map.singleton key data)
       else
         (l, sz - 1, save c ~key ~data))
-    ~init:([],size,empty)
-  in c :: l
+    ~init:([],fst,empty)
+  in c :: l |> List.rev
 
-let append t c =
-  Int.Map.append ~lower_part:c ~upper_part:t
+let add_chunk ~chunk t =
+  match Int.Map.append ~lower_part:chunk ~upper_part:t with
+  | `Ok t -> t
+  | `Overlapping_key_ranges ->
+    match Int.Map.append ~lower_part:t ~upper_part:chunk with
+    | `Ok t -> t
+    | `Overlapping_key_ranges ->
+      Int.Map.merge t chunk ~f:(fun ~key -> function
+          | `Both _ ->
+            let msg = Printf.sprintf "chunk overlapping in key %d" key in
+            raise (Invalid_argument msg)
+          | `Left x | `Right x -> Some x )
