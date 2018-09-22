@@ -33,45 +33,13 @@ module Action = struct
     | GotChunk of int * string
     | Table of Table.Action.t
   [@@deriving sexp_of]
+
+  let schedule_table schedule_action x = schedule_action (Table x)
 end
 
 module State = struct
   type t = unit
 end
-
-let render_row = fun ~row_id:_ ~row -> Row.view row
-
-let create_table_component (model : Model.t Incr.t) ~old_model ~inject =
-  let open Incr.Let_syntax in
-  let columns = List.map ~f:Column.to_table_widget_column Row.Model.columns in
-  let columns = Incr.const (List.mapi columns ~f:(fun i col -> i, col)) in
-  let customers = model >>| Model.customers in
-  let rows = Incr_map.mapi ~f:(fun ~key:_ ~data -> Row.Model.of_customer data)
-      customers
-  and table = model >>| Model.table
-  and old_table = old_model >>| Model.table >>| Option.some
-  in Table.create table
-    ~old_model:old_table
-    ~rows
-    ~columns
-    ~render_row
-    ~inject:(fun a -> inject (Action.Table a))
-    ~attrs:[]
-
-let on_display table =
-  let open Incr.Let_syntax in
-  let%map table_on_display = table >>| Component.on_display in
-  fun state ~schedule_action ->
-    let schedule_table_action action = schedule_action (Action.Table action) in
-    table_on_display state ~schedule_action:schedule_table_action
-
-let update_visibility table (m : Model.t Incr.t) =
-  let open Incr.Let_syntax in
-  let%map m = m
-  and table_update_visibility = table >>| Component.update_visibility in
-  fun () ->
-    let table = table_update_visibility () in
-    { m with table }
 
 let get_chunk ~schedule_action i =
   let url= Printf.sprintf "../data/chunks/chunk-%d.sexp" i in
@@ -79,19 +47,32 @@ let get_chunk ~schedule_action i =
   | Ok s -> schedule_action (Action.GotChunk (i,s))
   | _ -> ()
 
+let create_table customers model ~old_model ~inject =
+  let columns = List.map ~f:Column.to_table_widget_column Row.Model.columns in
+  let columns = Incr.const (List.mapi columns ~f:(fun i col -> i, col)) in
+  let rows = Incr_map.mapi ~f:(fun ~key:_ ~data -> Row.Model.of_customer data)
+      customers
+  and render_row = fun ~row_id:_ ~row -> Row.view row
+  in Table.create model
+    ~old_model
+    ~rows
+    ~columns
+    ~render_row
+    ~inject:(fun a -> inject (Action.Table a))
+    ~attrs:[]
+
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
-  let table = create_table_component ~old_model ~inject model in
-  let%map apply_action =
-    let%map model = model
-    and customers = model >>| Model.customers
-    and table_apply_action = table >>| Component.apply_action in
-    fun (a : Action.t) state ~schedule_action ->
-      let schedule_table_action action =
-        schedule_action (Action.Table action) in
-      let apply_table_action action =
-        table_apply_action action state ~schedule_action:schedule_table_action
-      in
+  let customers = model >>| Model.customers in
+  let%map table =
+    let model = model >>| Model.table
+    and old_model = old_model >>| Model.table >>| Option.some in
+    create_table customers ~old_model ~inject model
+  and model = model
+  and customers = customers
+  and size = customers >>| Storage.size in
+  let apply_action =
+    fun (a : Action.t) _state ~schedule_action ->
       match a with
       | GotChunk (i, s) ->
         let chunk = Storage.of_string s in
@@ -101,21 +82,26 @@ let create model ~old_model ~inject =
               Printf.sprintf "Overlapping_key_ranges on chunk %d" i))
         in
         don't_wait_for (get_chunk ~schedule_action (i + 1));
-        { model with Model.customers }
+        { model with customers }
       | Table a ->
-        { model with table = apply_table_action a }
+        let schedule_action = Action.schedule_table schedule_action in
+        let table = Component.apply_action ~schedule_action table a () in
+        { model with table }
   and view =
-    let%map counter =
-      let%map size = model >>| Model.customers >>| Storage.size in
+    let counter =
       Vdom.Node.div [] [ Vdom.Node.text (Int.to_string size)
                        ; Vdom.Node.text " Kunden geladen."]
-    and table = table >>| Component.view
-    in
+    and table = Component.view table in
     Vdom.(Node.body [] [ counter
                        ; table ])
-  and update_visibility = update_visibility table model
-  and on_display = on_display table
-  and model = model in
+  and update_visibility ~schedule_action : Model.t =
+    let schedule_action = Action.schedule_table schedule_action in
+    let table = Component.update_visibility table ~schedule_action in
+    { model with table }
+  and on_display _state ~schedule_action =
+    let schedule_action = Action.schedule_table schedule_action in
+    Component.on_display table ~schedule_action ()
+  in
   Component.create ~update_visibility ~apply_action ~on_display model view
 
 let on_startup ~schedule_action _model =
