@@ -32,9 +32,7 @@ module Action = struct
   type t =
     | GotChunk of int * string
     | Table of Table.Action.t
-  [@@deriving sexp_of]
-
-  let schedule_table schedule_action x = schedule_action (Table x)
+  [@@deriving sexp_of, variants]
 end
 
 module State = struct
@@ -84,7 +82,7 @@ let create model ~old_model ~inject =
         don't_wait_for (get_chunk ~schedule_action (i + 1));
         { model with customers }
       | Table a ->
-        let schedule_action = Action.schedule_table schedule_action in
+        let schedule_action = Fn.compose schedule_action Action.table in
         let table = Component.apply_action ~schedule_action table a () in
         { model with table }
   and view =
@@ -95,11 +93,11 @@ let create model ~old_model ~inject =
     Vdom.(Node.body [] [ counter
                        ; table ])
   and update_visibility ~schedule_action : Model.t =
-    let schedule_action = Action.schedule_table schedule_action in
+    let schedule_action = Fn.compose schedule_action Action.table in
     let table = Component.update_visibility table ~schedule_action in
     { model with table }
   and on_display _state ~schedule_action =
-    let schedule_action = Action.schedule_table schedule_action in
+    let schedule_action = Fn.compose schedule_action Action.table in
     Component.on_display table ~schedule_action ()
   in
   Component.create ~update_visibility ~apply_action ~on_display model view
