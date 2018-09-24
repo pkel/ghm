@@ -13,8 +13,8 @@ module Model = struct
     { table = Table.Model.create
           ~scroll_margin:(Incr_dom_widgets.Table.Margin.uniform 5.)
           ~scroll_region:Window
-          ~float_header:Edge
-          ~float_first_col:Edge
+          ~float_header:None
+          ~float_first_col:None
           ~height_guess:43.
           ()
     ; pattern = ""
@@ -47,7 +47,7 @@ let create_table customers pattern model ~old_model ~inject ~select =
     ~columns
     ~render_row
     ~inject:(fun a -> inject (Action.Table a))
-    ~attrs:[]
+    ~attrs:[ Vdom.Attr.classes ["table";"table-hover";"table-condensed"]]
 
 let create ~model ~old_model ~inject ~select customers =
   let pattern = model >>| Model.pattern in

@@ -105,7 +105,9 @@ let view ?on_click (m : Model.t Incr.t) =
   let%map m = m in
   let attrs = match on_click with
     | None -> []
-    | Some ev -> [Attr.on_click (fun _ -> ev)]
+    | Some ev ->
+      Attr.[ on_click (fun _ -> ev)
+           ; style (Css.create ~field:"cursor" ~value:"pointer") ]
   in
   let row_attrs = Rn_spec.Attrs.create ~attrs () in
   let cells =
