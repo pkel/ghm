@@ -77,6 +77,10 @@ let create ~model ~old_model ~inject ~select customers =
             [ Attr.id "search-input"
             ; Attr.placeholder "Suche"
             ; Attr.type_ "text"
+            (* TODO: Investigate whether the following creates a property or
+               an attribute. We want an attribute, such that on return to view,
+               the search field is filled. *)
+            ; Attr.create "value" model.pattern
             ; Attr.on_input (fun _ev text -> inject (Pattern text))
             ] []
         ]
