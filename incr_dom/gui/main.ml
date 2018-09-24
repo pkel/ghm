@@ -9,45 +9,49 @@ type navigation =
   | Customer of int
 [@@deriving sexp_of, compare]
 
-let navigate nav =
-  (* Sideffect: This triggers the Hashchange event/action, i.e directly after
-     setting the fragment, it is parsed for setting [model.nav]. *)
-  let open Js_of_ocaml.Url in
-  let open Printf in
-  let s = match nav with
-    | Overview -> "/customers"
-    | Customer i -> sprintf "/customers/%d" i
-  in Current.set_fragment s
-
-let nav_from_url () =
-  let invalid () = navigate Overview; Overview in
-  let open Js_of_ocaml in
-  match String.split ~on:'/' (Url.Current.get_fragment ()) with
-  | [""; "customers"] -> Overview
-  | [""; "customers" ; i] -> begin match int_of_string_opt i with
-      | Some i -> Customer i
-      | None -> invalid () end
-  | _ -> invalid ()
-
 module Model = struct
 
   type t =
     { customers : Storage.t
     ; customer_table : Table.Model.t
+    ; customer_form : Customer_form.Model.t
+    ; customer_nr : int
     ; nav : navigation
     }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
-
-  let init () =
-    { customers = Storage.empty
-    ; customer_table = Table.Model.create ()
-    ; nav = nav_from_url ()
-    }
 end
 
-let init ()  = Model.init ()
+let navigate nav model =
+  (* Sideffect: This triggers the Hashchange event/action, i.e directly after
+     setting the fragment, it is parsed for setting [model.nav]. *)
+  let open Js_of_ocaml.Url in
+  let open Printf in
+  let s,(m: Model.t) = match nav with
+    | Overview -> "/customers", { model with customer_nr = (-1) }
+    | Customer i -> sprintf "/customers/%d" i, { model with customer_nr = i }
+  in Current.set_fragment s ; { m with nav }
+
+(* These two should be cleaned up *)
+
+let nav_from_url model =
+  let open Js_of_ocaml in
+  let invalid () = navigate Overview model in
+  match String.split ~on:'/' (Url.Current.get_fragment ()) with
+  | [""; "customers"] -> navigate Overview model
+  | [""; "customers" ; i] -> begin match int_of_string_opt i with
+      | Some i -> navigate (Customer i) model
+      | None -> invalid () end
+  | _ -> invalid ()
+
+let init () : Model.t =
+  { customers = Storage.empty
+  ; customer_table = Table.Model.create ()
+  ; customer_form = Customer_form.Model.create ()
+  ; customer_nr = -1
+  ; nav = Overview
+  } |> nav_from_url
 
 module Action = struct
   type t =
@@ -55,6 +59,7 @@ module Action = struct
     | Navigate of navigation
     | Hashchange
     | CustomerTable of Table.Action.t
+    | CustomerForm of Customer_form.Action.t
   [@@deriving sexp_of, variants]
 end
 
@@ -74,14 +79,25 @@ let create model ~old_model ~inject =
   let table =
     let model = model >>| Model.customer_table
     and old_model = old_model >>| Model.customer_table
-    and select x = inject (Action.Navigate (Customer x))
+    and select i = inject (Action.navigate (Customer i))
     and inject = Fn.compose inject Action.customertable
     in
     Table.create customers ~old_model ~inject ~select ~model
   in
+  let customer =
+    let look = Int.(Incr.Map.Lookup.create customers ~comparator) in
+    let model = model >>| Model.customer_form
+    and inject = Fn.compose inject Action.customerform
+    and customer =
+      let%bind cnr = model >>| Model.customer_nr in
+      Incr.Map.Lookup.find look cnr
+    in
+    Customer_form.create ~inject customer ~model
+  in
   let%map table = table
   and model = model
-  and customers = customers in
+  and customers = customers
+  and customer = customer in
   let apply_action =
     fun (a : Action.t) _state ~schedule_action ->
       match a with
@@ -95,23 +111,27 @@ let create model ~old_model ~inject =
         let customer_table =
           Component.apply_action ~schedule_action table a () in
         { model with customer_table }
-      | Navigate nav -> navigate nav; model (* Triggers Hashchange *)
-      | Hashchange ->
-        { model with nav = nav_from_url () }
+      | CustomerForm a ->
+        let schedule_action = Fn.compose schedule_action Action.customerform in
+        let customer_form =
+          Component.apply_action ~schedule_action customer a () in
+        { model with customer_form }
+      | Navigate nav -> navigate nav model
+      | Hashchange -> nav_from_url model
   and view =
     let open Vdom in
     match model.nav with
     | Overview ->
-      let table = Component.view table in
       Node.body
         [ Attr.on "scroll" (fun _ -> Event.Viewport_changed)
         ; Attr.style Css.(height Length.percent100) ]
-        [ table ]
+        [ Component.view table ]
     | Customer i ->
       let msg = Printf.sprintf "Kunde %d" i in
       Node.body
         [ Attr.on_click (fun _-> inject (Navigate Overview))]
-        [ Node.text msg ]
+        [ Node.(div [] [text msg])
+        ; Component.view customer ]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in

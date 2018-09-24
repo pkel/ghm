@@ -36,8 +36,6 @@ module Column = struct
     val sort_by : Contents.t -> Sort_key.t
   end
 
-  type 'a t = (module T with type row = 'a)
-
   let create
       (type row contents)
       ~name
