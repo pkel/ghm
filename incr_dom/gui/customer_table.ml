@@ -78,8 +78,7 @@ let create ~model ~old_model ~inject ~select customers =
             ; Attr.placeholder "Suche"
             ; Attr.type_ "text"
             ; Attr.on_input (fun _ev text -> inject (Pattern text))
-            ]
-            []
+            ] []
         ]
     in
     let counter =

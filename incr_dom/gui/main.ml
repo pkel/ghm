@@ -4,17 +4,37 @@ open Async_kernel
 open Incr_dom
 module Incr_map = Incr_map.Make(Incr)
 
-type view =
-  | CustomerTable
+type navigation =
+  | Overview
   | Customer of int
 [@@deriving sexp_of, compare]
+
+let navigate nav =
+  (* Sideffect: This triggers the Hashchange event/action, i.e directly after
+     setting the fragment, it is parsed for setting [model.nav]. *)
+  let open Js_of_ocaml.Url in
+  let open Printf in
+  let s = match nav with
+    | Overview -> "/customers"
+    | Customer i -> sprintf "/customers/%d" i
+  in Current.set_fragment s
+
+let nav_from_url () =
+  let invalid () = navigate Overview; Overview in
+  let open Js_of_ocaml in
+  match String.split ~on:'/' (Url.Current.get_fragment ()) with
+  | [""; "customers"] -> Overview
+  | [""; "customers" ; i] -> begin match int_of_string_opt i with
+      | Some i -> Customer i
+      | None -> invalid () end
+  | _ -> invalid ()
 
 module Model = struct
 
   type t =
     { customers : Storage.t
     ; customer_table : Customer_table.Model.t
-    ; view : view
+    ; nav : navigation
     }
   [@@deriving compare, fields]
 
@@ -23,7 +43,7 @@ module Model = struct
   let init () =
     { customers = Storage.empty
     ; customer_table = Customer_table.Model.create ()
-    ; view = CustomerTable
+    ; nav = nav_from_url ()
     }
 end
 
@@ -32,7 +52,8 @@ let init ()  = Model.init ()
 module Action = struct
   type t =
     | GotChunk of int * string
-    | View of view
+    | Navigate of navigation
+    | Hashchange
     | CustomerTable of Customer_table.Action.t
   [@@deriving sexp_of, variants]
 end
@@ -53,7 +74,7 @@ let create model ~old_model ~inject =
   let table =
     let model = model >>| Model.customer_table
     and old_model = old_model >>| Model.customer_table
-    and select x = inject (Action.View (Customer x))
+    and select x = inject (Action.Navigate (Customer x))
     and inject = Fn.compose inject Action.customertable
     in
     Customer_table.create customers ~old_model ~inject ~select ~model
@@ -74,12 +95,13 @@ let create model ~old_model ~inject =
         let customer_table =
           Component.apply_action ~schedule_action table a () in
         { model with customer_table }
-      | View view ->
-        { model with view }
+      | Navigate nav -> navigate nav; model (* Triggers Hashchange *)
+      | Hashchange ->
+        { model with nav = nav_from_url () }
   and view =
     let open Vdom in
-    match model.view with
-    | CustomerTable ->
+    match model.nav with
+    | Overview ->
       let table = Component.view table in
       Node.body
         [ Attr.on "scroll" (fun _ -> Event.Viewport_changed)
@@ -88,7 +110,7 @@ let create model ~old_model ~inject =
     | Customer i ->
       let msg = Printf.sprintf "Kunde %d" i in
       Node.body
-        [ Attr.on_click (fun _-> inject (View CustomerTable))]
+        [ Attr.on_click (fun _-> inject (Navigate Overview))]
         [ Node.text msg ]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
@@ -101,4 +123,10 @@ let create model ~old_model ~inject =
   Component.create ~update_visibility ~apply_action ~on_display model view
 
 let on_startup ~schedule_action _model =
+  let _ =
+    let open Js_of_ocaml.Dom_html in
+    let open Js_of_ocaml.Js in
+    let handler = handler (fun _ -> schedule_action Action.Hashchange; _true) in
+    addEventListener window Event.hashchange handler _false
+  in
   get_chunk ~schedule_action 0
