@@ -33,7 +33,7 @@ module Model = struct
 
   type t =
     { customers : Storage.t
-    ; customer_table : Customer_table.Model.t
+    ; customer_table : Table.Model.t
     ; nav : navigation
     }
   [@@deriving compare, fields]
@@ -42,7 +42,7 @@ module Model = struct
 
   let init () =
     { customers = Storage.empty
-    ; customer_table = Customer_table.Model.create ()
+    ; customer_table = Table.Model.create ()
     ; nav = nav_from_url ()
     }
 end
@@ -54,7 +54,7 @@ module Action = struct
     | GotChunk of int * string
     | Navigate of navigation
     | Hashchange
-    | CustomerTable of Customer_table.Action.t
+    | CustomerTable of Table.Action.t
   [@@deriving sexp_of, variants]
 end
 
@@ -77,7 +77,7 @@ let create model ~old_model ~inject =
     and select x = inject (Action.Navigate (Customer x))
     and inject = Fn.compose inject Action.customertable
     in
-    Customer_table.create customers ~old_model ~inject ~select ~model
+    Table.create customers ~old_model ~inject ~select ~model
   in
   let%map table = table
   and model = model
