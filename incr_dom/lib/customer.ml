@@ -37,3 +37,36 @@ let first_booking t : Booking.t option =
   match t.bookings with
   | [] -> None
   | hd :: _ -> Some hd
+
+let empty =
+  { title = ""
+  ; title_letter = ""
+
+  ; given = ""
+  ; second = ""
+  ; family = ""
+
+  ; company = ""
+  ; company_address = ""
+
+  ; street = ""
+  ; street_number = ""
+  ; postal_code = ""
+  ; city = ""
+  ; country = ""
+  ; country_code = ""
+
+  ; phone = ""
+  ; phone2 = ""
+  ; mobile = ""
+  ; fax = ""
+  ; fax2 = ""
+  ; mail = ""
+  ; mail2 = ""
+  ; web = ""
+
+  ; keyword = ""
+  ; note = ""
+
+  ; bookings = []
+  }
