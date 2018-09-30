@@ -146,11 +146,11 @@ let div_with_err state id children =
 
 let group = Node.div [ Attr.class_ "form-group" ]
 
-let string_field state label id =
+let field ?(input=Form.Input.text) state label id =
   group
     (div_with_err state id
        [ Node.label [] [Node.text label]
-       ; Form.Input.text state id [Attr.class_ "form-control"]
+       ; input state id [Attr.class_ "form-control"]
        ])
 
 let view_name state ids =
@@ -158,9 +158,9 @@ let view_name state ids =
   (* TODO: drop second from Customer.t? *)
   Node.div []
     (div_with_err state block
-       [ string_field state "Titel" title
-       ; string_field state "Vorname" given
-       ; string_field state "Nachname" family
+       [ field state "Titel" title
+       ; field state "Vorname" given
+       ; field state "Nachname" family
        ]
     )
 
@@ -168,8 +168,8 @@ let view_company state ids =
   let block, (name, (address, ())) = ids in
   Node.div []
     (div_with_err state block
-       [ string_field state "Firma" name
-       ; string_field state "Abteilung" address
+       [ field state "Firma" name
+       ; field state "Abteilung" address
        ]
     )
 
@@ -178,12 +178,12 @@ let view_address state ids =
       city, (country, (country_code, ())))))) = ids in
   Node.div []
     (div_with_err state block
-       [ string_field state "Straße" street
-       ; string_field state "Hausnummer" number
-       ; string_field state "Postleitzahl" postal_code
-       ; string_field state "Ort" city
-       ; string_field state "Land" country
-       ; string_field state "Ländercode" country_code
+       [ field state "Straße" street
+       ; field state "Hausnummer" number
+       ; field state "Postleitzahl" postal_code
+       ; field state "Ort" city
+       ; field state "Land" country
+       ; field state "Ländercode" country_code
        ]
     )
 
@@ -192,14 +192,14 @@ let view_contact state ids =
       fax, (fax2, (mail, (mail2, (web ,())))))))) = ids in
   Node.div []
     (div_with_err state block
-       [ string_field state "Telefon" phone
-       ; string_field state "Telefon" phone2
-       ; string_field state "Mobil" mobile
-       ; string_field state "Fax" fax
-       ; string_field state "Fax" fax2
-       ; string_field state "Mail" mail
-       ; string_field state "Mail" mail2
-       ; string_field state "Internet" web
+       [ field state "Telefon" phone
+       ; field state "Telefon" phone2
+       ; field state "Mobil" mobile
+       ; field state "Fax" fax
+       ; field state "Fax" fax2
+       ; field state "Mail" mail
+       ; field state "Mail" mail2
+       ; field state "Internet" web
        ]
     )
 
@@ -221,12 +221,12 @@ let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
   in
   Node.create "form" []
     (div_with_err state customer_block_id
-       [ string_field state "Schlüsselwort" keyword_id
+       [ field state "Schlüsselwort" keyword_id
        ; view_name state name_block
        ; view_company state company_block
        ; view_address state address_block
        ; view_contact state contact_block
-       ; string_field state "Notiz" note_id
+       ; field ~input:Form.Input.textarea state "Notiz" note_id
        ]
     )
 
