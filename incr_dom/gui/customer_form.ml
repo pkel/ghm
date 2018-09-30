@@ -105,19 +105,16 @@ let customer_descr =
 
 let form = Form.create ~name:"customer form" customer_descr
 
-let init = Customer.empty
-let form_state = Form.State.create ~init form
-
 module Model = struct
   type t =
     { form_state : Form.State.t
-    ; bogus: unit
     } [@@deriving compare]
 
-  let create () =
-    { form_state
-    ; bogus = ()
-    }
+  let empty () =
+    { form_state = Form.State.create form }
+
+  let load customer =
+    { form_state = Form.State.create ~init:customer form }
 end
 
 module Action = struct
@@ -126,10 +123,10 @@ module Action = struct
   [@@deriving sexp]
 end
 
-let apply_action (model : Model.t) (action : Action.t)
+let apply_action (_model : Model.t) (action : Action.t)
     _state ~schedule_action:_ : Model.t =
   match action with
-  | Update_form_state form_state -> { model with form_state }
+  | Update_form_state form_state -> { form_state }
 
 open Vdom
 
@@ -230,22 +227,10 @@ let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
        ]
     )
 
-let view (customer : Customer.t option Incr.t) (model : Model.t Incr.t)
-  ~inject =
-  let open Vdom in
-  let open Node in
-  let%map c = customer
-  and form = view model ~inject in
-  match c with
-  | None -> div []
-              [ text "Dieser Kunde existiert noch nicht oder nicht mehr." ]
-  | Some _c -> form
-
 let create
     ~(inject:(Action.t -> Vdom.Event.t))
-    ~(model:Model.t Incr.t)
-    (c: Customer.t option Incr.t) =
+    (model:Model.t Incr.t) =
   let%map model = model
-  and view = view c model ~inject in
+  and view = view model ~inject in
   let apply_action = apply_action model in
   Component.create ~apply_action model view

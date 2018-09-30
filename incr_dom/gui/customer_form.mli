@@ -3,7 +3,8 @@ open Incr_dom
 
 module Model : sig
   type t [@@deriving compare]
-  val create: unit -> t
+  val empty: unit -> t
+  val load: Customer.t -> t
 end
 
 module Action : sig
@@ -11,7 +12,5 @@ module Action : sig
 end
 
 val create:
-  inject:(Action.t -> Vdom.Event.t) ->
-  model:Model.t Incr.t ->
-  Customer.t option Incr.t ->
+  inject:(Action.t -> Vdom.Event.t) -> Model.t Incr.t ->
   (Action.t, Model.t, unit) Component.t Incr.t

@@ -15,7 +15,6 @@ module Model = struct
     { customers : Storage.t
     ; customer_table : Table.Model.t
     ; customer_form : Customer_form.Model.t
-    ; customer_nr : int
     ; nav : navigation
     }
   [@@deriving compare, fields]
@@ -23,15 +22,21 @@ module Model = struct
   let cutoff t1 t2 = compare t1 t2 = 0
 end
 
-let navigate nav model =
+let rec navigate nav (model : Model.t) =
   (* Sideffect: This triggers the Hashchange event/action, i.e directly after
      setting the fragment, it is parsed for setting [model.nav]. *)
-  let open Js_of_ocaml.Url in
   let open Printf in
-  let s,(m: Model.t) = match nav with
-    | Overview -> "/customers", { model with customer_nr = (-1) }
-    | Customer i -> sprintf "/customers/%d" i, { model with customer_nr = i }
-  in Current.set_fragment s ; { m with nav }
+  let set = Js_of_ocaml.Url.Current.set_fragment in
+  let m = match nav with
+  | Overview -> set "/customers"; model
+  | Customer i -> begin
+    match Storage.load model.customers i with
+    | None -> navigate Overview model
+    | Some c ->
+      set (sprintf "/customers/%d" i);
+      { model with customer_form = Customer_form.Model.load c; }
+  end
+  in { m with nav }
 
 (* These two should be cleaned up *)
 
@@ -48,8 +53,7 @@ let nav_from_url model =
 let init () : Model.t =
   { customers = Storage.empty
   ; customer_table = Table.Model.create ()
-  ; customer_form = Customer_form.Model.create ()
-  ; customer_nr = -1
+  ; customer_form = Customer_form.Model.empty ()
   ; nav = Overview
   } |> nav_from_url
 
@@ -85,14 +89,9 @@ let create model ~old_model ~inject =
     Table.create customers ~old_model ~inject ~select ~model
   in
   let customer =
-    let look = Int.(Incr.Map.Lookup.create customers ~comparator) in
-    let model = model >>| Model.customer_form
-    and inject = Fn.compose inject Action.customerform
-    and customer =
-      let%bind cnr = model >>| Model.customer_nr in
-      Incr.Map.Lookup.find look cnr
-    in
-    Customer_form.create ~inject customer ~model
+    let inject = Fn.compose inject Action.customerform
+    and form_model = model >>| Model.customer_form in
+    Customer_form.create ~inject form_model
   in
   let%map table = table
   and model = model
@@ -126,11 +125,14 @@ let create model ~old_model ~inject =
         [ Attr.on "scroll" (fun _ -> Event.Viewport_changed)
         ; Attr.style Css.(height Length.percent100) ]
         [ Component.view table ]
-    | Customer i ->
-      let msg = Printf.sprintf "Kunde %d" i in
-      Node.body
-        [ Attr.on_click (fun _-> inject (Navigate Overview))]
-        [ Node.(div [] [text msg])
+    | Customer _i ->
+      let btn action label =
+        Node.button [ Attr.on_click action
+                    ; Attr.class_ "btn"
+                    ; Attr.type_ "button"
+                    ] [ Node.text label ]
+      in Node.body []
+        [ Node.(div [] [btn (fun _-> inject (Navigate Overview)) "Zurück"])
         ; Component.view customer ]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
