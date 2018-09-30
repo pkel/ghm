@@ -1,36 +1,53 @@
 open Core_kernel
 
+module Name = struct
+  type t =
+    { title:  string
+    ; given:  string
+    ; second: string
+    ; family: string
+    } [@@deriving fields, compare, sexp]
+end
+
+module Address = struct
+  type t =
+    { street:        string
+    ; street_number: string
+    ; postal_code:   string
+    ; city:          string
+    ; country:       string
+    ; country_code:  string
+    } [@@deriving fields, compare, sexp]
+end
+
+module Contact = struct
+  type t =
+    { phone:  string
+    ; phone2: string
+    ; mobile: string
+    ; fax:    string
+    ; fax2:   string
+    ; mail:   string
+    ; mail2:  string
+    ; web:    string
+    } [@@deriving fields, compare, sexp]
+end
+
+module Company = struct
+  type t =
+    { name:    string
+    ; address: string
+    } [@@deriving fields, compare, sexp]
+end
+
 type t =
-  { title           : string
-  ; title_letter    : string
-
-  ; given           : string
-  ; second          : string
-  ; family          : string
-
-  ; company         : string
-  ; company_address : string
-
-  ; street          : string
-  ; street_number   : string
-  ; postal_code     : string
-  ; city            : string
-  ; country         : string
-  ; country_code    : string
-
-  ; phone           : string
-  ; phone2          : string
-  ; mobile          : string
-  ; fax             : string
-  ; fax2            : string
-  ; mail            : string
-  ; mail2           : string
-  ; web             : string
-
-  ; keyword         : string
-  ; note            : string
-
-  ; bookings        : Booking.t list
+  { name:     Name.t
+  ; company:  Company.t
+  ; address:  Address.t
+  ; contact:  Contact.t
+  ; keyword:  string
+  ; note:     string
+  ; bookings: Booking.t list
   } [@@deriving fields, compare, sexp]
 
 let first_booking t : Booking.t option =
@@ -39,34 +56,35 @@ let first_booking t : Booking.t option =
   | hd :: _ -> Some hd
 
 let empty =
-  { title = ""
-  ; title_letter = ""
-
-  ; given = ""
-  ; second = ""
-  ; family = ""
-
-  ; company = ""
-  ; company_address = ""
-
-  ; street = ""
-  ; street_number = ""
-  ; postal_code = ""
-  ; city = ""
-  ; country = ""
-  ; country_code = ""
-
-  ; phone = ""
-  ; phone2 = ""
-  ; mobile = ""
-  ; fax = ""
-  ; fax2 = ""
-  ; mail = ""
-  ; mail2 = ""
-  ; web = ""
-
+  { name =
+      { title = ""
+      ; given = ""
+      ; second = ""
+      ; family = ""
+      }
+  ; company =
+      { name = ""
+      ; address = ""
+      }
+  ; address =
+      { street = ""
+      ; street_number = ""
+      ; postal_code = ""
+      ; city = ""
+      ; country = ""
+      ; country_code = ""
+      }
+  ; contact =
+      { phone = ""
+      ; phone2 = ""
+      ; mobile = ""
+      ; fax = ""
+      ; fax2 = ""
+      ; mail = ""
+      ; mail2 = ""
+      ; web = ""
+      }
   ; keyword = ""
   ; note = ""
-
   ; bookings = []
   }

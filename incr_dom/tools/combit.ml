@@ -53,31 +53,39 @@ let customer_note_of_row r : string =
 
 let customer_of_row r : Customer.t =
   let f = str r in
-  { title           = f "ANREDE"
-  ; title_letter    = f "ANREDEBR"
-  ; given           = f "VORNAME"
-  ; second          = ""
-  ; family          = f "NAME"
-  ; company         = f "FIRMA"
-  ; company_address = f "ABTEILUNG"
-  ; keyword         = f "SUCH"
-  ; street          = f "STRASSE"
-  (* TODO: Read street number from street if absent *)
-  ; street_number   = f "HNR"
-  ; city            = f "ORT"
-  ; postal_code     = f "PLZZ"
-  ; country         = f "LAND___ausgeschrieben"
-  ; country_code    = f "LAND"
-  ; phone           = f "TELEFON"
-  ; phone2          = f "TELEFON2"
-  ; mobile          = f "MOBILTEL"
-  ; fax             = f "TELEFAX"
-  ; fax2            = f "TELEFAX2"
-  ; mail            = f "EMAIL"
-  ; mail2           = f "EMAIL2"
-  ; web             = f "INTERNET"
-  ; note            = customer_note_of_row r
-  ; bookings        = []
+  { name =
+      { title  = f "ANREDE"
+      (* ; title_letter = f "ANREDEBR" *)
+      ; given  = f "VORNAME"
+      ; second = ""
+      ; family = f "NAME"
+      }
+  ; company         =
+      { name    = f "FIRMA"
+      ; address = f "ABTEILUNG"
+      }
+  ; address =
+      (* TODO: Read street number from street if absent *)
+      { street        = f "STRASSE"
+      ; street_number = f "HNR"
+      ; city          = f "ORT"
+      ; postal_code   = f "PLZZ"
+      ; country       = f "LAND___ausgeschrieben"
+      ; country_code  = f "LAND"
+      }
+  ; contact =
+      { phone  = f "TELEFON"
+      ; phone2 = f "TELEFON2"
+      ; mobile = f "MOBILTEL"
+      ; fax    = f "TELEFAX"
+      ; fax2   = f "TELEFAX2"
+      ; mail   = f "EMAIL"
+      ; mail2  = f "EMAIL2"
+      ; web    = f "INTERNET"
+      }
+  ; keyword  = f "SUCH"
+  ; note     = customer_note_of_row r
+  ; bookings = []
   }
 
 let booking_note_of_row r : string =
