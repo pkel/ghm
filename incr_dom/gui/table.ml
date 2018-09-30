@@ -168,10 +168,10 @@ module Row = struct
       let period =
         Option.map ~f:Booking.Summary.period summary
         |> Option.join in
-      let given = c |> Customer.given
-      and family = c |> Customer.family
-      and company = c |> Customer.company
-      and keyword = c |> Customer.keyword
+      let given = c.name.given
+      and family = c.name.family
+      and company = c.company.name
+      and keyword = c.keyword
       and guests = summary |> Option.map ~f:Booking.Summary.guests
       and rooms = summary |> Option.map ~f:Booking.Summary.rooms
       and beds = summary |> Option.map ~f:Booking.Summary.beds

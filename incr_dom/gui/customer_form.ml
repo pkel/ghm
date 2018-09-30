@@ -4,25 +4,66 @@ open Incr_dom
 open Incr_dom_widgets
 open Incr.Let_syntax
 
-let form =
+let name_descr =
   let open Form.Description in
-  let unvalidated_customer =
+  let unvalidated =
     let open Of_record in
     build_for_record (
-      Customer.Fields.make_creator
+      Customer.Name.Fields.make_creator
         ~title:(field string)
-        ~title_letter:(field string)
         ~given:(field string)
         ~second:(field string)
-        ~family:(field string)
-        ~company:(field string)
-        ~company_address:(field string)
+        ~family:(field string))
+  in conv unvalidated
+      ~f:(fun t _ ~block_id:_ ->
+          let errors = [] in
+          if List.is_empty errors
+          then (Ok t)
+          else (Error errors)
+        )
+
+let company_descr =
+  let open Form.Description in
+  let unvalidated =
+    let open Of_record in
+    build_for_record (
+      Customer.Company.Fields.make_creator
+        ~name:(field string)
+        ~address:(field string))
+  in conv unvalidated
+      ~f:(fun t _ ~block_id:_ ->
+          let errors = [] in
+          if List.is_empty errors
+          then (Ok t)
+          else (Error errors)
+        )
+
+let address_descr =
+  let open Form.Description in
+  let unvalidated =
+    let open Of_record in
+    build_for_record (
+      Customer.Address.Fields.make_creator
         ~street:(field string)
         ~street_number:(field string)
         ~postal_code:(field string)
         ~city:(field string)
         ~country:(field string)
-        ~country_code:(field string)
+        ~country_code:(field string))
+  in conv unvalidated
+      ~f:(fun t _ ~block_id:_ ->
+          let errors = [] in
+          if List.is_empty errors
+          then (Ok t)
+          else (Error errors)
+        )
+
+let contact_descr =
+  let open Form.Description in
+  let unvalidated =
+    let open Of_record in
+    build_for_record (
+      Customer.Contact.Fields.make_creator
         ~phone:(field string)
         ~phone2:(field string)
         ~mobile:(field string)
@@ -30,22 +71,39 @@ let form =
         ~fax2:(field string)
         ~mail:(field string)
         ~mail2:(field string)
-        ~web:(field string)
+        ~web:(field string))
+  in conv unvalidated
+    ~f:(fun t _ ~block_id:_ ->
+        let errors = [] in
+        if List.is_empty errors
+        then (Ok t)
+        else (Error errors)
+      )
+
+let customer_descr =
+  let open Form.Description in
+  let unvalidated_customer =
+    let open Of_record in
+    build_for_record (
+      Customer.Fields.make_creator
+        ~name:(field name_descr)
+        ~address:(field address_descr)
+        ~company:(field company_descr)
+        ~contact:(field contact_descr)
         ~keyword:(field string)
         ~note:(field string)
         ~bookings:(field (not_editable ~default:[]))
     )
   in
-  let customer_form =
-    conv unvalidated_customer
-      ~f:(fun t _ ~block_id:_ ->
-          let errors = [] in
-          if List.is_empty errors
-          then (Ok t)
-          else (Error errors)
-        )
-  in
-  Form.create ~name:"customer edit form" customer_form
+  conv unvalidated_customer
+    ~f:(fun t _ ~block_id:_ ->
+        let errors = [] in
+        if List.is_empty errors
+        then (Ok t)
+        else (Error errors)
+      )
+
+let form = Form.create ~name:"customer form" customer_descr
 
 let init = Customer.empty
 let form_state = Form.State.create ~init form
@@ -73,6 +131,77 @@ let apply_action (model : Model.t) (action : Action.t)
   match action with
   | Update_form_state form_state -> { model with form_state }
 
+open Vdom
+
+let div_with_err state id children =
+  let no_err_node = Node.div [] [] in
+  let err_node err =
+    let string =
+      String.strip ~drop:(fun c -> Char.equal c '"') (Error.to_string_hum err)
+    in
+    Node.div [Attr.style (Css.color (`Name "red"))] [ Node.text string ]
+  in
+  match Form.State.error state id with
+  | None -> no_err_node :: children
+  | Some err -> err_node err :: children
+
+let string_field state label id =
+  Node.div []
+    (div_with_err state id
+       [ Node.text label
+       ; Form.Input.text state id []
+       ])
+
+let view_name state ids =
+  let block, (title, (given, (_second, (family, ())))) = ids in
+  (* TODO: drop second from Customer.t? *)
+  Node.div []
+    (div_with_err state block
+       [ string_field state "Titel" title
+       ; string_field state "Vorname" given
+       ; string_field state "Nachname" family
+       ]
+    )
+
+let view_company state ids =
+  let block, (name, (address, ())) = ids in
+  Node.div []
+    (div_with_err state block
+       [ string_field state "Firma" name
+       ; string_field state "Abteilung" address
+       ]
+    )
+
+let view_address state ids =
+  let block, (street, (number, (postal_code, (
+      city, (country, (country_code, ())))))) = ids in
+  Node.div []
+    (div_with_err state block
+       [ string_field state "Straße" street
+       ; string_field state "Hausnummer" number
+       ; string_field state "Postleitzahl" postal_code
+       ; string_field state "Ort" city
+       ; string_field state "Land" country
+       ; string_field state "Ländercode" country_code
+       ]
+    )
+
+let view_contact state ids =
+  let block, (phone, (phone2, (mobile, (
+      fax, (fax2, (mail, (mail2, (web ,())))))))) = ids in
+  Node.div []
+    (div_with_err state block
+       [ string_field state "Telefon" phone
+       ; string_field state "Telefon" phone2
+       ; string_field state "Mobil" mobile
+       ; string_field state "Fax" fax
+       ; string_field state "Fax" fax2
+       ; string_field state "Mail" mail
+       ; string_field state "Mail" mail2
+       ; string_field state "Internet" web
+       ]
+    )
+
 let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
   let open Vdom in
   ignore inject;
@@ -80,41 +209,24 @@ let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
   let state = model.form_state in
   let
     (customer_block_id,
-     (title_id,
-      (title_letter_id,
-       (given_id, _)))) =
+     (name_block,
+      (company_block,
+       (address_block,
+        (contact_block,
+         (keyword_id,
+          (note_id,
+           ((),())))))))) =
     Form.State.field_ids state form
-  in
-  let div_with_err id children =
-    let no_err_node = Node.div [] [] in
-    let err_node err =
-      let string =
-        String.strip ~drop:(fun c -> Char.equal c '"') (Error.to_string_hum err)
-      in
-      Node.div [Attr.style (Css.color (`Name "red"))] [ Node.text string ]
-    in
-    match Form.State.error state id with
-    | None -> no_err_node :: children
-    | Some err -> err_node err :: children
   in
   Node.body []
     [ Node.div []
-        (div_with_err customer_block_id
-           [ Node.div []
-               (div_with_err title_id
-                  [ Node.text "Anrede"
-                  ; Form.Input.text state title_id []
-                  ])
-           ; Node.div []
-               (div_with_err title_letter_id
-                  [ Node.text "Anrede Brief"
-                  ; Form.Input.text state title_letter_id []
-                  ])
-           ; Node.div []
-               (div_with_err given_id
-                  [ Node.text "Vorname"
-                  ; Form.Input.text state given_id []
-                  ])
+        (div_with_err state customer_block_id
+           [ string_field state "Schlüsselwort" keyword_id
+           ; view_name state name_block
+           ; view_company state company_block
+           ; view_address state address_block
+           ; view_contact state contact_block
+           ; string_field state "Notiz" note_id
            ]
         )
     ; Node.create "hr" [] []
