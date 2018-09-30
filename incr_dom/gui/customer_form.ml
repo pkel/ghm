@@ -119,14 +119,21 @@ end
 
 module Action = struct
   type t =
-    | Update_form_state of Form.State.t sexp_opaque
+    | Update of Form.State.t sexp_opaque
+    | Save
   [@@deriving sexp]
 end
 
-let apply_action (_model : Model.t) (action : Action.t)
-    _state ~schedule_action:_ : Model.t =
+let apply_action ~save (model : Model.t) (action : Action.t)
+    _state ~schedule_action : Model.t =
   match action with
-  | Update_form_state form_state -> { form_state }
+  | Update form_state -> { form_state }
+  | Save -> begin
+      let c_opt, form_state = Form.State.read_value model.form_state form in
+      match c_opt with
+      | Some c -> save c; { form_state }
+      | None -> { form_state }
+    end
 
 open Vdom
 
@@ -202,7 +209,6 @@ let view_contact state ids =
 
 let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
   let open Vdom in
-  ignore inject;
   let%map model = model in
   let state = model.form_state in
   let
@@ -218,7 +224,8 @@ let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
   in
   Node.create "form" []
     (div_with_err state customer_block_id
-       [ field state "Schlüsselwort" keyword_id
+       [ Bs.button (fun _ -> inject Action.Save) "Speichern"
+       ; field state "Schlüsselwort" keyword_id
        ; view_name state name_block
        ; view_company state company_block
        ; view_address state address_block
@@ -228,9 +235,10 @@ let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
     )
 
 let create
-    ~(inject:(Action.t -> Vdom.Event.t))
+    ~(save: Customer.t -> unit)
+    ~(inject: Action.t -> Vdom.Event.t)
     (model:Model.t Incr.t) =
   let%map model = model
   and view = view model ~inject in
-  let apply_action = apply_action model in
+  let apply_action = apply_action ~save model in
   Component.create ~apply_action model view

@@ -90,6 +90,7 @@ let create model ~old_model ~inject =
   in
   let customer =
     let inject = Fn.compose inject Action.customerform
+    and save = Fn.compose 
     and form_model = model >>| Model.customer_form in
     Customer_form.create ~inject form_model
   in
@@ -126,13 +127,8 @@ let create model ~old_model ~inject =
         ; Attr.style Css.(height Length.percent100) ]
         [ Component.view table ]
     | Customer _i ->
-      let btn action label =
-        Node.button [ Attr.on_click action
-                    ; Attr.class_ "btn"
-                    ; Attr.type_ "button"
-                    ] [ Node.text label ]
-      in Node.body []
-        [ Node.(div [] [btn (fun _-> inject (Navigate Overview)) "Zurück"])
+      Node.body []
+        [ Node.div [] [Bs.button (fun _-> inject (Navigate Overview)) "Zurück"]
         ; Component.view customer ]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
