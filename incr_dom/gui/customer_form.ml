@@ -134,7 +134,6 @@ let apply_action (model : Model.t) (action : Action.t)
 open Vdom
 
 let div_with_err state id children =
-  let no_err_node = Node.div [] [] in
   let err_node err =
     let string =
       String.strip ~drop:(fun c -> Char.equal c '"') (Error.to_string_hum err)
@@ -142,14 +141,16 @@ let div_with_err state id children =
     Node.div [Attr.style (Css.color (`Name "red"))] [ Node.text string ]
   in
   match Form.State.error state id with
-  | None -> no_err_node :: children
+  | None -> children
   | Some err -> err_node err :: children
 
+let group = Node.div [ Attr.class_ "form-group" ]
+
 let string_field state label id =
-  Node.div []
+  group
     (div_with_err state id
-       [ Node.text label
-       ; Form.Input.text state id []
+       [ Node.label [] [Node.text label]
+       ; Form.Input.text state id [Attr.class_ "form-control"]
        ])
 
 let view_name state ids =
@@ -218,19 +219,16 @@ let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
            ((),())))))))) =
     Form.State.field_ids state form
   in
-  Node.body []
-    [ Node.div []
-        (div_with_err state customer_block_id
-           [ string_field state "Schlüsselwort" keyword_id
-           ; view_name state name_block
-           ; view_company state company_block
-           ; view_address state address_block
-           ; view_contact state contact_block
-           ; string_field state "Notiz" note_id
-           ]
-        )
-    ; Node.create "hr" [] []
-    ]
+  Node.create "form" []
+    (div_with_err state customer_block_id
+       [ string_field state "Schlüsselwort" keyword_id
+       ; view_name state name_block
+       ; view_company state company_block
+       ; view_address state address_block
+       ; view_contact state contact_block
+       ; string_field state "Notiz" note_id
+       ]
+    )
 
 let view (customer : Customer.t option Incr.t) (model : Model.t Incr.t)
   ~inject =
@@ -241,10 +239,7 @@ let view (customer : Customer.t option Incr.t) (model : Model.t Incr.t)
   match c with
   | None -> div []
               [ text "Dieser Kunde existiert noch nicht oder nicht mehr." ]
-  | Some _c ->
-    div []
-      [ text "Schlüssel: "
-      ; form ]
+  | Some _c -> form
 
 let create
     ~(inject:(Action.t -> Vdom.Event.t))

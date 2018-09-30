@@ -248,7 +248,7 @@ let create_table customers pattern model ~old_model ~inject ~select =
     ~columns
     ~render_row
     ~inject:(fun a -> inject (Action.Table a))
-    ~attrs:[ Attr.classes ["table";"table-hover";"table-condensed"]]
+    ~attrs:[ Attr.classes ["table";"table-hover";"table-sm"] ]
 
 let create ~model ~old_model ~inject ~select customers =
   let pattern = model >>| Model.pattern in
