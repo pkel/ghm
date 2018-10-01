@@ -64,6 +64,7 @@ module Action = struct
     | Hashchange
     | CustomerTable of Table.Action.t
     | CustomerForm of Customer_form.Action.t
+    | CustomerSaved of Customer.t
   [@@deriving sexp_of, variants]
 end
 
@@ -90,9 +91,9 @@ let create model ~old_model ~inject =
   in
   let customer =
     let inject = Fn.compose inject Action.customerform
-    and save = Fn.compose 
+    and save = Fn.compose inject Action.customersaved
     and form_model = model >>| Model.customer_form in
-    Customer_form.create ~inject form_model
+    Customer_form.create ~inject ~save form_model
   in
   let%map table = table
   and model = model
@@ -116,6 +117,12 @@ let create model ~old_model ~inject =
         let customer_form =
           Component.apply_action ~schedule_action customer a () in
         { model with customer_form }
+      | CustomerSaved c -> begin
+          match model.nav with
+          | Customer i ->
+            { model with customers = Storage.save customers ~key:i ~data:c }
+          | _ -> Log.error "Invalid CustomerSaved"; model
+        end
       | Navigate nav -> navigate nav model
       | Hashchange -> nav_from_url model
   and view =

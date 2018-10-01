@@ -96,8 +96,9 @@ let customer_descr =
     )
   in
   conv unvalidated_customer
-    ~f:(fun t _ ~block_id:_ ->
-        let errors = [] in
+    ~f:(fun t _ ~block_id ->
+        let errors =
+          [Form.Form_error.create ~id:block_id (Error.of_string "hoi")] in
         if List.is_empty errors
         then (Ok t)
         else (Error errors)
@@ -108,7 +109,7 @@ let form = Form.create ~name:"customer form" customer_descr
 module Model = struct
   type t =
     { form_state : Form.State.t
-    } [@@deriving compare]
+    } [@@deriving compare, fields]
 
   let empty () =
     { form_state = Form.State.create form }
@@ -120,20 +121,16 @@ end
 module Action = struct
   type t =
     | Update of Form.State.t sexp_opaque
-    | Save
   [@@deriving sexp]
 end
 
-let apply_action ~save (model : Model.t) (action : Action.t)
-    _state ~schedule_action : Model.t =
+module State = struct type t = unit end
+
+let apply_action (model: Model.t) (action: Action.t) (_state: State.t)
+    ~schedule_action:_ : Model.t =
+  ignore model;
   match action with
   | Update form_state -> { form_state }
-  | Save -> begin
-      let c_opt, form_state = Form.State.read_value model.form_state form in
-      match c_opt with
-      | Some c -> save c; { form_state }
-      | None -> { form_state }
-    end
 
 open Vdom
 
@@ -207,12 +204,11 @@ let view_contact state ids =
        ]
     )
 
-let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
+let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
   let open Vdom in
-  let%map model = model in
-  let state = model.form_state in
+  let%map state = model >>| Model.form_state in
   let
-    (customer_block_id,
+    (block_id,
      (name_block,
       (company_block,
        (address_block,
@@ -222,23 +218,30 @@ let view (model : Model.t Incr.t) ~inject : Vdom.Node.t Incr.t =
            ((),())))))))) =
     Form.State.field_ids state form
   in
-  Node.create "form" []
-    (div_with_err state customer_block_id
-       [ Bs.button (fun _ -> inject Action.Save) "Speichern"
-       ; field state "Schlüsselwort" keyword_id
-       ; view_name state name_block
-       ; view_company state company_block
-       ; view_address state address_block
-       ; view_contact state contact_block
-       ; field ~input:Form.Input.textarea state "Notiz" note_id
-       ]
-    )
+  let save _evt =
+    let c_opt, new_state = Form.State.read_value state form in
+    match c_opt with
+    | None -> inject (Action.Update new_state)
+    | Some c -> save c
+  in
+  Node.create "form" [] [
+    Node.div []
+      (div_with_err state block_id
+         [ Bs.button save "Speichern"
+         ; field state "Schlüsselwort" keyword_id
+         ; view_name state name_block
+         ; view_company state company_block
+         ; view_address state address_block
+         ; view_contact state contact_block
+         ; field ~input:Form.Input.textarea state "Notiz" note_id
+         ]
+      )]
 
 let create
-    ~(save: Customer.t -> unit)
+    ~(save: Customer.t -> Vdom.Event.t)
     ~(inject: Action.t -> Vdom.Event.t)
     (model:Model.t Incr.t) =
   let%map model = model
-  and view = view model ~inject in
-  let apply_action = apply_action ~save model in
+  and view = view ~inject ~save model in
+  let apply_action = apply_action model in
   Component.create ~apply_action model view

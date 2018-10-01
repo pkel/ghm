@@ -12,7 +12,7 @@ module Action : sig
 end
 
 val create:
-  save:(Customer.t -> unit) ->
+  save:(Customer.t -> Vdom.Event.t) ->
   inject:(Action.t -> Vdom.Event.t) ->
   Model.t Incr.t ->
   (Action.t, Model.t, unit) Component.t Incr.t
