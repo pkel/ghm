@@ -80,6 +80,12 @@ let contact_descr =
         else (Error errors)
       )
 
+let nonempty_string errmsg =
+  let open Form.Description in
+  conv_without_block string ~f:(fun s id -> match s with
+      | "" -> Error [Form.Form_error.create ~id (Error.of_string errmsg)]
+      | s -> Ok s)
+
 let customer_descr =
   let open Form.Description in
   let unvalidated_customer =
@@ -90,19 +96,12 @@ let customer_descr =
         ~address:(field address_descr)
         ~company:(field company_descr)
         ~contact:(field contact_descr)
-        ~keyword:(field string)
+        ~keyword:(field (nonempty_string "Schlüsselwort darf nicht leer sein"))
         ~note:(field string)
         ~bookings:(field (not_editable ~default:[]))
     )
   in
-  conv unvalidated_customer
-    ~f:(fun t _ ~block_id ->
-        let errors =
-          [Form.Form_error.create ~id:block_id (Error.of_string "hoi")] in
-        if List.is_empty errors
-        then (Ok t)
-        else (Error errors)
-      )
+  conv unvalidated_customer ~f:(fun t _ ~block_id:_ -> Ok t)
 
 let form = Form.create ~name:"customer form" customer_descr
 
@@ -130,20 +129,21 @@ let apply_action (model: Model.t) (action: Action.t) (_state: State.t)
     ~schedule_action:_ : Model.t =
   ignore model;
   match action with
-  | Update form_state -> { form_state }
+  | Update form_state -> Log.form form_state; { form_state }
 
 open Vdom
 
 let div_with_err state id children =
+  (* TODO: error on field should be handled separately. *)
   let err_node err =
-    let string =
+    let msg =
       String.strip ~drop:(fun c -> Char.equal c '"') (Error.to_string_hum err)
     in
-    Node.div [Attr.style (Css.color (`Name "red"))] [ Node.text string ]
+    Node.div [Attr.classes ["alert"; "alert-danger"]] [ Node.text msg ]
   in
   match Form.State.error state id with
   | None -> children
-  | Some err -> err_node err :: children
+  | Some err -> children @ [err_node err]
 
 let group = Node.div [ Attr.class_ "form-group" ]
 
@@ -155,12 +155,13 @@ let field ?(input=Form.Input.text) state label id =
        ])
 
 let view_name state ids =
-  let block, (title, (given, (_second, (family, ())))) = ids in
+  let block, (title, (given, (second, (family, ())))) = ids in
   (* TODO: drop second from Customer.t? *)
   Node.div []
     (div_with_err state block
        [ field state "Titel" title
        ; field state "Vorname" given
+       ; field state "Weitere Vornamen" second
        ; field state "Nachname" family
        ]
     )
