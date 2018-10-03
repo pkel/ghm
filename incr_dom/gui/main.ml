@@ -127,16 +127,17 @@ let create model ~old_model ~inject =
       | Hashchange -> nav_from_url model
   and view =
     let open Vdom in
+    let body attrs divs = Node.body attrs
+        [Node.div [Attr.class_ "container-fluid"] divs]
+    in
     match model.nav with
     | Overview ->
-      Node.body
-        [ Attr.on "scroll" (fun _ -> Event.Viewport_changed)
-        ; Attr.style Css.(height Length.percent100) ]
-        [ Component.view table ]
+      body [ Attr.on "scroll" (fun _ -> Event.Viewport_changed) ]
+        [ Bs.row [Component.view table] ]
     | Customer _i ->
-      Node.body []
-        [ Node.div [] [Bs.button (fun _-> inject (Navigate Overview)) "Zurück"]
-        ; Component.view customer ]
+      body []
+        [ Bs.row [Bs.button (fun _-> inject (Navigate Overview)) "Zurück"]
+        ; Bs.row [Component.view customer] ]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in

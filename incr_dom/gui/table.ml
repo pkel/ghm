@@ -271,30 +271,23 @@ let create ~model ~old_model ~inject ~select customers =
       | Pattern pattern -> { model with pattern }
   and view =
     let search =
-      Node.div
-        [ Attr.id "search-container" ]
-        [ Node.input
-            [ Attr.id "search-input"
-            ; Attr.placeholder "Suche"
-            ; Attr.type_ "text"
-            (* TODO: Investigate whether the following creates a property or
-               an attribute. We want an attribute, such that on return to view,
-               the search field is filled. *)
-            ; Attr.create "value" model.pattern
-            ; Attr.on_input (fun _ev text -> inject (Pattern text))
-            ] []
-        ]
+      Node.input
+        [ Attr.placeholder "Suche"
+        ; Attr.type_ "text"
+        (* TODO: Investigate whether the following creates a property or
+           an attribute. We want an attribute, such that on return to view,
+           the search field is filled. *)
+        ; Attr.create "value" model.pattern
+        ; Attr.on_input (fun _ev text -> inject (Pattern text))
+        ] []
     in
     let counter =
       let s = Printf.sprintf "%d Kunden geladen." size in
-      Node.div [] [ Node.text s ]
+      Node.text s
     and table = Component.view table
-    in Node.body
-      [ Attr.on "scroll" (fun _ -> Event.Viewport_changed)
-      ; Attr.style Css.(height Length.percent100) ]
-      [ counter
-      ; search
-      ; table ]
+    in Node.div []
+      [ Bs.row [search; counter]
+      ; Bs.row [table] ]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.table in
     let table = Component.update_visibility table ~schedule_action in

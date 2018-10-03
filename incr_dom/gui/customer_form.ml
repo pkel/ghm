@@ -225,18 +225,21 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
     | None -> inject (Action.Update new_state)
     | Some c -> save c
   in
-  Node.create "form" [] [
-    Node.div []
-      (div_with_err state block_id
-         [ Bs.button save "Speichern"
-         ; field state "Schlüsselwort" keyword_id
-         ; view_name state name_block
-         ; view_company state company_block
-         ; view_address state address_block
-         ; view_contact state contact_block
-         ; field ~input:Form.Input.textarea state "Notiz" note_id
-         ]
-      )]
+  Node.create "form" []
+    [ Bs.row [Bs.button save "Speichern"]
+    ; Bs.row
+        [ Node.div []
+            (div_with_err state block_id
+               [ field state "Schlüsselwort" keyword_id
+               ; view_name state name_block
+               ; view_company state company_block
+               ; view_address state address_block
+               ; view_contact state contact_block
+               ; field ~input:Form.Input.textarea state "Notiz" note_id
+               ]
+            )
+        ]
+    ]
 
 let create
     ~(save: Customer.t -> Vdom.Event.t)
