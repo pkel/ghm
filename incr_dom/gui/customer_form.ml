@@ -133,32 +133,38 @@ let apply_action (model: Model.t) (action: Action.t) (_state: State.t)
 
 open Vdom
 
-let div_with_err state id children =
-  (* TODO: error on field should be handled separately. *)
-  let err_node err =
-    let msg =
-      String.strip ~drop:(fun c -> Char.equal c '"') (Error.to_string_hum err)
-    in
-    Node.div [Attr.classes ["alert"; "alert-danger"]] [ Node.text msg ]
-  in
-  match Form.State.error state id with
-  | None -> children
-  | Some err -> children @ [err_node err]
+let err_of_block state id =
+  let msg err =
+    String.strip ~drop:(fun c -> Char.equal c '"') (Error.to_string_hum err)
+  in Option.map (Form.State.error state id) ~f:(fun x -> Node.text (msg x))
+
+let err_div_of_block state id =
+  Option.map (err_of_block state id) ~f:(fun x ->
+      Node.div [Attr.classes ["alert"; "alert-danger"]] [ x ])
+
+let prepend_err_div state id rows =
+  match err_div_of_block state id with
+  | Some x -> x :: rows
+  | None -> rows
 
 let group = Node.div [ Attr.class_ "form-group" ]
 
 let field ?(input=Form.Input.text) state label id =
-  group
-    (div_with_err state id
+  let classes, divs =
+    match err_of_block state id with
+    | None -> [], []
+    | Some m -> ["is-invalid"], [Node.div [Attr.class_ "invalid-feedback"] [m]]
+  in
+  group (
        [ Node.label [] [Node.text label]
-       ; input state id [Attr.class_ "form-control"]
-       ])
+       ; input state id [Attr.classes ("form-control" :: classes)]
+       ] @ divs)
 
 let view_name state ids =
   let block, (title, (given, (second, (family, ())))) = ids in
   (* TODO: drop second from Customer.t? *)
   Node.div []
-    (div_with_err state block
+    (prepend_err_div state block
        [ field state "Titel" title
        ; field state "Vorname" given
        ; field state "Weitere Vornamen" second
@@ -169,7 +175,7 @@ let view_name state ids =
 let view_company state ids =
   let block, (name, (address, ())) = ids in
   Node.div []
-    (div_with_err state block
+    (prepend_err_div state block
        [ field state "Firma" name
        ; field state "Abteilung" address
        ]
@@ -179,7 +185,7 @@ let view_address state ids =
   let block, (street, (number, (postal_code, (
       city, (country, (country_code, ())))))) = ids in
   Node.div []
-    (div_with_err state block
+    (prepend_err_div state block
        [ field state "Straße" street
        ; field state "Hausnummer" number
        ; field state "Postleitzahl" postal_code
@@ -193,7 +199,7 @@ let view_contact state ids =
   let block, (phone, (phone2, (mobile, (
       fax, (fax2, (mail, (mail2, (web ,())))))))) = ids in
   Node.div []
-    (div_with_err state block
+    (prepend_err_div state block
        [ field state "Telefon" phone
        ; field state "Telefon" phone2
        ; field state "Mobil" mobile
@@ -224,22 +230,22 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
     match c_opt with
     | None -> inject (Action.Update new_state)
     | Some c -> save c
+  and left = Node.div []
+      [ field state "Schlüsselwort" keyword_id
+      ; view_name state name_block
+      ; view_company state company_block
+      ]
+  and middle = view_address state address_block
+  and right = view_contact state contact_block
   in
-  Node.create "form" []
-    [ Bs.row [Bs.button save "Speichern"]
-    ; Bs.row
-        [ Node.div []
-            (div_with_err state block_id
-               [ field state "Schlüsselwort" keyword_id
-               ; view_name state name_block
-               ; view_company state company_block
-               ; view_address state address_block
-               ; view_contact state contact_block
-               ; field ~input:Form.Input.textarea state "Notiz" note_id
-               ]
-            )
+  Node.create "form" [] (
+      Bs.rows
+        [ [ Bs.button save "Speichern" ]
+        ; prepend_err_div state block_id []
+        ; [ left; middle; right ]
+        ; [ field ~input:Form.Input.textarea state "Notiz" note_id ]
         ]
-    ]
+    )
 
 let create
     ~(save: Customer.t -> Vdom.Event.t)
