@@ -86,9 +86,22 @@ let nonempty_string errmsg =
       | "" -> Error [Form.Form_error.create ~id (Error.of_string errmsg)]
       | s -> Ok s)
 
+let opt_date =
+  let open Form.Description in
+  conv_without_block string ~f:(fun s id ->
+      if s = "" then Ok (None) else
+        match Date.of_string s with
+        | d -> Ok (Some d)
+        | exception _ ->
+          Error [Form.Form_error.create ~id (
+              Error.of_string "Datum nicht auswertbar.")])
+  |> contra_map ~f:(function
+      | None -> ""
+      | Some d -> Date.to_string d)
+
 let customer_descr =
   let open Form.Description in
-  let unvalidated_customer =
+  let unvalidated =
     let open Of_record in
     build_for_record (
       Customer.Fields.make_creator
@@ -101,7 +114,18 @@ let customer_descr =
         ~bookings:(field (not_editable ~default:[]))
     )
   in
-  conv unvalidated_customer ~f:(fun t _ ~block_id:_ -> Ok t)
+  conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
+
+let guest_descr =
+  let open Form.Description in
+  let unvalidated =
+    Of_record.(build_for_record (
+        Booking.Fields_of_guest.make_creator
+          ~given:(field string)
+          ~second:(field string)
+          ~family:(field string)
+          ~born:(field opt_date)))
+  in conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
 
 let form = Form.create ~name:"customer form" customer_descr
 
