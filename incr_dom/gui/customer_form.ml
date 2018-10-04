@@ -107,19 +107,23 @@ let form = Form.create ~name:"customer form" customer_descr
 
 module Model = struct
   type t =
-    { form_state : Form.State.t
+    { customer : Form.State.t
+    ; bookings : Booking.t list
+    ; selected : int
     } [@@deriving compare, fields]
 
-  let empty () =
-    { form_state = Form.State.create form }
+  let load (c: Customer.t) =
+    { customer = Form.State.create ~init:c form
+    ; bookings = c.bookings
+    ; selected = 0 }
 
-  let load customer =
-    { form_state = Form.State.create ~init:customer form }
+  let empty () = load Customer.empty
 end
 
 module Action = struct
   type t =
-    | Update of Form.State.t sexp_opaque
+    | UpdateCustomer of Form.State.t sexp_opaque
+    | SelectBooking of int
   [@@deriving sexp]
 end
 
@@ -127,9 +131,9 @@ module State = struct type t = unit end
 
 let apply_action (model: Model.t) (action: Action.t) (_state: State.t)
     ~schedule_action:_ : Model.t =
-  ignore model;
   match action with
-  | Update form_state -> Log.form form_state; { form_state }
+  | UpdateCustomer customer -> Log.form customer; { model with customer }
+  | SelectBooking selected -> { model with selected }
 
 open Vdom
 
@@ -162,7 +166,6 @@ let field ?(input=Form.Input.text) state label id =
 
 let view_name state ids =
   let block, (title, (given, (second, (family, ())))) = ids in
-  (* TODO: drop second from Customer.t? *)
   Node.div []
     (prepend_err_div state block
        [ field state "Titel" title
@@ -211,10 +214,38 @@ let view_contact state ids =
        ]
     )
 
+let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
+  let f i b =
+    let s = Booking.summarize b in
+    let f, t = match s.period with
+      | None -> "n/a", "n/a"
+      | Some p ->
+        let open Period in Date.to_string (from p), Date.to_string (till p)
+    in
+    let e = Attr.[ on_click (fun _ -> inject (Action.SelectBooking i))
+                 ; style (Css.create ~field:"cursor" ~value:"pointer") ]
+    in
+    let attr =
+      if i = selected
+      then Attr.class_ "table-active" :: e
+      else e in
+    Node.(
+      tr attr
+        [ td [] [text f]
+        ; td [] [text t] ])
+  in Node.(
+      table [ Attr.classes ["table"; "table-sm"; "table-hover"] ]
+        [ thead [] [ tr [] [ th [] [text "von"]
+                           ; th [] [text "bis"] ] ]
+        ; tbody [] ( List.mapi ~f l )
+        ])
+
 let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
   let open Vdom in
-  let%map state = model >>| Model.form_state in
-  let
+  let%map state = model >>| Model.customer
+  and bookings = model >>| Model.bookings
+  and selected = model >>| Model.selected
+  in let
     (block_id,
      (name_block,
       (company_block,
@@ -228,8 +259,8 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
   let save _evt =
     let c_opt, new_state = Form.State.read_value state form in
     match c_opt with
-    | None -> inject (Action.Update new_state)
-    | Some c -> save c
+    | None -> inject (Action.UpdateCustomer new_state)
+    | Some c -> save { c with bookings }
   and left = Node.div []
       [ field state "Schlüsselwort" keyword_id
       ; view_name state name_block
@@ -244,6 +275,9 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
         ; prepend_err_div state block_id []
         ; [ left; middle; right ]
         ; [ field ~input:Form.Input.textarea state "Notiz" note_id ]
+        ; [ view_booking_list ~inject bookings ~selected
+          ; Node.text (string_of_int selected)
+          ; Node.text "leer" ]
         ]
     )
 

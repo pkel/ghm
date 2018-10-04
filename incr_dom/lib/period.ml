@@ -15,3 +15,6 @@ let till (_,x) = x
 
 let compare_by_from (a,_) (b,_) = Date.compare a b
 let compare_by_till (_,a) (_,b) = Date.compare a b
+
+let to_string_hum ?(sep="bis") (f,t) =
+  Format.asprintf "%a %s %a" Date.pp f sep Date.pp t

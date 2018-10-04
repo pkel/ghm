@@ -15,3 +15,5 @@ val cover: t -> t -> t
 
 val compare_by_from: t -> t -> int
 val compare_by_till: t -> t -> int
+
+val to_string_hum: ?sep: string -> t -> string
