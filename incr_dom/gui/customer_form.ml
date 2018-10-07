@@ -256,7 +256,17 @@ let apply_action (model: Model.t) (action: Action.t) (_state: State.t)
   | Update {customer; booking} ->
     Log.form customer; Log.form booking;
     { model with customer; booking }
-  | SelectBooking selected -> { model with selected }
+  | SelectBooking selected ->
+    let b_opt, booking = Form.State.read_value model.booking booking_form in
+    match b_opt with
+    | None -> { model with booking }
+    | Some b ->
+      let bookings = List.mapi model.bookings ~f:(fun i old ->
+          if i = model.selected then b else old)
+      and booking =
+        let init = List.nth model.bookings selected in
+        Form.State.create ?init booking_form
+      in { model with selected; bookings; booking }
 
 open Vdom
 
