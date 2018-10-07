@@ -242,7 +242,8 @@ end
 
 module Action = struct
   type t =
-    | UpdateCustomer of Form.State.t sexp_opaque
+    | Update of { customer : Form.State.t sexp_opaque
+                ; booking : Form.State.t sexp_opaque }
     | SelectBooking of int
   [@@deriving sexp]
 end
@@ -252,7 +253,9 @@ module State = struct type t = unit end
 let apply_action (model: Model.t) (action: Action.t) (_state: State.t)
     ~schedule_action:_ : Model.t =
   match action with
-  | UpdateCustomer customer -> Log.form customer; { model with customer }
+  | Update {customer; booking} ->
+    Log.form customer; Log.form booking;
+    { model with customer; booking }
   | SelectBooking selected -> { model with selected }
 
 open Vdom
@@ -282,7 +285,7 @@ let input_bool state label id =
   group (
        [ Node.label [] [Node.text label]
        ; Form.Input.checkbox state id [Attr.classes ("form-control" :: classes)]
-       ] @ divs)
+       ] @ divs )
 
 let input_str ?(input=Form.Input.text) state label id =
   let classes, divs =
@@ -434,10 +437,18 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
     Form.State.field_ids customer_state customer_form
   in
   let save _evt =
-    let c_opt, new_state = Form.State.read_value customer_state customer_form in
+    let c_opt, customer = Form.State.read_value customer_state customer_form
+    and b_opt, booking = Form.State.read_value booking_state booking_form
+    in let update = inject (Action.Update {customer; booking})
+    and bookings =
+      match b_opt with
+      | None -> bookings
+      | Some b -> List.mapi bookings ~f:(fun i old ->
+          if i = selected then b else old)
+    in
     match c_opt with
-    | None -> inject (Action.UpdateCustomer new_state)
-    | Some c -> save { c with bookings }
+    | None -> update
+    | Some c -> Event.Many [save { c with bookings }; update]
   and left = Node.div []
       [ input_str customer_state "Schlüsselwort" keyword_id
       ; view_name customer_state name_block
@@ -449,14 +460,14 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
     Form.State.field_ids booking_state booking_form
   in
   Node.create "form" [] (
-      Bs.rows
-        [ [ Bs.button save "Speichern" ]
-        ; prepend_err_div customer_state block_id []
-        ; [ left; middle; right ]
-        ; [ input_str ~input:Form.Input.textarea customer_state "Notiz" note_id ]
-        ; [ view_booking_list ~inject bookings ~selected
-          ; view_booking booking_state booking_ids]
-        ])
+    Bs.rows
+      [ [ Bs.button save "Speichern" ]
+      ; prepend_err_div customer_state block_id []
+      ; [ left; middle; right ]
+      ; [ input_str ~input:Form.Input.textarea customer_state "Notiz" note_id ]
+      ; [ view_booking_list ~inject bookings ~selected
+        ; view_booking booking_state booking_ids]
+      ])
 
 let create
     ~(save: Customer.t -> Vdom.Event.t)

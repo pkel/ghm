@@ -64,7 +64,7 @@ module Action = struct
     | Hashchange
     | CustomerTable of Table.Action.t
     | CustomerForm of Customer_form.Action.t
-    | CustomerSaved of Customer.t
+    | CustomerSave of Customer.t
   [@@deriving sexp_of, variants]
 end
 
@@ -91,7 +91,7 @@ let create model ~old_model ~inject =
   in
   let customer =
     let inject = Fn.compose inject Action.customerform
-    and save = Fn.compose inject Action.customersaved
+    and save = Fn.compose inject Action.customersave
     and form_model = model >>| Model.customer_form in
     Customer_form.create ~inject ~save form_model
   in
@@ -117,7 +117,7 @@ let create model ~old_model ~inject =
         let customer_form =
           Component.apply_action ~schedule_action customer a () in
         { model with customer_form }
-      | CustomerSaved c -> begin
+      | CustomerSave c -> begin
           match model.nav with
           | Customer i ->
             { model with customers = Storage.save customers ~key:i ~data:c }
