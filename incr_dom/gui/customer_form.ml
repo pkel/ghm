@@ -292,12 +292,13 @@ let input_bool state label id =
     | None -> [], []
     | Some m -> ["is-invalid"], [Node.div [Attr.class_ "invalid-feedback"] [m]]
   in
-  group (
-       [ Node.label [] [Node.text label]
-       ; Form.Input.checkbox state id [Attr.classes ("form-control" :: classes)]
+  Node.div [ Attr.class_ "form-check" ] (
+       [ Form.Input.checkbox state id
+           [Attr.classes ("form-check-input" :: classes)]
+       ; Node.label [Attr.class_ "form-check-label"] [Node.text label]
        ] @ divs )
 
-let input_str ?(input=Form.Input.text) state label id =
+let input_str ?(input=Form.Input.text) ?(type_="text") state label id =
   let classes, divs =
     match err_of_block state id with
     | None -> [], []
@@ -305,7 +306,8 @@ let input_str ?(input=Form.Input.text) state label id =
   in
   group (
        [ Node.label [] [Node.text label]
-       ; input state id [Attr.classes ("form-control" :: classes)]
+       ; input state id [Attr.classes ("form-control" :: classes)
+                        ; Attr.type_ type_]
        ] @ divs)
 
 let view_name state ids =
@@ -360,8 +362,8 @@ let view_contact state ids =
 let view_period state ids =
   let from, till = ids in
   Node.div []
-    [ input_str state "Von" from
-    ; input_str state "Bis" till
+    [ input_str state "Von" ~type_:"date" from
+    ; input_str state "Bis" ~type_:"date" till
     ]
 
 let view_room state ids =
@@ -384,7 +386,7 @@ let view_guest state ids =
         [ input_str state "Vorname" given
         ; input_str state "Weitere Vornamen" second
         ; input_str state "Nachname" family
-        ; input_str state "Geburtstag" born
+        ; input_str state "Geburtstag" ~type_:"date" born
         ])
 
 let view_booking state ids =
@@ -400,7 +402,7 @@ let view_booking state ids =
         [ input_str state "Anzahlung gefordert" deposit_asked
         ; input_str state "Anzahlung erhalten" deposit_got
         ; input_bool state "Steuerfrei" no_tax
-        ; input_str state "Notiz" note
+        ; input_str ~input:Form.Input.textarea state "Notiz" note
         ] @ guests @ rooms )
 
 let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
