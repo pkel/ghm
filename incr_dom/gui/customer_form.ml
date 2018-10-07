@@ -205,14 +205,16 @@ let room_descr =
 
 let booking_descr =
   let open Form.Description in
-  Of_record.(build_for_record (
-      Booking.Fields.make_creator
-        ~deposit_asked:(field monetary_opt)
-        ~deposit_got:(field monetary_opt)
-        ~no_tax:(field bool)
-        ~note:(field string)
-        ~guests:(field (list guest_descr))
-        ~rooms:(field (list room_descr))))
+  let unvalidated =
+    Of_record.(build_for_record (
+        Booking.Fields.make_creator
+          ~deposit_asked:(field monetary_opt)
+          ~deposit_got:(field monetary_opt)
+          ~no_tax:(field bool)
+          ~note:(field string)
+          ~guests:(field (list guest_descr))
+          ~rooms:(field (list room_descr))))
+  in conv unvalidated ~f:(fun b _ ~block_id:_ -> Ok b)
 
 let customer_form = Form.create ~name:"customer form" customer_descr
 let booking_form = Form.create ~name:"booking form" booking_descr
@@ -220,12 +222,18 @@ let booking_form = Form.create ~name:"booking form" booking_descr
 module Model = struct
   type t =
     { customer : Form.State.t
+    ; booking : Form.State.t
     ; bookings : Booking.t list
     ; selected : int
     } [@@deriving compare, fields]
 
   let load (c: Customer.t) =
+    let booking = match c.bookings with
+      | [] -> None
+      | hd :: _ -> Some hd
+    in
     { customer = Form.State.create ~init:c customer_form
+    ; booking = Form.State.create ?init:booking booking_form
     ; bookings = c.bookings
     ; selected = 0 }
 
@@ -258,14 +266,25 @@ let err_div_of_block state id =
   Option.map (err_of_block state id) ~f:(fun x ->
       Node.div [Attr.classes ["alert"; "alert-danger"]] [ x ])
 
-let prepend_err_div state id rows =
+let prepend_err_div state (id: Form.Block.t Form.Id.t) rows =
   match err_div_of_block state id with
   | Some x -> x :: rows
   | None -> rows
 
 let group = Node.div [ Attr.class_ "form-group" ]
 
-let field ?(input=Form.Input.text) state label id =
+let input_bool state label id =
+  let classes, divs =
+    match err_of_block state id with
+    | None -> [], []
+    | Some m -> ["is-invalid"], [Node.div [Attr.class_ "invalid-feedback"] [m]]
+  in
+  group (
+       [ Node.label [] [Node.text label]
+       ; Form.Input.checkbox state id [Attr.classes ("form-control" :: classes)]
+       ] @ divs)
+
+let input_str ?(input=Form.Input.text) state label id =
   let classes, divs =
     match err_of_block state id with
     | None -> [], []
@@ -280,10 +299,10 @@ let view_name state ids =
   let block, (title, (given, (second, (family, ())))) = ids in
   Node.div []
     (prepend_err_div state block
-       [ field state "Titel" title
-       ; field state "Vorname" given
-       ; field state "Weitere Vornamen" second
-       ; field state "Nachname" family
+       [ input_str state "Titel" title
+       ; input_str state "Vorname" given
+       ; input_str state "Weitere Vornamen" second
+       ; input_str state "Nachname" family
        ]
     )
 
@@ -291,8 +310,8 @@ let view_company state ids =
   let block, (name, (address, ())) = ids in
   Node.div []
     (prepend_err_div state block
-       [ field state "Firma" name
-       ; field state "Abteilung" address
+       [ input_str state "Firma" name
+       ; input_str state "Abteilung" address
        ]
     )
 
@@ -301,30 +320,75 @@ let view_address state ids =
       city, (country, (country_code, ())))))) = ids in
   Node.div []
     (prepend_err_div state block
-       [ field state "Straße" street
-       ; field state "Hausnummer" number
-       ; field state "Postleitzahl" postal_code
-       ; field state "Ort" city
-       ; field state "Land" country
-       ; field state "Ländercode" country_code
+       [ input_str state "Straße" street
+       ; input_str state "Hausnummer" number
+       ; input_str state "Postleitzahl" postal_code
+       ; input_str state "Ort" city
+       ; input_str state "Land" country
+       ; input_str state "Ländercode" country_code
        ]
     )
 
 let view_contact state ids =
   let block, (phone, (phone2, (mobile, (
-      fax, (fax2, (mail, (mail2, (web ,())))))))) = ids in
+      fax, (fax2, (mail, (mail2, (web, ())))))))) = ids in
   Node.div []
     (prepend_err_div state block
-       [ field state "Telefon" phone
-       ; field state "Telefon" phone2
-       ; field state "Mobil" mobile
-       ; field state "Fax" fax
-       ; field state "Fax" fax2
-       ; field state "Mail" mail
-       ; field state "Mail" mail2
-       ; field state "Internet" web
-       ]
-    )
+       [ input_str state "Telefon" phone
+       ; input_str state "Telefon" phone2
+       ; input_str state "Mobil" mobile
+       ; input_str state "Fax" fax
+       ; input_str state "Fax" fax2
+       ; input_str state "Mail" mail
+       ; input_str state "Mail" mail2
+       ; input_str state "Internet" web
+       ])
+
+let view_period state ids =
+  let from, till = ids in
+  Node.div []
+    [ input_str state "Von" from
+    ; input_str state "Bis" till
+    ]
+
+let view_room state ids =
+  let block, (room, (beds, (price_per_bed, (factor, (description, (period, ()
+                                                      )))))) = ids in
+  Node.div []
+    (prepend_err_div state block
+       [ input_str state "Zimmer" room
+       ; input_str state "Betten" beds
+       ; input_str state "Preis" price_per_bed
+       ; input_str state "Faktor" factor
+       ; input_str state "Beschreibung" description
+       ; view_period state period
+       ])
+
+let view_guest state ids =
+  let (block, (given, (second, (family, (born, ()))))) = ids in
+  Node.div []
+    ( prepend_err_div state block
+        [ input_str state "Vorname" given
+        ; input_str state "Weitere Vornamen" second
+        ; input_str state "Nachname" family
+        ; input_str state "Geburtstag" born
+        ])
+
+let view_booking state ids =
+  let (block, (deposit_asked, (deposit_got, (no_tax, (note, (
+      (guests,_), ((rooms,_), ()))))))) = ids in
+  let guests = List.map guests ~f:(fun ids ->
+      view_guest state ids)
+  and rooms = List.map rooms ~f:(fun ids ->
+      view_room state ids)
+  in
+  Node.div []
+    ( prepend_err_div state block
+        [ input_str state "Anzahlung gefordert" deposit_asked
+        ; input_str state "Anzahlung erhalten" deposit_got
+        ; input_bool state "Steuerfrei" no_tax
+        ; input_str state "Notiz" note
+        ] @ guests @ rooms )
 
 let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
   let f i b =
@@ -354,7 +418,8 @@ let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
 
 let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
   let open Vdom in
-  let%map state = model >>| Model.customer
+  let%map customer_state = model >>| Model.customer
+  and booking_state = model >>| Model.booking
   and bookings = model >>| Model.bookings
   and selected = model >>| Model.selected
   in let
@@ -366,32 +431,32 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
          (keyword_id,
           (note_id,
            ((),())))))))) =
-    Form.State.field_ids state customer_form
+    Form.State.field_ids customer_state customer_form
   in
   let save _evt =
-    let c_opt, new_state = Form.State.read_value state customer_form in
+    let c_opt, new_state = Form.State.read_value customer_state customer_form in
     match c_opt with
     | None -> inject (Action.UpdateCustomer new_state)
     | Some c -> save { c with bookings }
   and left = Node.div []
-      [ field state "Schlüsselwort" keyword_id
-      ; view_name state name_block
-      ; view_company state company_block
+      [ input_str customer_state "Schlüsselwort" keyword_id
+      ; view_name customer_state name_block
+      ; view_company customer_state company_block
       ]
-  and middle = view_address state address_block
-  and right = view_contact state contact_block
+  and middle = view_address customer_state address_block
+  and right = view_contact customer_state contact_block
+  and booking_ids =
+    Form.State.field_ids booking_state booking_form
   in
   Node.create "form" [] (
       Bs.rows
         [ [ Bs.button save "Speichern" ]
-        ; prepend_err_div state block_id []
+        ; prepend_err_div customer_state block_id []
         ; [ left; middle; right ]
-        ; [ field ~input:Form.Input.textarea state "Notiz" note_id ]
+        ; [ input_str ~input:Form.Input.textarea customer_state "Notiz" note_id ]
         ; [ view_booking_list ~inject bookings ~selected
-          ; Node.text (string_of_int selected)
-          ; Node.text "leer" ]
-        ]
-    )
+          ; view_booking booking_state booking_ids]
+        ])
 
 let create
     ~(save: Customer.t -> Vdom.Event.t)
