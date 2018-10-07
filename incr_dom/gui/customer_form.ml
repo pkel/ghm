@@ -99,6 +99,69 @@ let opt_date =
       | None -> ""
       | Some d -> Date.to_string d)
 
+let period =
+  let open Form.Description in
+  let unvalidated =
+    let open Let_syntax in
+    let%map_open from = opt_date <^ (Fn.compose Option.some Period.from)
+    and till = opt_date <^ (Fn.compose Option.some Period.till) in
+    from, till
+  in
+  conv_without_block unvalidated ~f:(fun (f, t) _ ->
+      let default =
+        Date.(add_days (today ~zone:Time.Zone.utc) 7)
+      in let f, t =
+           match f, t with
+           | None, None -> default, Date.add_days default 1
+           | None, Some d
+           | Some d, None -> d, Date.add_days d 1
+           | Some a, Some b -> a, b
+      in Ok (Period.of_dates f t))
+
+let monetary_opt =
+  let open Form.Description in
+  conv_without_block string ~f:(fun s id ->
+      if s = "" then Ok None else
+        match float_of_string s with
+        | x -> Ok (Some (Float.round_decimal ~decimal_digits: 2 x))
+        | exception _ ->
+          Error [Form.Form_error.create ~id (
+              Error.of_string "Geldwert erwartet.")])
+  |> contra_map ~f:(function
+      | None -> ""
+      | Some x -> string_of_float x)
+
+let monetary =
+  let open Form.Description in
+  conv_without_block string ~f:(fun s id ->
+      if s = "" then Ok 0. else
+        match float_of_string s with
+        | x -> Ok (Float.round_decimal ~decimal_digits: 2 x)
+        | exception _ ->
+          Error [Form.Form_error.create ~id (
+              Error.of_string "Geldwert erwartet.")])
+  |> contra_map ~f:(function
+      | 0. -> ""
+      | x -> string_of_float x)
+
+let int =
+  let open Form.Description in
+  conv_without_block string ~f:(fun s id ->
+      if s = "" then Ok 0 else
+        match int_of_string s with
+        | i -> Ok i
+        | exception _ ->
+          Error [Form.Form_error.create ~id (
+              Error.of_string "Ganze Zahl erwartet.")])
+  |> contra_map ~f:(function
+      | 0 -> ""
+      | i -> string_of_int i)
+
+let percent =
+  let open Form.Description in
+  map int ~f:(fun x -> float_of_int x /. 100.)
+  |> contra_map ~f:(fun x -> Float.round_down (x *. 100.) |> int_of_float )
+
 let customer_descr =
   let open Form.Description in
   let unvalidated =
@@ -127,7 +190,32 @@ let guest_descr =
           ~born:(field opt_date)))
   in conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
 
-let form = Form.create ~name:"customer form" customer_descr
+let room_descr =
+  let open Form.Description in
+  let unvalidated =
+    Of_record.(build_for_record (
+        Booking.Fields_of_room.make_creator
+          ~room:(field string)
+          ~beds:(field int)
+          ~price_per_bed:(field monetary)
+          ~factor:(field percent)
+          ~description:(field string)
+          ~period:(field period)))
+  in conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
+
+let booking_descr =
+  let open Form.Description in
+  Of_record.(build_for_record (
+      Booking.Fields.make_creator
+        ~deposit_asked:(field monetary_opt)
+        ~deposit_got:(field monetary_opt)
+        ~no_tax:(field bool)
+        ~note:(field string)
+        ~guests:(field (list guest_descr))
+        ~rooms:(field (list room_descr))))
+
+let customer_form = Form.create ~name:"customer form" customer_descr
+let booking_form = Form.create ~name:"booking form" booking_descr
 
 module Model = struct
   type t =
@@ -137,7 +225,7 @@ module Model = struct
     } [@@deriving compare, fields]
 
   let load (c: Customer.t) =
-    { customer = Form.State.create ~init:c form
+    { customer = Form.State.create ~init:c customer_form
     ; bookings = c.bookings
     ; selected = 0 }
 
@@ -278,10 +366,10 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
          (keyword_id,
           (note_id,
            ((),())))))))) =
-    Form.State.field_ids state form
+    Form.State.field_ids state customer_form
   in
   let save _evt =
-    let c_opt, new_state = Form.State.read_value state form in
+    let c_opt, new_state = Form.State.read_value state customer_form in
     match c_opt with
     | None -> inject (Action.UpdateCustomer new_state)
     | Some c -> save { c with bookings }
