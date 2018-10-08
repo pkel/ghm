@@ -22,46 +22,46 @@ module Model = struct
   let cutoff t1 t2 = compare t1 t2 = 0
 end
 
-let rec navigate nav (model : Model.t) =
-  (* Sideffect: This triggers the Hashchange event/action, i.e directly after
-     setting the fragment, it is parsed for setting [model.nav]. *)
-  let open Printf in
-  let set = Js_of_ocaml.Url.Current.set_fragment in
-  let m = match nav with
-  | Overview -> set "/customers"; model
-  | Customer i -> begin
-    match Storage.load model.customers i with
-    | None -> navigate Overview model
-    | Some c ->
-      set (sprintf "/customers/%d" i);
-      { model with customer_form = Customer_form.Model.load c; }
-  end
-  in { m with nav }
+let nav_of_string s =
+  match String.split ~on:'/' (String.strip ~drop:((=) '/') s) with
+  | ["overview"] -> Ok Overview
+  | ["customer"; s] -> begin
+      match int_of_string_opt s with
+      | Some i -> Ok (Customer i)
+      | None -> Error "int expected after /customer/"
+    end
+  | _ -> Error "unknown path"
 
-(* These two should be cleaned up *)
+let string_of_nav = function
+  | Overview -> "/overview"
+  | Customer i -> sprintf "/customer/%d" i
 
-let nav_from_url model =
-  let open Js_of_ocaml in
-  let invalid () = navigate Overview model in
-  match String.split ~on:'/' (Url.Current.get_fragment ()) with
-  | [""; "customers"] -> navigate Overview model
-  | [""; "customers" ; i] -> begin match int_of_string_opt i with
-      | Some i -> navigate (Customer i) model
-      | None -> invalid () end
-  | _ -> invalid ()
+let href_of_nav n = "#" ^ string_of_nav n
+
+let load_customer i (model: Model.t) : Model.t =
+  match Storage.load model.customers i with
+  | None -> { model with customer_form = Customer_form.Model.empty () }
+  | Some c -> { model with customer_form = Customer_form.Model.load c }
+
+let hashchange (model: Model.t) : Model.t =
+  match nav_of_string (Url.Current.get_fragment ()) with
+  | Error _ -> Url.Current.set_fragment (string_of_nav Overview);
+    { model with nav = Overview }
+  | Ok (Customer i) -> load_customer i { model with nav = Customer i }
+  | Ok nav -> { model with nav }
 
 let init () : Model.t =
   { customers = Storage.empty
   ; customer_table = Table.Model.create ()
   ; customer_form = Customer_form.Model.empty ()
   ; nav = Overview
-  } |> nav_from_url
+  } |> hashchange
 
 module Action = struct
   type t =
     | GotChunk of int * string
-    | Navigate of navigation
     | Hashchange
+    | Navigate of navigation
     | CustomerTable of Table.Action.t
     | CustomerForm of Customer_form.Action.t
     | CustomerSave of Customer.t
@@ -75,7 +75,7 @@ end
 let get_chunk ~schedule_action i =
   let url= Printf.sprintf "../data/chunks/chunk-%d.sexp" i in
   Async_js.Http.get url >>| function
-  | Ok s -> schedule_action (Action.GotChunk (i,s))
+  | Ok s -> schedule_action (Action.GotChunk (i, s))
   | _ -> ()
 
 let create model ~old_model ~inject =
@@ -92,9 +92,9 @@ let create model ~old_model ~inject =
   let customer =
     let inject = Fn.compose inject Action.customerform
     and save = Fn.compose inject Action.customersave
-    and back = inject (Action.navigate Overview)
+    and back_href = href_of_nav Overview
     and form_model = model >>| Model.customer_form in
-    Customer_form.create ~inject ~save ~back form_model
+    Customer_form.create ~inject ~save ~back_href form_model
   in
   let%map table = table
   and model = model
@@ -107,7 +107,8 @@ let create model ~old_model ~inject =
         let chunk = Storage.of_string s in
         let customers = Storage.add_chunk customers ~chunk in
         don't_wait_for (get_chunk ~schedule_action (i + 1));
-        { model with customers }
+        (* reload the view with the fresh data *)
+        hashchange { model with customers }
       | CustomerTable a ->
         let schedule_action = Fn.compose schedule_action Action.customertable in
         let customer_table =
@@ -124,8 +125,11 @@ let create model ~old_model ~inject =
             { model with customers = Storage.save customers ~key:i ~data:c }
           | _ -> Log.error "Invalid CustomerSaved"; model
         end
-      | Navigate nav -> navigate nav model
-      | Hashchange -> nav_from_url model
+      | Navigate nav ->
+        (* Sideeffect: triggers Hashchange *)
+        Url.Current.set_fragment (string_of_nav nav);
+        model
+      | Hashchange -> hashchange model
   and view =
     let open Vdom in
     let body attrs divs = Node.body attrs

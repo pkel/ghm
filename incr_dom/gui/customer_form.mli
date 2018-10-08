@@ -13,7 +13,7 @@ end
 
 val create:
   save:(Customer.t -> Vdom.Event.t) ->
-  back:Vdom.Event.t ->
+  back_href:string ->
   inject:(Action.t -> Vdom.Event.t) ->
   Model.t Incr.t ->
   (Action.t, Model.t, unit) Component.t Incr.t

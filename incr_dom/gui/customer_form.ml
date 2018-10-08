@@ -471,7 +471,7 @@ let view_customer state ids =
       ; [left; middle; right]
       ])
 
-let view (model : Model.t Incr.t) ~back ~inject ~save : Vdom.Node.t Incr.t =
+let view (model : Model.t Incr.t) ~back_href ~inject ~save =
   let open Vdom in
   let%map customer_state = model >>| Model.customer
   and booking_state = model >>| Model.booking
@@ -494,11 +494,11 @@ let view (model : Model.t Incr.t) ~back ~inject ~save : Vdom.Node.t Incr.t =
     match c_opt with
     | None -> update
     | Some c -> Event.Many [save { c with bookings }; update]
-  and back _evt = back
   and selection = view_booking_list ~inject bookings ~selected
   in Node.create "form" [] (
     Bs.rows
-      [ [ Bs.button back "Zurück"; Bs.button save "Speichern" ]
+      [ [ Bs.button' ~href:back_href "Übersicht"
+        ; Bs.button ~action:save "Speichern" ]
       ; [ Node.hr [] ]
       ; [ view_customer customer_state c_ids ]
       ; [ Node.hr [] ]
@@ -507,10 +507,10 @@ let view (model : Model.t Incr.t) ~back ~inject ~save : Vdom.Node.t Incr.t =
 
 let create
     ~(save: Customer.t -> Vdom.Event.t)
-    ~(back: Vdom.Event.t)
+    ~(back_href: string)
     ~(inject: Action.t -> Vdom.Event.t)
     (model:Model.t Incr.t) =
   let%map model = model
-  and view = view ~inject ~back ~save model in
+  and view = view ~inject ~back_href ~save model in
   let apply_action = apply_action model in
   Component.create ~apply_action model view
