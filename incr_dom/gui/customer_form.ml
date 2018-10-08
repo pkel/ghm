@@ -292,7 +292,7 @@ let input_bool state label id =
     | None -> [], []
     | Some m -> ["is-invalid"], [Node.div [Attr.class_ "invalid-feedback"] [m]]
   in
-  Node.div [ Attr.class_ "form-check" ] (
+  Node.div [ Attr.classes ["form-check"; "form-group"] ] (
        [ Form.Input.checkbox state id
            [Attr.classes ("form-check-input" :: classes)]
        ; Node.label [Attr.class_ "form-check-label"] [Node.text label]
@@ -400,19 +400,22 @@ let textarea n state id attr =
 let view_booking selection state ids =
   let (block, (deposit_asked, (deposit_got, (no_tax, (note, (
       (guests,_), ((rooms,_), ()))))))) = ids in
-  let guests = List.map guests ~f:(fun ids ->
-      view_guest state ids) |> Node.div []
-  and rooms = List.map rooms ~f:(fun ids ->
-      view_room state ids) |> Node.div []
-  and main = Node.div [] (
-      Bs.rows
-        [ [ selection ]
-        ; prepend_err_div state block []
-        ; [ Node.hr [] ]
-        ; [ input_str state "Anzahlung gefordert" deposit_asked
-          ; input_str state "Anzahlung erhalten" deposit_got ]
-        ; [ input_bool state "Steuerfrei" no_tax ]
-        ; [ input_str ~input:(textarea 8) state "Notiz" note ] ])
+  let guests = Node.div []
+      (Node.h4 [] [Node.text "Gäste"] ::
+       (List.concat_map guests ~f:(fun ids ->
+            [Node. hr []; view_guest state ids])))
+  and rooms = Node.div []
+      (Node.h4 [] [Node.text "Zimmer"] ::
+       (List.concat_map rooms ~f:(fun ids ->
+            [Node.hr [] ;view_room state ids])))
+  and main = Node.div []
+      (Bs.rows
+         [ [ selection ]
+         ; prepend_err_div state block []
+         ; [ input_str state "Anzahlung gefordert" deposit_asked
+           ; input_str state "Anzahlung erhalten" deposit_got ]
+         ; [ input_bool state "Steuerfrei" no_tax ]
+         ; [ input_str ~input:(textarea 8) state "Notiz" note ] ])
   in [ main ; rooms; guests ]
 
 let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
@@ -468,7 +471,7 @@ let view_customer state ids =
       ; [left; middle; right]
       ])
 
-let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
+let view (model : Model.t Incr.t) ~back ~inject ~save : Vdom.Node.t Incr.t =
   let open Vdom in
   let%map customer_state = model >>| Model.customer
   and booking_state = model >>| Model.booking
@@ -491,19 +494,23 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
     match c_opt with
     | None -> update
     | Some c -> Event.Many [save { c with bookings }; update]
-  in let selection = view_booking_list ~inject bookings ~selected
+  and back _evt = back
+  and selection = view_booking_list ~inject bookings ~selected
   in Node.create "form" [] (
     Bs.rows
-      [ [ Bs.button save "Speichern" ]
+      [ [ Bs.button back "Zurück"; Bs.button save "Speichern" ]
+      ; [ Node.hr [] ]
       ; [ view_customer customer_state c_ids ]
+      ; [ Node.hr [] ]
       ; view_booking selection booking_state b_ids
       ])
 
 let create
     ~(save: Customer.t -> Vdom.Event.t)
+    ~(back: Vdom.Event.t)
     ~(inject: Action.t -> Vdom.Event.t)
     (model:Model.t Incr.t) =
   let%map model = model
-  and view = view ~inject ~save model in
+  and view = view ~inject ~back ~save model in
   let apply_action = apply_action model in
   Component.create ~apply_action model view

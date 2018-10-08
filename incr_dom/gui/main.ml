@@ -92,8 +92,9 @@ let create model ~old_model ~inject =
   let customer =
     let inject = Fn.compose inject Action.customerform
     and save = Fn.compose inject Action.customersave
+    and back = inject (Action.navigate Overview)
     and form_model = model >>| Model.customer_form in
-    Customer_form.create ~inject ~save form_model
+    Customer_form.create ~inject ~save ~back form_model
   in
   let%map table = table
   and model = model
@@ -133,11 +134,9 @@ let create model ~old_model ~inject =
     match model.nav with
     | Overview ->
       body [ Attr.on "scroll" (fun _ -> Event.Viewport_changed) ]
-        [ Bs.row [Component.view table] ]
+        [Component.view table]
     | Customer _i ->
-      body []
-        [ Bs.row [Bs.button (fun _-> inject (Navigate Overview)) "Zurück"]
-        ; Bs.row [Component.view customer] ]
+      body [] [Component.view customer]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in
