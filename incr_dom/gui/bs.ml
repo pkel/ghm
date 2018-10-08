@@ -8,7 +8,7 @@ let button action label =
               ] [ Node.text label ]
 
 let row divs =
-  let f node = Node.div [Attr.classes ["col"; "mt-2"]] [node] in
+  let f node = Node.div [Attr.classes ["col"]] [node] in
   Node.div [Attr.class_ "row"] (List.map ~f divs)
 
 let rows divs =

@@ -313,20 +313,22 @@ let input_str ?(input=Form.Input.text) ?(type_="text") state label id =
 let view_name state ids =
   let block, (title, (given, (second, (family, ())))) = ids in
   Node.div []
-    (prepend_err_div state block
-       [ input_str state "Titel" title
-       ; input_str state "Vorname" given
-       ; input_str state "Weitere Vornamen" second
-       ; input_str state "Nachname" family
+    (Bs.rows
+       [ prepend_err_div state block []
+       ; [ input_str state "Titel" title
+         ; input_str state "Nachname" family ]
+       ; [ input_str state "Vorname" given
+         ; input_str state "Weitere Vornamen" second ]
        ]
     )
 
 let view_company state ids =
   let block, (name, (address, ())) = ids in
   Node.div []
-    (prepend_err_div state block
-       [ input_str state "Firma" name
-       ; input_str state "Abteilung" address
+    (Bs.rows
+       [ prepend_err_div state block []
+       ; [ input_str state "Firma" name ]
+       ; [ input_str state "Abteilung" address ]
        ]
     )
 
@@ -334,13 +336,14 @@ let view_address state ids =
   let block, (street, (number, (postal_code, (
       city, (country, (country_code, ())))))) = ids in
   Node.div []
-    (prepend_err_div state block
-       [ input_str state "Straße" street
-       ; input_str state "Hausnummer" number
-       ; input_str state "Postleitzahl" postal_code
-       ; input_str state "Ort" city
-       ; input_str state "Land" country
-       ; input_str state "Ländercode" country_code
+    (Bs.rows
+       [ prepend_err_div state block []
+       ; [ input_str state "Straße" street
+         ; input_str state "Hausnummer" number ]
+       ; [ input_str state "Postleitzahl" postal_code
+         ; input_str state "Ort" city ]
+       ; [ input_str state "Land" country
+         ; input_str state "Code" country_code ]
        ]
     )
 
@@ -348,20 +351,20 @@ let view_contact state ids =
   let block, (phone, (phone2, (mobile, (
       fax, (fax2, (mail, (mail2, (web, ())))))))) = ids in
   Node.div []
-    (prepend_err_div state block
-       [ input_str state "Telefon" phone
-       ; input_str state "Telefon" phone2
-       ; input_str state "Mobil" mobile
-       ; input_str state "Fax" fax
-       ; input_str state "Fax" fax2
-       ; input_str state "Mail" mail
-       ; input_str state "Mail" mail2
-       ; input_str state "Internet" web
+    (Bs.rows
+       [ prepend_err_div state block []
+       ; [ input_str state "Telefon" phone
+         ; input_str state "Telefon" phone2 ]
+       ; [ input_str state "Mobil" mobile ]
+       ; [ input_str state "Fax" fax
+         ; input_str state "Fax" fax2 ]
+       ; [ input_str state "Mail" mail ]
+       ; [ input_str state "Mail" mail2 ]
+       ; [ input_str state "Internet" web ]
        ])
 
 let view_period state ids =
   let from, till = ids in
-  Node.div []
     [ input_str state "Von" ~type_:"date" from
     ; input_str state "Bis" ~type_:"date" till
     ]
@@ -370,40 +373,47 @@ let view_room state ids =
   let block, (room, (beds, (price_per_bed, (factor, (description, (period, ()
                                                       )))))) = ids in
   Node.div []
-    (prepend_err_div state block
-       [ input_str state "Zimmer" room
-       ; input_str state "Betten" beds
-       ; input_str state "Preis" price_per_bed
-       ; input_str state "Faktor" factor
-       ; input_str state "Beschreibung" description
+    (Bs.rows
+       [ prepend_err_div state block []
        ; view_period state period
+       ; [ input_str state "Nummer" room
+         ; input_str state "Betten" beds ]
+       ; [ input_str state "Beschreibung" description ]
+       ; [ input_str state "Preis" price_per_bed
+         ; input_str state "Faktor" factor ]
        ])
 
 let view_guest state ids =
   let (block, (given, (second, (family, (born, ()))))) = ids in
   Node.div []
-    ( prepend_err_div state block
-        [ input_str state "Vorname" given
-        ; input_str state "Weitere Vornamen" second
-        ; input_str state "Nachname" family
-        ; input_str state "Geburtstag" ~type_:"date" born
+    ( Bs.rows
+        [ prepend_err_div state block []
+        ; [ input_str state "Vorname" given
+          ; input_str state "Weitere Vornamen" second ]
+        ; [ input_str state "Nachname" family
+          ; input_str state "Geburtstag" ~type_:"date" born ]
         ])
 
-let view_booking state ids =
+let textarea n state id attr =
+  Form.Input.textarea state id (Attr.create "rows" (string_of_int n) :: attr)
+
+let view_booking selection state ids =
   let (block, (deposit_asked, (deposit_got, (no_tax, (note, (
       (guests,_), ((rooms,_), ()))))))) = ids in
   let guests = List.map guests ~f:(fun ids ->
-      view_guest state ids)
+      view_guest state ids) |> Node.div []
   and rooms = List.map rooms ~f:(fun ids ->
-      view_room state ids)
-  in
-  Node.div []
-    ( prepend_err_div state block
-        [ input_str state "Anzahlung gefordert" deposit_asked
-        ; input_str state "Anzahlung erhalten" deposit_got
-        ; input_bool state "Steuerfrei" no_tax
-        ; input_str ~input:Form.Input.textarea state "Notiz" note
-        ] @ guests @ rooms )
+      view_room state ids) |> Node.div []
+  and main = Node.div [] (
+      Bs.rows
+        [ [ selection ]
+        ; prepend_err_div state block []
+        ; [ Node.hr [] ]
+        ; [ input_str state "Anzahlung gefordert" deposit_asked
+          ; input_str state "Anzahlung erhalten" deposit_got ]
+        ; [ input_bool state "Steuerfrei" no_tax ]
+        ; [ input_str ~input:(textarea 8) state "Notiz" note ] ])
+  in [ main ; rooms; guests ]
 
 let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
   let f i b =
@@ -431,22 +441,42 @@ let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
         ; tbody [] ( List.mapi ~f l )
         ])
 
+let view_customer state ids =
+  let
+    (block,
+     (name,
+      (company,
+       (address,
+        (contact,
+         (keyword,
+          (note,
+           ((),())))))))) = ids
+  in
+  let left = Node.div []
+      [ input_str state "Schlüsselwort" keyword
+      ; view_name state name
+      ; input_str ~input:(textarea 8) state "Notiz" note
+      ]
+  and middle = Node.div []
+      [ view_address state address
+      ; view_company state company
+      ]
+  and right = view_contact state contact
+  in Node.div [] (
+    Bs.rows
+      [ prepend_err_div state block []
+      ; [left; middle; right]
+      ])
+
 let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
   let open Vdom in
   let%map customer_state = model >>| Model.customer
   and booking_state = model >>| Model.booking
   and bookings = model >>| Model.bookings
   and selected = model >>| Model.selected
-  in let
-    (block_id,
-     (name_block,
-      (company_block,
-       (address_block,
-        (contact_block,
-         (keyword_id,
-          (note_id,
-           ((),())))))))) =
-    Form.State.field_ids customer_state customer_form
+  in
+  let c_ids = Form.State.field_ids customer_state customer_form
+  and b_ids = Form.State.field_ids booking_state booking_form
   in
   let save _evt =
     let c_opt, customer = Form.State.read_value customer_state customer_form
@@ -461,24 +491,12 @@ let view (model : Model.t Incr.t) ~inject ~save : Vdom.Node.t Incr.t =
     match c_opt with
     | None -> update
     | Some c -> Event.Many [save { c with bookings }; update]
-  and left = Node.div []
-      [ input_str customer_state "Schlüsselwort" keyword_id
-      ; view_name customer_state name_block
-      ; view_company customer_state company_block
-      ]
-  and middle = view_address customer_state address_block
-  and right = view_contact customer_state contact_block
-  and booking_ids =
-    Form.State.field_ids booking_state booking_form
-  in
-  Node.create "form" [] (
+  in let selection = view_booking_list ~inject bookings ~selected
+  in Node.create "form" [] (
     Bs.rows
       [ [ Bs.button save "Speichern" ]
-      ; prepend_err_div customer_state block_id []
-      ; [ left; middle; right ]
-      ; [ input_str ~input:Form.Input.textarea customer_state "Notiz" note_id ]
-      ; [ view_booking_list ~inject bookings ~selected
-        ; view_booking booking_state booking_ids]
+      ; [ view_customer customer_state c_ids ]
+      ; view_booking selection booking_state b_ids
       ])
 
 let create
