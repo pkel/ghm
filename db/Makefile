@@ -4,7 +4,7 @@ up :
 
 .PHONY: log
 log :
-	sudo docker-compose logs -f
+	sudo docker-compose logs -f || true
 
 .PHONY: down
 down :

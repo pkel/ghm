@@ -9,5 +9,12 @@ data: tools/combit.ml data/combit.csv
 watch:
 	fd 'ml|dune' | entr -s 'make all'
 
+serve:
+	@echo ""
+	@echo "Don't forget to start the containers:"
+	@echo "cd db; sudo docker-compose up"
+	@echo ""
+	source db/.env; export base_uri; caddy || true
+
 clean:
 	dune clean

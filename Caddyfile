@@ -1,0 +1,14 @@
+{$base_uri} {
+  root _build/default
+  gzip {
+    ext *
+  }
+  redir /api /api/
+  proxy /api/ localhost:3000 {
+    without /api
+  }
+  redir /swagger /swagger/
+  proxy /swagger/ localhost:3001 {
+    without /swagger
+  }
+}

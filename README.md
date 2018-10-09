@@ -1,78 +1,28 @@
-ghm - Guesthouse Manager
-========================
+# GHM
 
-Booking management built in [elm][elm] and [postgrest][postgrest]. Work
-in progress. The long term goal is to replace a proprietary windows-only
-software with a browser based solution. Thus the repo contains a
-distracting migration script referred to as *combit*.
+Guesthouse management using [incr_dom](gh:incr_dom).
 
-Structure
----------
+[gh:incr_dom]: https://github.com/janestreet/incr_dom
 
-You see two folders [postgrest](postgrest) and [elm](elm). The former
-contains the docker/postgres/[postgrest][postgrest] backend, the latter
-is a compile-to-javascript frontend using [elm][elm]. Both folders
-contain Makefiles that document scarcely how stuff is glued together.
+## ToDo
 
-[postgrest]: https://github.com/begriffs/postgrest
-[elm]: http://elm-lang.org/
-
-Warning
--------
-
-This is not ready for production. The lack of access control contradicts
-use outside of localhost. Furthermore, the interface is available in
-German only.
-
-External Dependencies
----------------------
-
-Install some dependencies. May be out of date.
-
-```
-dnf install docker docker-compose npm postgresql
-systemctl start docker
-```
-
-Usage
------
-
-Init backend and optionally migrate data from old software. Start the
-service, attach to logging (Ctrl+C to exit) and stop it after work.
-
-```
-cd /postgrest
-make init [import]
-make up
-make log
-make down
-```
-
-Then build the frontend and browse to `file:///elm/index.html`
-alternatively you can use `make serve` and `localhost:5000`.
-
-```
-cd /elm
-make dependencies
-make watch
-```
-
-Next steps
-----------
-
-General:
-  * Basic access control
-
-Backend:
-  * trim data on insert/update
-  * prevent inserts with higher id's than serial currently is
-  * avoid empty bookings on import
-
-Frontend:
-  * DB not available message
-  * error handling in general
-  * test: json encode = json decode ^ -1
-
-Style:
-  * use Card.head/subhead/expand
-  * markdown editing in monospace font
+- basic backend
+- allow creation/deletion of customer/booking/guest/room
+- reload form on save
+- automatic save (on leave / by time)
+- show dates in locale using non-editable input field
+- indicate units in form fields (%, €, ...)
+- overview: icons for room/guest/bed counts
+- overview: currently checked-in, upcoming
+- room allocation tool/view
+- title handling (variant + dropdown)
+- advanced searching, potentially powered by database backend
+- migration: street number, #beds, multiple rooms
+- authentication with backend
+- smart form: country code, zip and area code lookup; first guest from
+  main data; further guest with pre-filled family name; room description
+  and price auto completion
+- backwards compatible export to clipboard for billing
+- letter templates (first clipboard, then mailto / openoffice / print)
+- export to jmeldeschein (or even API consumption)
+- in-app billing or interop with libreoffice
