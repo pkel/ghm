@@ -1,12 +1,14 @@
 open Core_kernel
 
+[@@@warning "-39"]
+
 module Name = struct
   type t =
     { title:  string
     ; given:  string
     ; second: string
     ; family: string
-    } [@@deriving fields, compare, sexp]
+    } [@@deriving fields, compare, sexp, yojson]
 end
 
 module Address = struct
@@ -17,7 +19,7 @@ module Address = struct
     ; city:          string
     ; country:       string
     ; country_code:  string
-    } [@@deriving fields, compare, sexp]
+    } [@@deriving fields, compare, sexp, yojson]
 end
 
 module Contact = struct
@@ -30,14 +32,14 @@ module Contact = struct
     ; mail:   string
     ; mail2:  string
     ; web:    string
-    } [@@deriving fields, compare, sexp]
+    } [@@deriving fields, compare, sexp, yojson]
 end
 
 module Company = struct
   type t =
     { name:    string
     ; address: string
-    } [@@deriving fields, compare, sexp]
+    } [@@deriving fields, compare, sexp, yojson]
 end
 
 type t =
@@ -48,7 +50,7 @@ type t =
   ; keyword:  string
   ; note:     string
   ; bookings: Booking.t list
-  } [@@deriving fields, compare, sexp]
+  } [@@deriving fields, compare, sexp, yojson]
 
 let first_booking t : Booking.t option =
   match t.bookings with

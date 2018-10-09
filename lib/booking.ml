@@ -1,4 +1,5 @@
 open Core_kernel
+module Date = Date_yojson
 
 type t =
   { deposit_asked : float option
@@ -24,7 +25,7 @@ and room =
   ; description   : string
   ; period        : Period.t
   }
-[@@deriving fields, compare, sexp]
+[@@deriving yojson, fields, compare, sexp]
 
 module Summary = struct
   type t =

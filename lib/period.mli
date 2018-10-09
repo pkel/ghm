@@ -1,6 +1,6 @@
 open Core_kernel
 
-type t [@@deriving compare, sexp]
+type t [@@deriving compare, sexp, yojson]
 
 val of_dates: Date.t -> Date.t -> t
 (** Period between to dates. Order of arguments does no matter *)

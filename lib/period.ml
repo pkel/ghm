@@ -1,6 +1,10 @@
-open Core_kernel
+module Date = Date_yojson
 
-type t = Date.t * Date.t [@@deriving compare, sexp]
+module M = struct
+  [@@@warning "-39"]
+  type t = Date.t * Date.t [@@deriving compare, sexp, yojson]
+end
+include M
 
 let of_dates t1 t2 =
   Date.min t1 t2, Date.max t1 t2
