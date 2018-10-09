@@ -1,24 +1,34 @@
-version: '3.1'
-
+version: '3'
 services:
-  postgrest:
-    image: suzel/docker-postgrest:latest
+  server:
+    image: postgrest/postgrest
     ports:
       - "3000:3000"
+    links:
+      - db:db
     environment:
-      POSTGREST_VERSION: 0.4.3.0
+      PGRST_DB_URI: postgres://${pg_user}:${pg_pwd}@db:5432/${pg_db}
+      PGRST_DB_SCHEMA: ${pg_schema}
+      PGRST_DB_ANON_ROLE: ${pg_anon}
     depends_on:
-      - postgres
-  postgres:
-    image: postgres:latest
+      - db
+  db:
+    image: postgres
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: app_db
-      POSTGRES_USER: app_user
-      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: ${pg_db}
+      POSTGRES_USER: ${pg_user}
+      POSTGRES_PASSWORD: ${pg_pwd}
     volumes:
-      - ghm-postgres-data:/var/lib/postgresql/data
-
+      - data:/var/lib/postgresql/data
+  swagger:
+    image: swaggerapi/swagger-ui
+    ports:
+      - "8080:8080"
+    expose:
+      - "8080"
+    environment:
+      API_URL: http://localhost:3000/
 volumes:
-  ghm-postgres-data: {}
+  data:
