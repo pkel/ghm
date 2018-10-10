@@ -1,5 +1,5 @@
 {$base_uri} {
-  root _build/default
+  root _build/default/gui
   gzip {
     ext *
   }
