@@ -13,7 +13,7 @@ down :
 .PHONY: init
 init :
 	source ./.env ; sudo docker-compose exec -e PGPASSWORD=$$pg_pwd -T db psql -U $$pg_user $$pg_db < init.sql
-	sudo docker-compose restart
+	sudo docker-compose restart server
 
 .PHONY: purge
 purge :
