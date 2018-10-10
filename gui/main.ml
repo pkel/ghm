@@ -73,10 +73,14 @@ module State = struct
 end
 
 let get_chunk ~schedule_action i =
-  let url= Printf.sprintf "../data/chunks/chunk-%d.sexp" i in
+  let url =
+    Printf.sprintf
+      "/api/customers?order=customer_id.desc&limit=333&offset=%i"
+      (333 * i)
+  in
   Async_js.Http.get url >>| function
   | Ok s -> schedule_action (Action.GotChunk (i, s))
-  | _ -> ()
+  | _ -> Log.error ("get_chunk failed on " ^ url)
 
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
@@ -104,9 +108,16 @@ let create model ~old_model ~inject =
     fun (a : Action.t) _state ~schedule_action ->
       match a with
       | GotChunk (i, s) ->
-        let chunk = Storage.of_string s in
+        let y = Yojson.Safe.from_string s in
+        let chunk =
+          match Storage.of_yojson y with
+          | Ok s -> s
+          | Error s -> Log.error ("GotChunk failed: " ^ s); Storage.empty
+        in
         let customers = Storage.add_chunk customers ~chunk in
-        don't_wait_for (get_chunk ~schedule_action (i + 1));
+        (* chunk not readable or end of pagination *)
+        if Storage.size chunk > 0 then
+          don't_wait_for (get_chunk ~schedule_action (i + 1));
         (* reload the view with the fresh data *)
         hashchange { model with customers }
       | CustomerTable a ->

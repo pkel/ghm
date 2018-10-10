@@ -23,6 +23,12 @@ let to_yojson t =
     Int.Map.to_alist t
     |> List.map ~f:(fun (customer_id, data) -> {customer_id; data}))
 
+let of_yojson y =
+  Result.map ([%of_yojson: db_entry list] y)
+    ~f:(List.fold_left
+          ~init:empty
+          ~f:(fun t {customer_id = key; data} -> save t ~key ~data))
+
 let chunks ?(ascending=false) ?firstsize ~size t =
   let fst = Option.value ~default:size firstsize in
   let fold = if ascending then Int.Map.fold else Int.Map.fold_right in
