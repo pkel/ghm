@@ -185,30 +185,8 @@ let main () =
     |> Csv.Rows.fold_left ~f:row ~init:Storage.empty
   in
   (* Write *)
-  if Array.length Sys.argv > 2 then begin (* chunks into folder *)
-    let d = Sys.argv.(2) in
-    if not (Sys.is_directory d) then
-      raise (Invalid_argument (d ^ "is not a directory"));
-    let is_chunk s =
-      let r = Str.regexp "^chunk-[0-9]+.sexp$" in
-      Str.string_match r s 0
-    in
-    Printf.eprintf "\rcleaning...%!";
-    Array.iter (fun f -> if is_chunk f then Sys.remove (d ^ "/" ^ f))
-      (Sys.readdir d);
-    let n = List.fold_left (fun i c ->
-        Printf.eprintf "\rbuilding chunk %d%!" i;
-        let oc = open_out (d ^ "/chunk-" ^ string_of_int i ^ ".sexp") in
-        let fmt = Format.formatter_of_out_channel oc in
-        Storage.pp_hum fmt c;
-        close_out oc;
-        i + 1
-      ) 0 (Storage.chunks ~firstsize:97 ~size:587 db) in
-    Printf.eprintf "\r%d customers processed into %d chunks.\n%!"
-      (Storage.size db) n
-  end else begin
-    Storage.pp_hum Format.std_formatter db;
-    Printf.eprintf "\r%d customers processed.\n%!" (Storage.size db)
-  end
+  Printf.eprintf "\r%d customers read.\n%!" (Storage.size db);
+  let y = Storage.to_yojson db in
+  Yojson.Safe.to_channel stdout y
 
 let () = main ()

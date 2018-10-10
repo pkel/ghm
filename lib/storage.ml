@@ -13,6 +13,16 @@ let pp_hum fmt t =
 let of_string s =
   Sexp.of_string s |> t_of_sexp
 
+include struct
+  [@@@warning "-39"]
+  type db_entry = {customer_id: int; data: Customer.t} [@@deriving yojson]
+end
+
+let to_yojson t =
+  Caml.([%to_yojson: db_entry list]) (
+    Int.Map.to_alist t
+    |> List.map ~f:(fun (customer_id, data) -> {customer_id; data}))
+
 let chunks ?(ascending=false) ?firstsize ~size t =
   let fst = Option.value ~default:size firstsize in
   let fold = if ascending then Int.Map.fold else Int.Map.fold_right in
