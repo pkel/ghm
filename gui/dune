@@ -2,3 +2,8 @@
  (name app)
  (libraries ghm core_kernel incr_dom incr_dom_widgets)
  (preprocess (pps js_of_ocaml-ppx ppx_jane ppxlib.runner)))
+
+(rule
+ (targets browser.ml)
+ (deps browser.mli)
+ (action (run ocamlfind gen_js_api/gen_js_api browser.mli)))

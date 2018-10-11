@@ -1,6 +1,5 @@
 open Core_kernel
 open Ghm
-open Async_kernel
 open Incr_dom
 module Incr_map = Incr_map.Make(Incr)
 
@@ -23,7 +22,8 @@ module Model = struct
 end
 
 let nav_of_string s =
-  match String.split ~on:'/' (String.strip ~drop:((=) '/') s) with
+  let drop c = Caml.List.mem c ['/';'#'] in
+  match String.split ~on:'/' (String.strip ~drop s) with
   | ["overview"] -> Ok Overview
   | ["customer"; s] -> begin
       match int_of_string_opt s with
@@ -44,8 +44,8 @@ let load_customer i (model: Model.t) : Model.t =
   | Some c -> { model with customer_form = Customer_form.Model.load c }
 
 let hashchange (model: Model.t) : Model.t =
-  match nav_of_string (Url.Current.get_fragment ()) with
-  | Error _ -> Url.Current.set_fragment (string_of_nav Overview);
+  match nav_of_string (Browser.Location.get_hash ()) with
+  | Error _ -> Browser.Location.set_hash (string_of_nav Overview);
     { model with nav = Overview }
   | Ok (Customer i) -> load_customer i { model with nav = Customer i }
   | Ok nav -> { model with nav }
@@ -77,10 +77,10 @@ let get_chunk ~schedule_action i =
     Printf.sprintf
       "/api/customers?order=customer_id.desc&limit=333&offset=%i"
       (333 * i)
-  in
-  Async_js.Http.get url >>| function
-  | Ok s -> schedule_action (Action.GotChunk (i, s))
-  | _ -> Log.error ("get_chunk failed on " ^ url)
+  in let handler = function
+    | Ok s -> schedule_action (Action.GotChunk (i, s))
+    | Error _ -> Log.error ("get_chunk failed on " ^ url)
+  in Request.send ~v:GET handler url
 
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
@@ -117,7 +117,7 @@ let create model ~old_model ~inject =
         let customers = Storage.add_chunk customers ~chunk in
         (* chunk not readable or end of pagination *)
         if Storage.size chunk > 0 then
-          don't_wait_for (get_chunk ~schedule_action (i + 1));
+          get_chunk ~schedule_action (i + 1);
         (* reload the view with the fresh data *)
         hashchange { model with customers }
       | CustomerTable a ->
@@ -138,7 +138,7 @@ let create model ~old_model ~inject =
         end
       | Navigate nav ->
         (* Sideeffect: triggers Hashchange *)
-        Url.Current.set_fragment (string_of_nav nav);
+        Browser.Location.set_hash (string_of_nav nav);
         model
       | Hashchange -> hashchange model
   and view =
@@ -163,10 +163,8 @@ let create model ~old_model ~inject =
   Component.create ~update_visibility ~apply_action ~on_display model view
 
 let on_startup ~schedule_action _model =
-  let _ =
-    let open Js_of_ocaml.Dom_html in
-    let open Js_of_ocaml.Js in
-    let handler = handler (fun _ -> schedule_action Action.Hashchange; _true) in
-    addEventListener window Event.hashchange handler _false
-  in
-  get_chunk ~schedule_action 0
+  Browser.(
+    Window.add_event_listener window "hashchange"
+      (fun _ -> schedule_action Action.Hashchange) false);
+  get_chunk ~schedule_action 0;
+  Async_kernel.Deferred.unit
