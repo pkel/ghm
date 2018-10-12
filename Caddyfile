@@ -1,8 +1,5 @@
 {$base_uri} {
   root _build/default/gui
-  gzip {
-    ext *
-  }
   redir /api /api/
   proxy /api/ localhost:3000 {
     without /api

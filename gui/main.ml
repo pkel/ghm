@@ -59,12 +59,13 @@ let init () : Model.t =
 
 module Action = struct
   type t =
-    | GotChunk of int * string
+    | GotChunk of int * Yojson.Safe.json sexp_opaque
     | Hashchange
     | Navigate of navigation
     | CustomerTable of Table.Action.t
     | CustomerForm of Customer_form.Action.t
     | CustomerSave of Customer.t
+    | CustomerSaved of Request.response sexp_opaque
   [@@deriving sexp_of, variants]
 end
 
@@ -79,7 +80,7 @@ let get_chunk ~schedule_action i =
       (333 * i)
   in let handler = function
     | Ok s -> schedule_action (Action.GotChunk (i, s))
-    | Error _ -> Log.error ("get_chunk failed on " ^ url)
+    | Error _ -> Log.error ("get_chunk: " ^ url)
   in Request.send ~v:GET handler url
 
 let create model ~old_model ~inject =
@@ -107,12 +108,11 @@ let create model ~old_model ~inject =
   let apply_action =
     fun (a : Action.t) _state ~schedule_action ->
       match a with
-      | GotChunk (i, s) ->
-        let y = Yojson.Safe.from_string s in
+      | GotChunk (i, y) ->
         let chunk =
           match Storage.of_yojson y with
           | Ok s -> s
-          | Error s -> Log.error ("GotChunk failed: " ^ s); Storage.empty
+          | Error s -> Log.error ("GotChunk: " ^ s); Storage.empty
         in
         let customers = Storage.add_chunk customers ~chunk in
         (* chunk not readable or end of pagination *)
@@ -133,8 +133,37 @@ let create model ~old_model ~inject =
       | CustomerSave c -> begin
           match model.nav with
           | Customer i ->
+            let () =
+              match Storage.load customers i with
+              | None -> (* new customer --> post *)
+                Request.send
+                  ~v:POST
+                  ~prefer:"return=representation"
+                  ~body:(`Assoc ["data", (Customer.to_yojson c)])
+                  (fun r-> schedule_action (Action.customersaved r))
+                  "/api/customers"
+              | Some _ -> (* existing customer --> patch *)
+                Request.send
+                  ~v:PATCH
+                  ~prefer:"return=representation"
+                  ~body:(`Assoc ["data", (Customer.to_yojson c)])
+                  (fun r-> schedule_action (Action.customersaved r))
+                  (Printf.sprintf "/api/customers?customer_id=eq.%i" i)
+            in
             { model with customers = Storage.save customers ~key:i ~data:c }
           | _ -> Log.error "Invalid CustomerSaved"; model
+        end
+      | CustomerSaved r -> begin
+          match r with
+          | Error _ -> Log.error "Customer Save Request failed"; model
+          | Ok json ->
+            match Storage.db_entry_of_yojson json with
+            | Error _ -> Log.error "CustomerSaved not parseable"; model
+            | Ok e ->
+              let key, data = e.customer_id, e.data in
+              let customers = Storage.save model.customers ~key ~data in
+              schedule_action (Action.Navigate (Customer key));
+              { model with customers }
         end
       | Navigate nav ->
         (* Sideeffect: triggers Hashchange *)

@@ -1,4 +1,5 @@
-type response_handler = (string, int) result -> unit
+type response = (Yojson.Safe.json, int) result
+type 'a handler = 'a -> unit
 
 type verb =
   | GET
@@ -7,4 +8,8 @@ type verb =
   | PATCH
   | DELETE
 
-val send: v: verb -> ?body: string -> response_handler -> string -> unit
+val send:
+  ?body:Yojson.Safe.json ->
+  ?prefer:string ->
+  v: verb ->
+  response handler -> string -> unit
