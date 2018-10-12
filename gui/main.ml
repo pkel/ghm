@@ -157,15 +157,21 @@ let create model ~old_model ~inject =
           Log.error "Customer Save Request failed" ;
           model
       | Ok json -> (
-        match Storage.db_entry_of_yojson json with
-        | Error _ ->
-            Log.error "CustomerSaved not parseable" ;
-            model
-        | Ok e ->
+        match [%of_yojson: Storage.db_entry list] json with
+        | Ok [e] ->
             let key, data = (e.customer_id, e.data) in
             let customers = Storage.save model.customers ~key ~data in
-            schedule_action (Action.Navigate (Customer key)) ;
-            {model with customers} ) )
+            let customer_form = Customer_form.Model.load data in
+            let () =
+              match model.nav with
+              | Customer i when i <> key ->
+                  schedule_action (Action.Navigate (Customer key))
+              | _ -> ()
+            in
+            {model with customers; customer_form}
+        | _ ->
+            Log.error "CustomerSaved: of_json error" ;
+            model ) )
     | Navigate nav ->
         (* Sideeffect: triggers Hashchange *)
         Browser.Location.set_hash (string_of_nav nav) ;

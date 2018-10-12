@@ -7,7 +7,6 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 ## ToDo
 
 - allow creation/deletion of customer/booking/guest/room
-- reload form on save
 - automatic save (on leave / by time)
 - show dates in locale using non-editable input field
 - indicate units in form fields (%, €, ...)

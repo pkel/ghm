@@ -1,7 +1,7 @@
 (executable
  (name app)
- (libraries ghm core_kernel incr_dom incr_dom_widgets)
- (preprocess (pps js_of_ocaml-ppx ppx_jane ppxlib.runner)))
+ (libraries ghm core_kernel incr_dom incr_dom_widgets yojson)
+ (preprocess (pps js_of_ocaml-ppx ppx_jane ppxlib.runner ppx_deriving_yojson)))
 
 (rule
  (targets browser.ml)
