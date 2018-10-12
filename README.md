@@ -12,6 +12,9 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 - indicate units in form fields (%, €, ...)
 - overview: icons for room/guest/bed counts
 - overview: currently checked-in, upcoming
+- local storage and basic synchronization
+- cache customer summary
+- indicate sync/loading state
 - room allocation tool/view
 - title handling (variant + dropdown)
 - advanced searching, potentially powered by database backend
