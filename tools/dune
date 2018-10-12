@@ -1,4 +1,6 @@
 (executables
  (names combit)
- (libraries csv ghm str sexplib)
- (preprocess (pps js_of_ocaml-ppx ppx_jane ppxlib.runner)))
+ (libraries csv ghm str sexplib yojson)
+ (preprocess (pps
+  js_of_ocaml-ppx ppx_jane ppxlib.runner
+  ppx_deriving_yojson)))

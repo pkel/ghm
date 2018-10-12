@@ -164,6 +164,14 @@ let row db r =
   let c = customer_of_row r in
   Storage.save db ~key:cid ~data:{c with bookings}
 
+include struct
+  [@@@warning "-39"]
+
+  type wrapped = {data: Customer.t}
+
+  and post = wrapped list [@@deriving yojson]
+end
+
 let main () =
   (* Read *)
   let ch = if Array.length Sys.argv > 1 then open_in Sys.argv.(1) else stdin in
@@ -174,7 +182,12 @@ let main () =
   in
   (* Write *)
   Printf.eprintf "\r%d customers read.\n%!" (Storage.size db) ;
-  let y = Storage.to_yojson db in
+  let l =
+    Core_kernel.Int.Map.fold_right db
+      ~f:(fun ~key:_ ~data acc -> {data} :: acc)
+      ~init:[]
+  in
+  let y = [%to_yojson: wrapped list] l in
   Yojson.Safe.to_channel stdout y
 
 let () = main ()
