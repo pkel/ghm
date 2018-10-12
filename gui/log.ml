@@ -12,4 +12,4 @@ let error msg =
 let form state =
   List.iter (Form.State.errors state) ~f:(fun e ->
       let msg = Format.asprintf "FORM: %s" (Error.to_string_hum e) in
-      log_string msg)
+      log_string msg )

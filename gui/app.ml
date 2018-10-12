@@ -1,4 +1,2 @@
 let () =
-  Incr_dom.Start_app.component (module Main)
-    ~initial_model:(Main.init ())
-
+  Incr_dom.Start_app.component (module Main) ~initial_model:(Main.init ())
