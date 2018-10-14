@@ -31,11 +31,11 @@ module Date : sig
 
   val t_to_js : t -> Ojs.t
 
-  val new_date : float -> t [@@js.new]
+  val now : int -> t [@@js.new "Date"]
 
-  val now : unit -> float [@@js.global "Date.now"]
+  val of_int : int -> t [@@js.new "Date"]
 
-  val parse : string -> t [@@js.global "Date.parse"]
+  val of_string : string -> t [@@js.new "Date"]
 
   val get_date : t -> int [@@js.call]
 
@@ -113,7 +113,13 @@ module Date : sig
 
   val to_ISO_string : t -> string [@@js.call]
 
+  val to_locale_date_string : t -> string [@@js.call]
+
+  val to_locale_date_string_ : t -> locale:string -> string [@@js.call]
+
   val to_locale_string : t -> string [@@js.call]
+
+  val to_locale_string_ : t -> locale:string -> string [@@js.call]
 
   val to_string : t -> string [@@js.call]
 

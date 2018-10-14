@@ -406,7 +406,7 @@ let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
       | None -> ("n/a", "n/a")
       | Some p ->
           let open Period in
-          (Date.to_string (from p), Date.to_string (till p))
+          (Localize.date (from p), Localize.date (till p))
     in
     let e =
       Attr.

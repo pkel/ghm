@@ -8,7 +8,6 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 
 - allow creation/deletion of customer/booking/guest/room
 - automatic save (on leave / by time)
-- show dates in locale using non-editable input field
 - indicate units in form fields (%, €, ...)
 - overview: icons for room/guest/bed counts
 - overview: currently checked-in, upcoming

@@ -4,7 +4,7 @@ open Incr_dom
 open Vdom
 open Incr.Let_syntax
 
-(* TODO: Get rid of unnecessary code form ts_gui example *)
+(* TODO: Get rid of unnecessary code from ts_gui example *)
 
 module Table = struct
   open Incr_dom_widgets
@@ -105,11 +105,7 @@ module Row = struct
   module DateOpt = struct
     type t = Date.t option
 
-    let string_of_date d =
-      let open Date in
-      Printf.sprintf "%02d.%02d.%04d" (day d)
-        (month d |> Month.to_int)
-        (year d)
+    let string_of_date d = Localize.date d
 
     let to_string t =
       Option.map ~f:string_of_date t |> Option.value ~default:""
