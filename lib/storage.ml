@@ -17,7 +17,8 @@ let of_string s = Sexp.of_string s |> t_of_sexp
 include struct
   [@@@warning "-39"]
 
-  type db_entry = {customer_id: int; data: Customer.t} [@@deriving yojson]
+  type db_entry = {customer_id: int; data: Customer.t}
+  [@@deriving yojson {strict= false}]
 end
 
 let to_yojson t =
