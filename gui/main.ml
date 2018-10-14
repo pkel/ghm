@@ -54,30 +54,20 @@ let init () : Model.t =
 
 module Action = struct
   type t =
-    | GotChunk of int * Yojson.Safe.json sexp_opaque
     | Hashchange
     | Navigate of navigation
     | CustomerTable of Table.Action.t
     | CustomerForm of Customer_form.Action.t
     | CustomerSave of Customer.t
-    | CustomerSaved of Request.response sexp_opaque
+    | ResponseCustomerSaved of (int * Customer.t) Or_error.t
+    | GotCustomers of (int * Customer.t) list
+    | GotMoreCustomers of (int * Customer.t) list
   [@@deriving sexp_of, variants]
 end
 
 module State = struct
   type t = unit
 end
-
-let get_chunk ~schedule_action i =
-  let url =
-    Printf.sprintf "/api/customers?order=customer_id.desc&limit=333&offset=%i"
-      (333 * i)
-  in
-  let handler = function
-    | Ok s -> schedule_action (Action.GotChunk (i, s))
-    | Error _ -> Log.error ("get_chunk: " ^ url)
-  in
-  Request.send ~v:GET handler url
 
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
@@ -102,18 +92,13 @@ let create model ~old_model ~inject =
   and customer = customer in
   let apply_action (a : Action.t) _state ~schedule_action =
     match a with
-    | GotChunk (i, y) ->
-        let chunk =
-          match Storage.of_yojson y with
-          | Ok s -> s
-          | Error s ->
-              Log.error ("GotChunk: " ^ s) ;
-              Storage.empty
-        in
+    | GotCustomers l ->
+        let customers = Int.Map.of_alist_exn l in
+        (* why hashchange? *)
+        hashchange {model with customers}
+    | GotMoreCustomers l ->
+        let chunk = Int.Map.of_alist_exn l in
         let customers = Storage.add_chunk customers ~chunk in
-        (* chunk not readable or end of pagination *)
-        if Storage.size chunk > 0 then get_chunk ~schedule_action (i + 1) ;
-        (* reload the view with the fresh data *)
         hashchange {model with customers}
     | CustomerTable a ->
         let schedule_action =
@@ -131,47 +116,35 @@ let create model ~old_model ~inject =
         {model with customer_form}
     | CustomerSave c -> (
       match model.nav with
-      | Customer i ->
+      | Customer id ->
           let () =
-            match Storage.load customers i with
-            | None ->
-                (* new customer --> post *)
-                Request.send ~v:POST ~prefer:"return=representation"
-                  ~body:(`Assoc [("data", Customer.to_yojson c)])
-                  (fun r -> schedule_action (Action.customersaved r))
-                  "/api/customers"
+            let handler x = schedule_action (Action.ResponseCustomerSaved x) in
+            match Storage.load customers id with
+            | None -> Request.send ~body:c ~handler Remote.Customer.post
             | Some _ ->
-                (* existing customer --> patch *)
-                Request.send ~v:PATCH ~prefer:"return=representation"
-                  ~body:(`Assoc [("data", Customer.to_yojson c)])
-                  (fun r -> schedule_action (Action.customersaved r))
-                  (Printf.sprintf "/api/customers?customer_id=eq.%i" i)
+                let rq =
+                  Request.map_resp (Remote.Customer.patch id) ~f:(fun c ->
+                      (id, c) )
+                in
+                Request.send ~body:c ~handler rq
           in
-          {model with customers= Storage.save customers ~key:i ~data:c}
+          {model with customers= Storage.save customers ~key:id ~data:c}
       | _ ->
-          Log.error "Invalid CustomerSaved" ;
+          Log.error_str "Invalid CustomerSave" ;
           model )
-    | CustomerSaved r -> (
+    | ResponseCustomerSaved r -> (
       match r with
-      | Error _ ->
-          Log.error "Customer Save Request failed" ;
-          model
-      | Ok json -> (
-        match [%of_yojson: Storage.db_entry list] json with
-        | Ok [e] ->
-            let key, data = (e.customer_id, e.data) in
-            let customers = Storage.save model.customers ~key ~data in
-            let customer_form = Customer_form.Model.load data in
-            let () =
-              match model.nav with
-              | Customer i when i <> key ->
-                  schedule_action (Action.Navigate (Customer key))
-              | _ -> ()
-            in
-            {model with customers; customer_form}
-        | _ ->
-            Log.error "CustomerSaved: of_json error" ;
-            model ) )
+      | Error e -> Log.error e ; model
+      | Ok (key, data) ->
+          let customers = Storage.save model.customers ~key ~data in
+          let customer_form = Customer_form.Model.load data in
+          let () =
+            match model.nav with
+            | Customer i when i <> key ->
+                schedule_action (Action.Navigate (Customer key))
+            | _ -> ()
+          in
+          {model with customers; customer_form} )
     | Navigate nav ->
         (* Sideeffect: triggers Hashchange *)
         Browser.Location.set_hash (string_of_nav nav) ;
@@ -203,5 +176,14 @@ let on_startup ~schedule_action _model =
     Window.add_event_listener window "hashchange"
       (fun _ -> schedule_action Action.Hashchange)
       false) ;
-  get_chunk ~schedule_action 0 ;
+  let rec handler = function
+    | Ok (Remote.Last l) -> schedule_action (Action.GotMoreCustomers l)
+    | Ok (More (l, r)) ->
+        Request.send' r ~handler ;
+        schedule_action (Action.GotMoreCustomers l)
+    | Error e -> Log.error e
+  in
+  Request.send'
+    Remote.(Customers.get_page ~sort:(Desc Customers.Id) ~n:333)
+    ~handler ;
   Async_kernel.Deferred.unit
