@@ -6,16 +6,19 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 
 ## ToDo
 
+- fetch customers as required / specified by search
+- distinguish between table row id / customer id
+
+- revise/drop storage.mli
+- switch to atdgen?
+
 - allow creation/deletion of customer/booking/guest/room
 - automatic save (on leave / by time)
 
 - overview: icons for room/guest/bed counts
 - overview: currently checked-in, upcoming
 
-- local storage and basic synchronization
-- cache customer summary
-
-- indicate sync/loading state
+- indicate saving/loading state
 - title handling (variant + dropdown)
 - indicate units in form fields (%, €, ...)
 
@@ -32,3 +35,4 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 
 - in-app billing or interop with libreoffice
 - room allocation tool/view
+- offline mode
