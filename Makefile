@@ -1,10 +1,14 @@
-.PHONY: all watch serve import clean-db clean
+.PHONY: all watch format serve import clean-db clean
 
 all:
 	dune build gui/{app.bc.js,index.html,bootstrap.min.css} tools/combit.exe
 
 watch:
 	fd 'ml|dune' | entr -s 'make all'
+
+format:
+	# do not auto promote test output
+	dune runtest && dune build @fmt --auto-promote
 
 serve:
 	@echo ""

@@ -1,4 +1,4 @@
-_build
 .merlin
 *.install
-_opam
+_*
+dune-workspace
