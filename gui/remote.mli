@@ -3,8 +3,6 @@ open Core_kernel
 
 type 'a order = Asc of 'a | Desc of 'a
 
-type 'a page = {this: 'a; is_first: bool; load_next: (unit -> unit) option}
-
 module Customer : sig
   type t = Customer.t
 
@@ -22,5 +20,6 @@ module Customers : sig
 
   type key = Id | Modified
 
-  val get_page : ?sort:key order -> n:int -> (unit, t page) Request.t
+  val get :
+    ?offset:int -> ?limit:int -> ?sort:key order -> unit -> (unit, t) Request.t
 end

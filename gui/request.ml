@@ -9,6 +9,7 @@ let verb = function
   | PATCH -> "PATCH"
   | DELETE -> "DELETE"
 
+(** TODO: make this pure *)
 type ('a, 'b) t =
   { body: 'a -> string
   ; resp: string -> 'b Or_error.t

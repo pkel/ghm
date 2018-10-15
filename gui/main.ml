@@ -10,7 +10,6 @@ module Model = struct
     { customers: Storage.t
     ; customer_table: Table.Model.t
     ; customer_form: Customer_form.Model.t
-    ; next_page: (unit -> unit) option [@compare.ignore]
     ; nav: navigation }
   [@@deriving compare, fields]
 
@@ -50,7 +49,6 @@ let init () : Model.t =
   { customers= Storage.empty
   ; customer_table= Table.Model.create ()
   ; customer_form= Customer_form.Model.empty ()
-  ; next_page= None
   ; nav= Overview }
   |> hashchange
 
@@ -62,7 +60,7 @@ module Action = struct
     | CustomerForm of Customer_form.Action.t
     | CustomerSave of Customer.t
     | ResponseCustomerSaved of (int * Customer.t) Or_error.t
-    | GotCustomers of Customer.t Int.Map.t Remote.page sexp_opaque
+    | GotCustomers of Customer.t Int.Map.t
   [@@deriving sexp_of, variants]
 end
 
@@ -93,15 +91,9 @@ let create model ~old_model ~inject =
   and customer = customer in
   let apply_action (a : Action.t) _state ~schedule_action =
     match a with
-    | GotCustomers {this; is_first; load_next} ->
-        let customers =
-          if is_first then this
-          else
-            Int.Map.merge customers this ~f:(fun ~key:_ -> function
-              | `Both (x, _) | `Left x | `Right x -> Some x )
-        in
+    | GotCustomers customers ->
         (* why hashchange? *)
-        hashchange {model with customers; next_page= load_next}
+        hashchange {model with customers}
     | CustomerTable a ->
         let schedule_action =
           Fn.compose schedule_action Action.customertable
@@ -183,6 +175,6 @@ let on_startup ~schedule_action _model =
     | Error e -> Log.error e
   in
   Request.send'
-    Remote.(Customers.get_page ~sort:(Desc Customers.Modified) ~n:250)
+    Remote.(Customers.get ~sort:(Desc Customers.Modified) ~limit:250 ())
     ~handler ;
   Async_kernel.Deferred.unit
