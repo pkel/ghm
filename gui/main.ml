@@ -114,13 +114,13 @@ let create model ~old_model ~inject =
           let () =
             let handler x = schedule_action (Action.ResponseCustomerSaved x) in
             match Storage.load customers id with
-            | None -> Request.send ~body:c ~handler Remote.Customer.post
+            | None -> Request.XHR.send ~body:c ~handler Remote.Customer.post
             | Some _ ->
                 let rq =
                   Request.map_resp (Remote.Customer.patch id) ~f:(fun c ->
                       (id, c) )
                 in
-                Request.send ~body:c ~handler rq
+                Request.XHR.send ~body:c ~handler rq
           in
           {model with customers= Storage.save customers ~key:id ~data:c}
       | _ ->
@@ -174,7 +174,7 @@ let on_startup ~schedule_action _model =
     | Ok page -> schedule_action (Action.GotCustomers page)
     | Error e -> Log.error e
   in
-  Request.send'
+  Request.XHR.send'
     Remote.(Customers.get ~sort:(Desc Customers.Modified) ~limit:250 ())
     ~handler ;
   Async_kernel.Deferred.unit

@@ -16,13 +16,7 @@ include struct
   type response = entry list [@@deriving of_yojson]
 end
 
-let url_with_params url params =
-  let params =
-    List.map ~f:(fun (l, r) -> sprintf "%s=%s" l r) params
-    |> String.concat ~sep:"&"
-    |> function "" -> "" | s -> "?" ^ s
-  in
-  sprintf "/api/%s%s" url params
+let base_url = sprintf "/api/%s"
 
 let data_only json = `Assoc [("data", json)]
 
@@ -33,46 +27,43 @@ let single = function
   | [e] -> Ok e
   | _ -> Or_error.error_string "singleton list expected"
 
+let get_all_customers =
+  Request.(
+    create ~url:(base_url "customers")
+    |> want_json
+    |> conv_resp ~f:(parse response_of_yojson))
+
 module Customer = struct
   type t = Customer.t
 
   type id = int
 
   let get id =
-    let url =
-      url_with_params "customers" [("customer_id", sprintf "eq.%i" id)]
-    in
     Request.(
-      create ~v:GET ~url |> want_json
-      |> conv_resp ~f:(parse response_of_yojson)
-      |> conv_resp ~f:single
+      conv_resp ~f:single get_all_customers
+      |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
       |> map_resp ~f:(fun x -> x.data))
 
-  let post =
-    let url = url_with_params "customers" [] in
+  let give_single =
     Request.(
-      create ~v:POST ~url
-      |> prefer "return=representation"
-      |> want_json |> give_json
-      |> conv_resp ~f:(parse response_of_yojson)
-      |> conv_resp ~f:single
-      |> map_resp ~f:(fun x -> (x.id, x.data))
+      give_json get_all_customers
       |> map_body ~f:data_only
       |> map_body ~f:Customer.to_yojson)
 
-  let patch id =
-    let url =
-      url_with_params "customers" [("customer_id", sprintf "eq.%i" id)]
-    in
+  let post =
     Request.(
-      create ~v:PATCH ~url
-      |> prefer "return=representation"
-      |> want_json |> give_json
-      |> conv_resp ~f:(parse response_of_yojson)
+      verb POST give_single
+      |> header ~key:"Prefer" ~value:"return=representation"
       |> conv_resp ~f:single
-      |> map_resp ~f:(fun x -> x.data)
-      |> map_body ~f:data_only
-      |> map_body ~f:Customer.to_yojson)
+      |> map_resp ~f:(fun x -> (x.id, x.data)))
+
+  let patch id =
+    Request.(
+      verb PATCH give_single
+      |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
+      |> header ~key:"Prefer" ~value:"return=representation"
+      |> conv_resp ~f:single
+      |> map_resp ~f:(fun x -> x.data))
 end
 
 module Customers = struct
@@ -85,18 +76,15 @@ module Customers = struct
   let string_of_order = string_of_order string_of_key
 
   let get ?offset ?limit ?sort () =
-    let url =
-      let sort = Option.map ~f:(fun k -> ("order", string_of_order k)) sort
-      and limit = Option.map ~f:(fun n -> ("limit", string_of_int n)) limit
-      and offset =
-        Option.map ~f:(fun o -> ("offset", string_of_int o)) offset
-      in
-      let params = List.filter_opt [sort; limit; offset] in
-      url_with_params "customers" params
+    let opt_param to_string key = function
+      | Some i -> Request.param ~key ~value:(to_string i)
+      | None -> Fn.id
     in
     Request.(
-      create ~v:GET ~url |> want_json
-      |> conv_resp ~f:(parse response_of_yojson)
+      get_all_customers
+      |> opt_param string_of_int "offset" offset
+      |> opt_param string_of_int "limit" limit
+      |> opt_param string_of_order "order" sort
       |> map_resp ~f:(List.map ~f:(fun r -> (r.id, r.data)))
       |> conv_resp ~f:Int.Map.of_alist_or_error)
 end

@@ -624,6 +624,8 @@ module XHR : sig
 
   val status : t -> int
 
+  val status_text : t -> string
+
   val ready_state : t -> ready_state
 
   val response_text : t -> string
