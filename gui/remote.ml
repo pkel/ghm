@@ -1,7 +1,9 @@
 open Core_kernel
 open Ghm
 
-type 'a page = Last of 'a list | More of 'a list * (unit, 'a page) Request.t
+type 'a page = { this: 'a;
+                 is_first: bool;
+                 load_next: (unit -> unit) option}
 
 type 'a order = Asc of 'a | Desc of 'a
 
@@ -78,7 +80,7 @@ module Customer = struct
 end
 
 module Customers = struct
-  type t = Customer.id * Customer.t
+  type t = Customer.t Int.Map.t
 
   type key = Id | Modified
 
@@ -86,7 +88,7 @@ module Customers = struct
 
   let string_of_order = string_of_order string_of_key
 
-  let rec get_page ?offset ?sort ~n =
+  let get_page ?offset ?sort ~n =
     if n < 1 then raise (Invalid_argument "get_page: n > 0 expected") ;
     let url =
       let sort = Option.map ~f:(fun k -> ("order", string_of_order k)) sort
@@ -101,11 +103,16 @@ module Customers = struct
       create ~v:GET ~url |> want_json
       |> conv_resp ~f:(parse response_of_yojson)
       |> map_resp ~f:(List.map ~f:(fun r -> (r.id, r.data)))
-      |> map_resp ~f:(fun l ->
-             if List.length l < n then Last l
-             else
-               let offset = Option.value ~default:0 offset + n in
-               More (l, get_page ~offset ?sort ~n) ))
+      |> conv_resp ~f:Int.Map.of_alist_or_error
+      |> map_resp ~f:(fun this ->
+          let is_first = Option.is_some offset in
+          let load_next =
+            if Int.Map.length this < n then None
+            else None (** TODO: pagination is broken *)
+            (* let offset = Option.value ~default:0 offset + n in *)
+            (* Some (fun () -> Request.send' (get_page ~offset ?sort ~n) )) *)
+          in {this; load_next; is_first}
+        ))
 
   let get_page = get_page ?offset:None
 end

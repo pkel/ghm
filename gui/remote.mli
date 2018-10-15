@@ -1,9 +1,9 @@
 open Ghm
+open Core_kernel
 
 type 'a order = Asc of 'a | Desc of 'a
 
-(** TODO: simplify paging to 'a list * (unit -> unit) option *)
-type 'a page = Last of 'a list | More of 'a list * (unit, 'a page) Request.t
+type 'a page = {this: 'a; is_first: bool; load_next: (unit -> unit) option}
 
 module Customer : sig
   type t = Customer.t
@@ -18,7 +18,7 @@ module Customer : sig
 end
 
 module Customers : sig
-  type t = Customer.id * Customer.t
+  type t = Customer.t Int.Map.t
 
   type key = Id | Modified
 

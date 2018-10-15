@@ -19,6 +19,7 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 - overview: currently checked-in, upcoming
 
 - indicate saving/loading state
+- handle 50x status -> api/server not available
 - title handling (variant + dropdown)
 - indicate units in form fields (%, €, ...)
 
