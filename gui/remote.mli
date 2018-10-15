@@ -1,5 +1,4 @@
 open Ghm
-open Core_kernel
 
 type 'a order = Asc of 'a | Desc of 'a
 
@@ -16,7 +15,7 @@ module Customer : sig
 end
 
 module Customers : sig
-  type t = Customer.t Int.Map.t
+  type t = (int * Customer.t) list
 
   type key = Id | Modified
 

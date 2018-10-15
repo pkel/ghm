@@ -6,8 +6,10 @@ module Incr_map = Incr_map.Make (Incr)
 type navigation = Overview | Customer of int [@@deriving sexp_of, compare]
 
 module Model = struct
+  type customer = {row: Table.RowId.t; data: Customer.t} [@@deriving compare]
+
   type t =
-    { customers: Storage.t
+    { customers: customer Int.Map.t
     ; customer_table: Table.Model.t
     ; customer_form: Customer_form.Model.t
     ; nav: navigation }
@@ -35,7 +37,7 @@ let href_of_nav n = "#" ^ string_of_nav n
 let load_customer i (model : Model.t) : Model.t =
   match Storage.load model.customers i with
   | None -> {model with customer_form= Customer_form.Model.empty ()}
-  | Some c -> {model with customer_form= Customer_form.Model.load c}
+  | Some c -> {model with customer_form= Customer_form.Model.load c.data}
 
 let hashchange (model : Model.t) : Model.t =
   match nav_of_string (Browser.Location.get_hash ()) with
@@ -60,7 +62,7 @@ module Action = struct
     | CustomerForm of Customer_form.Action.t
     | CustomerSave of Customer.t
     | ResponseCustomerSaved of (int * Customer.t) Or_error.t
-    | GotCustomers of Customer.t Int.Map.t
+    | GotCustomers of (int * Customer.t) list
   [@@deriving sexp_of, variants]
 end
 
@@ -75,8 +77,16 @@ let create model ~old_model ~inject =
     let model = model >>| Model.customer_table
     and old_model = old_model >>| Model.customer_table
     and select i = inject (Action.navigate (Customer i))
-    and inject = Fn.compose inject Action.customertable in
-    Table.create customers ~old_model ~inject ~select ~model
+    and inject = Fn.compose inject Action.customertable
+    and rows =
+      Incr_map.unordered_fold customers ~init:Table.RowId.Map.empty
+        ~add:(fun ~key:id ~data acc ->
+          let key = data.row in
+          let data = Table.Model.Row.of_customer ~id data.data in
+          Table.RowId.Map.set ~key ~data acc )
+        ~remove:(fun ~key:_ ~data acc -> Table.RowId.Map.remove acc data.row)
+    in
+    Table.create rows ~old_model ~inject ~select ~model
   in
   let customer =
     let inject = Fn.compose inject Action.customerform
@@ -91,7 +101,16 @@ let create model ~old_model ~inject =
   and customer = customer in
   let apply_action (a : Action.t) _state ~schedule_action =
     match a with
-    | GotCustomers customers ->
+    | GotCustomers l ->
+        let open Model in
+        let customers =
+          List.rev l
+          (* TODO: One reverse is already done in Remote *)
+          |> List.map ~f:(fun (id, c) ->
+                 (id, {row= Table.RowId.create (); data= c}) )
+          |> Int.Map.of_alist_or_error
+          |> function Error e -> Log.error e ; Int.Map.empty | Ok m -> m
+        in
         (* why hashchange? *)
         hashchange {model with customers}
     | CustomerTable a ->
@@ -122,7 +141,7 @@ let create model ~old_model ~inject =
                 in
                 Request.XHR.send ~body:c ~handler rq
           in
-          {model with customers= Storage.save customers ~key:id ~data:c}
+          model
       | _ ->
           Log.error_str "Invalid CustomerSave" ;
           model )
@@ -130,8 +149,14 @@ let create model ~old_model ~inject =
       match r with
       | Error e -> Log.error e ; model
       | Ok (key, data) ->
+          let open Model in
+          let data =
+            match Int.Map.find model.customers key with
+            | Some {row; _} -> {row; data}
+            | None -> {row= Table.RowId.create (); data}
+          in
           let customers = Storage.save model.customers ~key ~data in
-          let customer_form = Customer_form.Model.load data in
+          let customer_form = Customer_form.Model.load data.data in
           let () =
             match model.nav with
             | Customer i when i <> key ->

@@ -67,7 +67,7 @@ module Customer = struct
 end
 
 module Customers = struct
-  type t = Customer.t Int.Map.t
+  type t = (int * Customer.t) list
 
   type key = Id | Modified
 
@@ -85,6 +85,5 @@ module Customers = struct
       |> opt_param string_of_int "offset" offset
       |> opt_param string_of_int "limit" limit
       |> opt_param string_of_order "order" sort
-      |> map_resp ~f:(List.map ~f:(fun r -> (r.id, r.data)))
-      |> conv_resp ~f:Int.Map.of_alist_or_error)
+      |> map_resp ~f:(List.map ~f:(fun r -> (r.id, r.data))))
 end
