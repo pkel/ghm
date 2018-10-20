@@ -73,9 +73,13 @@ module Customers = struct
 
   let string_of_key = function Id -> "customer_id" | Modified -> "modified"
 
+  type filter = Keyword of string
+
+  let string_of_filter = function Keyword s -> sprintf "ilike.%%%s%%" s
+
   let string_of_order = string_of_order string_of_key
 
-  let get ?offset ?limit ?sort () =
+  let get ?offset ?limit ?sort ?filter () =
     let opt_param to_string key = function
       | Some i -> Request.param ~key ~value:(to_string i)
       | None -> Fn.id
@@ -85,5 +89,6 @@ module Customers = struct
       |> opt_param string_of_int "offset" offset
       |> opt_param string_of_int "limit" limit
       |> opt_param string_of_order "order" sort
+      |> opt_param string_of_filter "keyword" filter
       |> map_resp ~f:(List.map ~f:(fun r -> (r.id, r.data))))
 end

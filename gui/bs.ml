@@ -15,6 +15,11 @@ let button' ~href label =
     ; Attr.create "role" "button" ]
     [Node.text label]
 
+let submit label =
+  Node.button
+    [Attr.classes ["btn"; "btn-secondary"]; Attr.type_ "submit"]
+    [Node.text label]
+
 let row divs =
   let f node = Node.div [Attr.classes ["col"]] [node] in
   Node.div [Attr.class_ "row"] (List.map ~f divs)

@@ -6,6 +6,8 @@ create table customers (
     modified timestamp not null default now (),
     data jsonb not null);
 
+/* automatic ids */
+
 create or replace function set_modified_now ()
 returns trigger as $$
 begin
@@ -16,3 +18,9 @@ $$ language 'plpgsql';
 
 create trigger customers_set_modified_now before update on customers
 for each row execute procedure set_modified_now ();
+
+/* keyword search */
+
+create or replace function keyword(customers) returns text as $$
+  select $1.data->>'keyword';
+$$ language sql;

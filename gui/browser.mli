@@ -4,6 +4,13 @@
 
 (** {1 Bindings for the DOM and other client-side Javascript APIs} *)
 
+module Misc : sig
+  val encode_uri : string -> string [@@js.global "encodeURI"]
+
+  val encode_uri_component : string -> string
+    [@@js.global "encodeURIComponent"]
+end
+
 module Storage : sig
   type t = private Ojs.t
 

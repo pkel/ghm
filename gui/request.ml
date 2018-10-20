@@ -37,7 +37,9 @@ let header ~key ~value t =
   {t with headers= String.Map.set ~key ~data:value t.headers}
 
 let param ~key ?value t =
-  {t with params= String.Map.set ~key ~data:value t.params}
+  let data = Option.map ~f:Browser.Misc.encode_uri_component value in
+  let key = Browser.Misc.encode_uri_component key in
+  {t with params= String.Map.set ~key ~data t.params}
 
 let want_json t =
   header ~key:"accept" ~value:"application/json" t
@@ -66,7 +68,7 @@ module XHR = struct
       | [] -> t.url
       | l ->
           let p = String.concat ~sep:"&" l in
-          sprintf "%s?%s" t.url p
+          sprintf "%s?%s" (Browser.Misc.encode_uri t.url) p
     in
     open_ xhr (string_of_verb t.verb) url_with_params ;
     String.Map.iteri t.headers ~f:(fun ~key ~data ->

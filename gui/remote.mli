@@ -19,6 +19,13 @@ module Customers : sig
 
   type key = Id | Modified
 
+  type filter = Keyword of string
+
   val get :
-    ?offset:int -> ?limit:int -> ?sort:key order -> unit -> (unit, t) Request.t
+       ?offset:int
+    -> ?limit:int
+    -> ?sort:key order
+    -> ?filter:filter
+    -> unit
+    -> (unit, t) Request.t
 end

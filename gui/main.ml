@@ -2,6 +2,7 @@ open Core_kernel
 open Ghm
 open Incr_dom
 module Incr_map = Incr_map.Make (Incr)
+module Form = Incr_dom_widgets.Form
 
 type navigation = Overview | Customer of int [@@deriving sexp_of, compare]
 
@@ -12,7 +13,8 @@ module Model = struct
     { customers: customer Int.Map.t
     ; customer_table: Customer_table.Model.t
     ; customer_form: Customer_form.Model.t
-    ; nav: navigation }
+    ; nav: navigation
+    ; search: Form.State.t }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
@@ -50,17 +52,21 @@ let hashchange (model : Model.t) : Model.t =
   | Ok (Customer i) -> load_customer i {model with nav= Customer i}
   | Ok nav -> {model with nav}
 
+let search_form = Form.(create ~name:"keyword search" Description.string)
+
 let init () : Model.t =
   { customers= Storage.empty
   ; customer_table= Customer_table.Model.create ()
   ; customer_form= Customer_form.Model.empty ()
-  ; nav= Overview }
+  ; nav= Overview
+  ; search= Form.State.create ~init:"" search_form }
   |> hashchange
 
 module Action = struct
   type t =
     | Hashchange
     | Navigate of navigation
+    | Search
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
     | CustomerSave of Customer.t
@@ -72,6 +78,20 @@ end
 module State = struct
   type t = unit
 end
+
+let view_search inject state =
+  let open Vdom in
+  let fld_id = Form.State.field_ids state search_form in
+  let col = Node.div [Attr.class_ "col-auto"] in
+  Node.create "form"
+    [Attr.on "submit" (fun _ -> inject Action.Search)]
+    [ Node.div
+        [Attr.classes ["form-row"]]
+        [ col
+            [ Form.Input.text state fld_id
+                [Attr.class_ "form-control"; Attr.placeholder "Schlüsselwort"]
+            ]
+        ; col [Bs.submit "Suchen"] ] ]
 
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
@@ -101,7 +121,8 @@ let create model ~old_model ~inject =
   let%map table = table
   and model = model
   and customers = customers
-  and customer = customer in
+  and customer = customer
+  and search_state = model >>| Model.search in
   let apply_action (a : Action.t) _state ~schedule_action =
     match a with
     | GotCustomers l ->
@@ -169,6 +190,22 @@ let create model ~old_model ~inject =
         Browser.Location.set_hash (string_of_nav nav) ;
         model
     | Hashchange -> hashchange model
+    | Search ->
+        let pattern_o, search =
+          Form.State.read_value model.search search_form
+        in
+        let () =
+          match pattern_o with
+          | None -> ()
+          | Some s ->
+              Request.XHR.send'
+                Remote.Customers.(
+                  get ~limit:250 ~sort:(Desc Modified) ~filter:(Keyword s) ())
+                ~handler:(function
+                  | Error e -> Log.error e
+                  | Ok l -> schedule_action (Action.GotCustomers l))
+        in
+        {model with search}
   and view =
     let open Vdom in
     let body attrs divs =
@@ -178,7 +215,7 @@ let create model ~old_model ~inject =
     | Overview ->
         body
           [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
-          [Component.view table]
+          (Bs.rows [[view_search inject search_state]; [Component.view table]])
     | Customer _i -> body [] [Component.view customer]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
