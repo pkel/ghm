@@ -2,7 +2,7 @@ open Ghm
 open Core_kernel
 open Incr_dom
 
-module RowId : module type of Unique_id.Int ()
+module RowId : module type of Int
 
 module Model : sig
   type t [@@deriving compare]

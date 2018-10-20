@@ -6,16 +6,19 @@ module Incr_map = Incr_map.Make (Incr)
 type navigation = Overview | Customer of int [@@deriving sexp_of, compare]
 
 module Model = struct
-  type customer = {row: Table.RowId.t; data: Customer.t} [@@deriving compare]
+  type customer = {row: int; data: Customer.t} [@@deriving compare]
 
   type t =
     { customers: customer Int.Map.t
-    ; customer_table: Table.Model.t
+    ; customer_table: Customer_table.Model.t
     ; customer_form: Customer_form.Model.t
     ; nav: navigation }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
+
+  let min_row_id =
+    Int.Map.fold ~init:Int.max_value ~f:(fun ~key:_ ~data a -> min data.row a)
 end
 
 let nav_of_string s =
@@ -49,7 +52,7 @@ let hashchange (model : Model.t) : Model.t =
 
 let init () : Model.t =
   { customers= Storage.empty
-  ; customer_table= Table.Model.create ()
+  ; customer_table= Customer_table.Model.create ()
   ; customer_form= Customer_form.Model.empty ()
   ; nav= Overview }
   |> hashchange
@@ -58,7 +61,7 @@ module Action = struct
   type t =
     | Hashchange
     | Navigate of navigation
-    | CustomerTable of Table.Action.t
+    | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
     | CustomerSave of Customer.t
     | ResponseCustomerSaved of (int * Customer.t) Or_error.t
@@ -79,14 +82,14 @@ let create model ~old_model ~inject =
     and select i = inject (Action.navigate (Customer i))
     and inject = Fn.compose inject Action.customertable
     and rows =
-      Incr_map.unordered_fold customers ~init:Table.RowId.Map.empty
+      Incr_map.unordered_fold customers ~init:Int.Map.empty
         ~add:(fun ~key:id ~data acc ->
           let key = data.row in
-          let data = Table.Model.Row.of_customer ~id data.data in
-          Table.RowId.Map.set ~key ~data acc )
-        ~remove:(fun ~key:_ ~data acc -> Table.RowId.Map.remove acc data.row)
+          let data = Customer_table.Model.Row.of_customer ~id data.data in
+          Int.Map.set ~key ~data acc )
+        ~remove:(fun ~key:_ ~data acc -> Int.Map.remove acc data.row)
     in
-    Table.create rows ~old_model ~inject ~select ~model
+    Customer_table.create rows ~old_model ~inject ~select ~model
   in
   let customer =
     let inject = Fn.compose inject Action.customerform
@@ -104,10 +107,7 @@ let create model ~old_model ~inject =
     | GotCustomers l ->
         let open Model in
         let customers =
-          List.rev l
-          (* TODO: One reverse is already done in Remote *)
-          |> List.map ~f:(fun (id, c) ->
-                 (id, {row= Table.RowId.create (); data= c}) )
+          List.mapi l ~f:(fun i (id, c) -> (id, {row= i; data= c}))
           |> Int.Map.of_alist_or_error
           |> function Error e -> Log.error e ; Int.Map.empty | Ok m -> m
         in
@@ -153,7 +153,7 @@ let create model ~old_model ~inject =
           let data =
             match Int.Map.find model.customers key with
             | Some {row; _} -> {row; data}
-            | None -> {row= Table.RowId.create (); data}
+            | None -> {row= min_row_id model.customers - 1; data}
           in
           let customers = Storage.save model.customers ~key ~data in
           let customer_form = Customer_form.Model.load data.data in

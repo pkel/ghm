@@ -6,17 +6,14 @@ open Incr.Let_syntax
 
 (* TODO: Get rid of unnecessary code from ts_gui example *)
 
-module RowId = struct
-  include Core_kernel.Unique_id.Int ()
-
-  (** new row id's on top of table *)
-  let compare a b = compare b a
-end
+module RowId = Int
 
 module Table = struct
   open Incr_dom_widgets
   include Table.Make (RowId) (Core_kernel.Int) (Table.Default_sort_spec)
 end
+
+module Form = Incr_dom_widgets.Form
 
 module Column = struct
   open Core_kernel
@@ -169,11 +166,6 @@ module Row = struct
       and from = period |> Option.map ~f:Period.from
       and till = period |> Option.map ~f:Period.till in
       {id; given; family; company; keyword; from; till; guests; rooms; beds}
-
-    let matches_pattern t pattern : bool =
-      let substring = String.lowercase pattern in
-      let matches s = String.is_substring ~substring (String.lowercase s) in
-      matches t.keyword
   end
 
   let view ?select (m : Model.t Incr.t) =
@@ -196,15 +188,14 @@ module Row = struct
 end
 
 module Model = struct
-  type t = {table: Table.Model.t; pattern: string} [@@deriving compare, fields]
+  type t = {table: Table.Model.t} [@@deriving compare, fields]
 
   let create () =
     { table=
         Table.Model.create
           ~scroll_margin:(Incr_dom_widgets.Table.Margin.uniform 5.)
           ~scroll_region:Window ~float_header:None ~float_first_col:None
-          ~height_guess:43. ()
-    ; pattern= "" }
+          ~height_guess:43. () }
 
   module Row :
     sig
@@ -217,60 +208,34 @@ module Model = struct
 end
 
 module Action = struct
-  type t = Table of Table.Action.t | Pattern of string
-  [@@deriving sexp_of, variants]
+  type t = Table of Table.Action.t [@@deriving sexp_of, variants]
 end
 
-let create_table customers pattern model ~old_model ~inject ~select =
-  let%bind pattern = pattern in
+let create_table rows model ~old_model ~inject ~select =
   let columns = List.map ~f:Column.to_table_widget_column Row.Model.columns in
   let columns = Incr.const (List.mapi columns ~f:(fun i col -> (i, col))) in
-  let rows =
-    Incr.Map.filter_mapi customers ~f:(fun ~key:_ ~data ->
-        Option.some_if (Row.Model.matches_pattern data pattern) data )
-  and render_row ~row_id:_ ~row = Row.view ~select row in
+  let render_row ~row_id:_ ~row = Row.view ~select row in
   Table.create model ~old_model ~rows ~columns ~render_row
     ~inject:(fun a -> inject (Action.Table a))
     ~attrs:[Attr.classes ["table"; "table-hover"; "table-sm"]]
 
 let create ~model ~old_model ~inject ~select rows =
-  let pattern = model >>| Model.pattern in
   let table =
     let model = model >>| Model.table
     and old_model = old_model >>| Model.table >>| Option.some in
-    create_table rows pattern ~select ~old_model ~inject model
+    create_table rows ~select ~old_model ~inject model
   in
-  let%map table = table
-  and model = model
-  and size = rows >>| RowId.Map.length in
+  let%map table = table and model = model in
   let apply_action (a : Action.t) _state ~schedule_action =
-    match a with
-    | Table a ->
-        let schedule_action = Fn.compose schedule_action Action.table in
-        let table = Component.apply_action ~schedule_action table a () in
-        {model with table}
-    | Pattern pattern -> {model with pattern}
-  and view =
-    let search =
-      Node.input
-        [ Attr.placeholder "Suche"
-        ; Attr.type_ "text"
-          (* TODO: Investigate whether the following creates a property or
-           an attribute. We want an attribute, such that on return to view,
-           the search field is filled. *)
-        ; Attr.create "value" model.pattern
-        ; Attr.on_input (fun _ev text -> inject (Pattern text)) ]
-        []
-    in
-    let counter =
-      let s = Printf.sprintf "%d Kunden geladen." size in
-      Node.text s
-    and table = Component.view table in
-    Node.div [] [Bs.row [search; counter]; Bs.row [table]]
+    match a with Table a ->
+      let schedule_action = Fn.compose schedule_action Action.table in
+      let table' = Component.apply_action ~schedule_action table a () in
+      Model.{table= table'}
+  and view = Component.view table
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.table in
-    let table = Component.update_visibility table ~schedule_action in
-    {model with table}
+    let table' = Component.update_visibility table ~schedule_action in
+    Model.{table= table'}
   and on_display _state ~schedule_action =
     let schedule_action = Fn.compose schedule_action Action.table in
     Component.on_display table ~schedule_action ()
