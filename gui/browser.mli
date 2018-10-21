@@ -38,7 +38,7 @@ module Date : sig
 
   val t_to_js : t -> Ojs.t
 
-  val now : int -> t [@@js.new "Date"]
+  val now : unit -> t [@@js.new "Date"]
 
   val of_int : int -> t [@@js.new "Date"]
 

@@ -96,10 +96,11 @@ module State = struct
   type t = unit
 end
 
-let view_search inject state =
+let view_head inject state =
   let open Vdom in
   let fld_id = Form.State.field_ids state search_form in
-  let col = Node.div [Attr.class_ "col-auto"] in
+  let col = Node.div [Attr.classes ["col-auto"; "mb-2"; "mt-2"]] in
+  let newc = Location.href_of Navigation.(path_of (Customer Customer.new_)) in
   Node.create "form"
     [Attr.on "submit" (fun _ -> inject Action.Search)]
     [ Node.div
@@ -108,7 +109,8 @@ let view_search inject state =
             [ Form.Input.text state fld_id
                 [Attr.class_ "form-control"; Attr.placeholder "Schlüsselwort"]
             ]
-        ; col [Bs.submit "Suchen"] ] ]
+        ; col [Bs.submit "Suchen"]
+        ; col [Bs.button' ~href:newc "Neu"] ] ]
 
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
@@ -202,7 +204,7 @@ let create model ~old_model ~inject =
     | Overview ->
         body
           [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
-          (Bs.rows [[view_search inject search_state]; [Component.view table]])
+          (Bs.rows [[view_head inject search_state]; [Component.view table]])
     | Customer -> body [] [Component.view customer]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
