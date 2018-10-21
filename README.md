@@ -6,9 +6,6 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 
 ## ToDo
 
-- fetch customers as required / specified by search
-- distinguish between table row id / customer id
-
 - revise/drop storage.mli
 - switch to atdgen?
 
@@ -18,8 +15,11 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 - overview: icons for room/guest/bed counts
 - overview: currently checked-in, upcoming
 
-- indicate saving/loading state
+- indicate unsaved state
+- hide customer form while no data present
+- indicate is saving/loading state
 - handle 50x status -> api/server not available
+
 - title handling (variant + dropdown)
 - indicate units in form fields (%, €, ...)
 
