@@ -13,7 +13,7 @@ include struct
   type entry = {id: int [@key "customer_id"]; data: Customer.t}
   [@@deriving of_yojson {strict= false}]
 
-  type response = entry list [@@deriving of_yojson]
+  type many = entry list [@@deriving of_yojson]
 end
 
 let base_url = sprintf "/api/%s"
@@ -23,15 +23,18 @@ let data_only json = `Assoc [("data", json)]
 let parse f x =
   match f x with Ok v -> Ok v | Error s -> Or_error.error_string s
 
-let single = function
-  | [e] -> Ok e
-  | _ -> Or_error.error_string "singleton list expected"
+let get_single_customer =
+  Request.(
+    create ~url:(base_url "customers")
+    |> want_json
+    |> Request.header ~key:"Accept" ~value:"application/vnd.pgrst.object+json"
+    |> conv_resp ~f:(parse entry_of_yojson))
 
 let get_all_customers =
   Request.(
     create ~url:(base_url "customers")
     |> want_json
-    |> conv_resp ~f:(parse response_of_yojson))
+    |> conv_resp ~f:(parse many_of_yojson))
 
 module Customer = struct
   type t = Customer.t
@@ -40,13 +43,13 @@ module Customer = struct
 
   let get id =
     Request.(
-      conv_resp ~f:single get_all_customers
+      get_single_customer
       |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
       |> map_resp ~f:(fun x -> x.data))
 
   let give_single =
     Request.(
-      give_json get_all_customers
+      give_json get_single_customer
       |> map_body ~f:data_only
       |> map_body ~f:Customer.to_yojson)
 
@@ -54,7 +57,6 @@ module Customer = struct
     Request.(
       verb POST give_single
       |> header ~key:"Prefer" ~value:"return=representation"
-      |> conv_resp ~f:single
       |> map_resp ~f:(fun x -> (x.id, x.data)))
 
   let patch id =
@@ -62,7 +64,6 @@ module Customer = struct
       verb PATCH give_single
       |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
       |> header ~key:"Prefer" ~value:"return=representation"
-      |> conv_resp ~f:single
       |> map_resp ~f:(fun x -> x.data))
 end
 
