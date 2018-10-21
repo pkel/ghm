@@ -4,6 +4,17 @@ open Incr_dom
 open Incr_dom_widgets
 open Incr.Let_syntax
 
+module Navigation = struct
+  type t = New | Id of int [@@deriving compare, sexp, variants]
+
+  let of_path = function
+    | ["new"] -> Some New
+    | [s] -> Option.map ~f:id (int_of_string_opt s)
+    | _ -> None
+
+  let to_path = function New -> ["new"] | Id i -> [string_of_int i]
+end
+
 let name_descr =
   let open Form.Description in
   let unvalidated =
@@ -197,17 +208,19 @@ module Model = struct
     { customer: Form.State.t
     ; booking: Form.State.t
     ; bookings: Booking.t list
+    ; nav: Navigation.t
     ; selected: int }
   [@@deriving compare, fields]
 
-  let load (c : Customer.t) =
+  let load nav (c : Customer.t) =
     let booking = match c.bookings with [] -> None | hd :: _ -> Some hd in
     { customer= Form.State.create ~init:c customer_form
     ; booking= Form.State.create ?init:booking booking_form
     ; bookings= c.bookings
+    ; nav
     ; selected= 0 }
 
-  let empty () = load Customer.empty
+  let create () = load New Customer.empty
 end
 
 module Action = struct
@@ -216,7 +229,10 @@ module Action = struct
         { customer: Form.State.t sexp_opaque
         ; booking: Form.State.t sexp_opaque }
     | SelectBooking of int
-  [@@deriving sexp]
+    | Navigate of Navigation.t
+    | Save
+    | GotCustomer of (int * Customer.t) Or_error.t
+  [@@deriving sexp, variants]
 end
 
 module State = struct
@@ -224,7 +240,7 @@ module State = struct
 end
 
 let apply_action (model : Model.t) (action : Action.t) (_state : State.t)
-    ~schedule_action:_ : Model.t =
+    ~schedule_action : Model.t =
   match action with
   | Update {customer; booking} ->
       Log.form customer ;
@@ -243,6 +259,54 @@ let apply_action (model : Model.t) (action : Action.t) (_state : State.t)
             Form.State.create ?init booking_form
           in
           {model with selected; bookings; booking} )
+  | Save -> (
+      let c_opt, customer = Form.State.read_value model.customer customer_form
+      and b_opt, booking = Form.State.read_value model.booking booking_form in
+      schedule_action (Action.Update {customer; booking}) ;
+      let bookings =
+        match b_opt with
+        | None -> model.bookings
+        | Some b ->
+            List.mapi model.bookings ~f:(fun i old ->
+                if i = model.selected then b else old )
+      in
+      match c_opt with
+      | None -> model
+      | Some c ->
+          let c = {c with bookings} in
+          let () =
+            match model.nav with
+            | New ->
+                let handler = Fn.compose schedule_action Action.gotcustomer in
+                Request.XHR.send ~body:c ~handler Remote.Customer.post
+            | Id id ->
+                let rq =
+                  Request.map_resp
+                    ~f:(fun c -> (id, c))
+                    (Remote.Customer.patch id)
+                in
+                let handler = Fn.compose schedule_action Action.gotcustomer in
+                Request.XHR.send ~body:c ~handler rq
+          in
+          model )
+  | GotCustomer response -> (
+    match response with
+    | Ok (id, c) -> Model.load (Id id) c
+    | Error e ->
+        Log.error e ;
+        model
+        (* TODO: display this to user, ideally don't show form without data. *)
+    )
+  | Navigate n -> (
+    match n with
+    | Id i ->
+        let rq =
+          Request.map_resp ~f:(fun c -> (i, c)) (Remote.Customer.get i)
+        in
+        let handler = Fn.compose schedule_action Action.gotcustomer in
+        Request.XHR.send' ~handler rq ;
+        Model.create ()
+    | New -> Model.create () )
 
 open Vdom
 
@@ -438,7 +502,7 @@ let view_customer state ids =
   and right = view_contact state contact in
   Node.div [] (Bs.rows [prepend_err_div state block []; [left; middle; right]])
 
-let view (model : Model.t Incr.t) ~back_href ~inject ~save =
+let view (model : Model.t Incr.t) ~back_href ~inject =
   let open Vdom in
   let%map customer_state = model >>| Model.customer
   and booking_state = model >>| Model.booking
@@ -446,19 +510,7 @@ let view (model : Model.t Incr.t) ~back_href ~inject ~save =
   and selected = model >>| Model.selected in
   let c_ids = Form.State.field_ids customer_state customer_form
   and b_ids = Form.State.field_ids booking_state booking_form in
-  let save _evt =
-    let c_opt, customer = Form.State.read_value customer_state customer_form
-    and b_opt, booking = Form.State.read_value booking_state booking_form in
-    let update = inject (Action.Update {customer; booking})
-    and bookings =
-      match b_opt with
-      | None -> bookings
-      | Some b ->
-          List.mapi bookings ~f:(fun i old -> if i = selected then b else old)
-    in
-    match c_opt with
-    | None -> update
-    | Some c -> Event.Many [save {c with bookings}; update]
+  let save _evt = inject Action.Save
   and selection = view_booking_list ~inject bookings ~selected in
   Node.create "form" []
     (Bs.rows
@@ -469,8 +521,8 @@ let view (model : Model.t Incr.t) ~back_href ~inject ~save =
        ; [Node.hr []]
        ; view_booking selection booking_state b_ids ])
 
-let create ~(save : Customer.t -> Vdom.Event.t) ~(back_href : string)
-    ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
-  let%map model = model and view = view ~inject ~back_href ~save model in
+let create ~(back_href : string) ~(inject : Action.t -> Vdom.Event.t)
+    (model : Model.t Incr.t) =
+  let%map model = model and view = view ~inject ~back_href model in
   let apply_action = apply_action model in
   Component.create ~apply_action model view
