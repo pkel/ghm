@@ -144,9 +144,9 @@ module Row = struct
         ~company:(add (module String) ~sort_by:lex_s "Firma" ~group:dsc)
         ~from:(add (module DateOpt) ~sort_by:dat_s "Von" ~group:visit)
         ~till:(add (module DateOpt) ~sort_by:dat_s "Bis" ~group:visit)
-        ~rooms:(add (module IntOpt) ~sort_by:int_s "#Zimmer" ~group:visit)
-        ~beds:(add (module IntOpt) ~sort_by:int_s "#Betten" ~group:visit)
-        ~guests:(add (module IntOpt) ~sort_by:int_s "#Gäste" ~group:visit)
+        ~rooms:(fun l _ -> l)
+        ~beds:(fun l _ -> l)
+        ~guests:(add (module IntOpt) ~sort_by:int_s "Gäste" ~group:visit)
       |> List.rev
 
     let of_customer ~id c : t =

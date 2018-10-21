@@ -1,7 +1,7 @@
 .PHONY: all watch format serve import clean-db clean
 
 all:
-	dune build gui/{app.bc.js,index.html,bootstrap.min.css} tools/combit.exe
+	dune build gui/{app.bc.js,index.html,assets/*/*} tools/combit.exe
 
 watch:
 	fd 'ml|dune' | entr -s 'make all'

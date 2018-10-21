@@ -7,3 +7,5 @@
  (targets browser.ml)
  (deps browser.mli)
  (action (run ocamlfind gen_js_api/gen_js_api browser.mli)))
+
+(ignored_subdirs (assets))
