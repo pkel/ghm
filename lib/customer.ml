@@ -3,14 +3,13 @@ open Core_kernel
 [@@@warning "-39"]
 
 module Name = struct
-  type t = {title: string; given: string; second: string; family: string}
+  type t = {title: string; letter: string; given: string; family: string}
   [@@deriving fields, compare, sexp, yojson]
 end
 
 module Address = struct
   type t =
-    { street: string
-    ; street_number: string
+    { street_with_num: string
     ; postal_code: string
     ; city: string
     ; country: string
@@ -50,11 +49,10 @@ let first_booking t : Booking.t option =
   match t.bookings with [] -> None | hd :: _ -> Some hd
 
 let empty =
-  { name= {title= ""; given= ""; second= ""; family= ""}
+  { name= {title= ""; letter= ""; given= ""; family= ""}
   ; company= {name= ""; address= ""}
   ; address=
-      { street= ""
-      ; street_number= ""
+      { street_with_num= ""
       ; postal_code= ""
       ; city= ""
       ; country= ""

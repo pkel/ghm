@@ -153,9 +153,7 @@ module Row = struct
       let summary =
         Customer.first_booking c |> Option.map ~f:Booking.summarize
       in
-      let period =
-        Option.map ~f:Booking.Summary.period summary |> Option.join
-      in
+      let period = Option.map ~f:Booking.Summary.period summary in
       let given = c.name.given
       and family = c.name.family
       and company = c.company.name

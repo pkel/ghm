@@ -21,7 +21,7 @@ let name_descr =
     let open Of_record in
     build_for_record
       (Customer.Name.Fields.make_creator ~title:(field string)
-         ~given:(field string) ~second:(field string) ~family:(field string))
+         ~given:(field string) ~letter:(field string) ~family:(field string))
   in
   conv unvalidated ~f:(fun t _ ~block_id:_ ->
       let errors = [] in
@@ -44,10 +44,9 @@ let address_descr =
   let unvalidated =
     let open Of_record in
     build_for_record
-      (Customer.Address.Fields.make_creator ~street:(field string)
-         ~street_number:(field string) ~postal_code:(field string)
-         ~city:(field string) ~country:(field string)
-         ~country_code:(field string))
+      (Customer.Address.Fields.make_creator ~street_with_num:(field string)
+         ~postal_code:(field string) ~city:(field string)
+         ~country:(field string) ~country_code:(field string))
   in
   conv unvalidated ~f:(fun t _ ~block_id:_ ->
       let errors = [] in
@@ -181,8 +180,7 @@ let room_descr =
       build_for_record
         (Booking.Fields_of_room.make_creator ~room:(field string)
            ~beds:(field int) ~price_per_bed:(field monetary)
-           ~factor:(field percent) ~description:(field string)
-           ~period:(field period)))
+           ~factor:(field percent) ~description:(field string)))
   in
   conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
 
@@ -192,10 +190,10 @@ let booking_descr =
     Of_record.(
       build_for_record
         (Booking.Fields.make_creator ~deposit_asked:(field monetary_opt)
-           ~deposit_got:(field monetary_opt) ~no_tax:(field bool)
-           ~note:(field string)
+           ~deposit_got:(field monetary_opt) ~note:(field string)
            ~guests:(field (list guest_descr))
-           ~rooms:(field (list room_descr))))
+           ~rooms:(field (list room_descr))
+           ~period:(field period)))
   in
   conv unvalidated ~f:(fun b _ ~block_id:_ -> Ok b)
 
@@ -242,7 +240,7 @@ module State = struct
   type t = unit
 end
 
-let _default_period () =
+let default_period () =
   let today = Ext_date.today () in
   let from = Date.add_days today 1 and till = Date.add_days today 2 in
   Period.of_dates from till
@@ -252,9 +250,9 @@ let fresh_booking () =
     { deposit_asked= None
     ; deposit_got= None
     ; note= ""
+    ; period= default_period ()
     ; guests= []
-    ; rooms= []
-    ; no_tax= false }
+    ; rooms= [] }
 
 let apply_action (model : Model.t) (action : Action.t) (_state : State.t)
     ~schedule_action : Model.t =
@@ -367,7 +365,7 @@ let prepend_err_div state (id : Form.Block.t Form.Id.t) rows =
 
 let group = Node.div [Attr.class_ "form-group"]
 
-let input_bool state label id =
+let _input_bool state label id =
   let classes, divs =
     match err_of_block state id with
     | None -> ([], [])
@@ -395,13 +393,13 @@ let input_str ?(input = Form.Input.text) ?(type_ = "text") state label id =
     @ divs )
 
 let view_name state ids =
-  let block, (title, (given, (second, (family, ())))) = ids in
+  let block, (title, (letter, (given, (family, ())))) = ids in
   Node.div []
     (Bs.rows
        [ prepend_err_div state block []
-       ; [input_str state "Titel" title; input_str state "Nachname" family]
-       ; [ input_str state "Vorname" given
-         ; input_str state "Weitere Vornamen" second ] ])
+       ; [input_str state "Titel" title; input_str state "Anrede Brief" letter]
+       ; [input_str state "Vorname" given; input_str state "Nachname" family]
+       ])
 
 let view_company state ids =
   let block, (name, (address, ())) = ids in
@@ -413,14 +411,14 @@ let view_company state ids =
 
 let view_address state ids =
   let ( block
-      , (street, (number, (postal_code, (city, (country, (country_code, ()))))))
+      , (street_with_num, (postal_code, (city, (country, (country_code, ())))))
       ) =
     ids
   in
   Node.div []
     (Bs.rows
        [ prepend_err_div state block []
-       ; [input_str state "Straße" street; input_str state "Hausnummer" number]
+       ; [input_str state "Straße und Hausnummer" street_with_num]
        ; [ input_str state "Postleitzahl" postal_code
          ; input_str state "Ort" city ]
        ; [input_str state "Land" country; input_str state "Code" country_code]
@@ -448,15 +446,12 @@ let view_period state ids =
   ; input_str state "Bis" ~type_:"date" till ]
 
 let view_room state ids =
-  let ( block
-      , (room, (beds, (price_per_bed, (factor, (description, (period, ()))))))
-      ) =
+  let block, (room, (beds, (price_per_bed, (factor, (description, ()))))) =
     ids
   in
   Node.div []
     (Bs.rows
        [ prepend_err_div state block []
-       ; view_period state period
        ; [input_str state "Nummer" room; input_str state "Betten" beds]
        ; [input_str state "Beschreibung" description]
        ; [ input_str state "Preis" price_per_bed
@@ -477,9 +472,10 @@ let textarea n state id attr =
 
 let view_booking ~inject selection state ids =
   let ( block
-      , ( deposit_asked
-        , ( deposit_got
-          , (no_tax, (note, ((guests, g_lst), ((rooms, r_lst), ())))) ) ) ) =
+      , ( period
+        , ( deposit_asked
+          , (deposit_got, (note, ((guests, g_lst), ((rooms, r_lst), ())))) ) )
+      ) =
     ids
   in
   let new_ lst_id _ev =
@@ -510,9 +506,9 @@ let view_booking ~inject selection state ids =
       (Bs.rows
          [ [selection]
          ; prepend_err_div state block []
+         ; view_period state period
          ; [ input_str state "Anzahlung gefordert" deposit_asked
            ; input_str state "Anzahlung erhalten" deposit_got ]
-         ; [input_bool state "Steuerfrei" no_tax]
          ; [input_str ~input:(textarea 8) state "Notiz" note] ])
   in
   [main; rooms; guests]
@@ -521,11 +517,9 @@ let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
   let f i b =
     let s = Booking.summarize b in
     let f, t =
-      match s.period with
-      | None -> ("n/a", "n/a")
-      | Some p ->
-          let open Period in
-          (Localize.date (from p), Localize.date (till p))
+      let p = s.period in
+      let open Period in
+      (Localize.date (from p), Localize.date (till p))
     in
     let e =
       Attr.

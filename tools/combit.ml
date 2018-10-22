@@ -28,6 +28,9 @@ let dat_opt r k =
 let coalesc prefer fallback =
   match prefer with None -> fallback | _ -> prefer
 
+let coalesc_str prefer fallback =
+  match prefer with "" -> fallback | _ -> prefer
+
 let period_of_row r : Period.t option =
   let from = coalesc (dat_opt r "AVON") (dat_opt r "ANREISE")
   and till = coalesc (dat_opt r "ABIS") (dat_opt r "ABREISE") in
@@ -40,27 +43,23 @@ let period_of_row r : Period.t option =
 
 let customer_note_of_row r : string =
   let f key prefix acc =
-    match str r key with
-    | "" -> acc
-    | s -> Printf.sprintf "%s%s: %s\n" acc prefix s
+    match str r key with "" -> acc | s -> sprintf "%s%s: %s\n" acc prefix s
   in
-  f "KUNDENNUMMER" "Kunden-Nr." ""
+  let id = coalesc_str (str r "GROUPID") (str r "RECORDID") in
+  sprintf "Importiert aus Combit (%s).\n" id
+  |> f "KUNDENNUMMER" "Kunden-Nr."
   |> f "KATEGORIE" "Kategorie" |> f "PLZP" "Plzp" |> f "POSTFACH" "Fach"
-  |> function
-  | "" -> "" | s -> Printf.sprintf "### Zusatzinfo aus Combit\n\n%s" s
 
 let customer_of_row r : Customer.t =
   let f = str r in
   { name=
-      { title= f "ANREDE" (* ; title_letter = f "ANREDEBR" *)
+      { title= f "ANREDE"
+      ; letter= f "ANREDEBR"
       ; given= f "VORNAME"
-      ; second= ""
       ; family= f "NAME" }
   ; company= {name= f "FIRMA"; address= f "ABTEILUNG"}
   ; address=
-      (* TODO: Read street number from street if absent *)
-      { street= f "STRASSE"
-      ; street_number= f "HNR"
+      { street_with_num= String.trim (f "STRASSE" ^ " " ^ f "HNR")
       ; city= f "ORT"
       ; postal_code= f "PLZZ"
       ; country= f "LAND___ausgeschrieben"
@@ -88,21 +87,16 @@ let booking_note_of_row r : string =
       match (art, preis) with
       | "", "0,00" -> acc
       | _ ->
-          Printf.sprintf "%s  - %sx %s à %s€ (%s%%)\n" acc anzahl art preis
+          Printf.sprintf "%s- %sx %s à %s€ (%s%%)\n" acc anzahl art preis
             proz
     in
-    f "ANZAHL1" "ART1" "PREIS1" "PROZ1" ""
+    sprintf "Importiert aus Combit (%s).\n\n" (str r "RECORDID")
+    |> f "ANZAHL1" "ART1" "PREIS1" "PROZ1"
     |> f "ANZAHL2" "ART2" "PREIS2" "PROZ2"
     |> f "ANZAHL3" "ART3" "PREIS3" "PROZ3"
     |> f "ANZAHL4" "ART4" "PREIS4" "PROZ4"
-    |> function
-    | "" -> "" | s -> Printf.sprintf "### Posten aus Combit\n\n%s\n" s
-  and bemerkung =
-    match str r "BEMAUFE" with
-    | "" -> ""
-    | s -> Printf.sprintf "### Bemerkung aus Combit\n\n%s" s
-  in
-  posten ^ bemerkung
+  and bemerkung = str r "BEMAUFE" in
+  String.trim (sprintf "%s\n%s" posten bemerkung)
 
 let guests_of_row r : Booking.guest list =
   let f given family born acc : Booking.guest list =
@@ -120,34 +114,44 @@ let guests_of_row r : Booking.guest list =
   |> f "P_VORNAME5" "P_NAME5" "GEB_DAT05"
   |> f "P_VORNAME6" "P_NAME6" "GEB_DAT06"
 
+let room_of_row_opt r room i : Booking.room option =
+  let price = flt_opt r (sprintf "PREIS%i" i)
+  and description = str r (sprintf "ART%i" i)
+  and percent =
+    Option.value ~default:100 (int_of_string_opt (str r (sprintf "PROZ%i" i)))
+  in
+  if description = "Kurtaxe" then None
+  else
+    match price with
+    | Some price_per_bed when price_per_bed <> 0. ->
+        Some
+          { room
+          ; beds= percent / 100
+          ; price_per_bed
+          ; factor= float_of_int percent /. 100.
+          ; description }
+    | _ -> None
+
 let rooms_of_row r : Booking.room list =
-  let open Booking in
-  (* TODO: import more fields *)
-  match period_of_row r with
-  | Some period ->
-      [ { period
-        ; room= "n/a"
-        ; beds= 0
-        ; price_per_bed= 0.
-        ; factor= 1.
-        ; description= "aus Combit" } ]
-  | None -> []
+  let room = str r "ZIMMER" in
+  List.filter_opt
+    (List.map [1; 2; 3; 4] ~f:(fun i -> room_of_row_opt r room i))
 
 let booking_of_row r : Booking.t option =
-  match rooms_of_row r with
-  | [] -> None
-  | rooms ->
+  match period_of_row r with
+  | None -> None
+  | Some period ->
       Some
         { deposit_asked= flt_nz_opt r "AGEF"
         ; deposit_got= flt_nz_opt r "AEING"
         ; note= booking_note_of_row r
-        ; no_tax= false
         ; guests= guests_of_row r
-        ; rooms }
+        ; period
+        ; rooms= rooms_of_row r }
 
 let row db r =
-  let bids = Csv.Row.find r "RECORDID" in
-  let cids = Csv.Row.find r "GROUPID" in
+  let bids = str r "RECORDID" in
+  let cids = str r "GROUPID" in
   let bid = int_of_string bids in
   let cid =
     match int_of_string_opt cids with None -> bid | Some cid -> cid
@@ -162,6 +166,7 @@ let row db r =
     match booking_of_row r with Some b -> b :: bookings | None -> bookings
   in
   let c = customer_of_row r in
+  (* TODO: This assumes that best customer data is at the end of the table *)
   Int.Map.set db ~key:cid ~data:{c with bookings}
 
 include struct

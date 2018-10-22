@@ -4,13 +4,18 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 
 [gh:incr_dom]: https://github.com/janestreet/incr_dom
 
+## Question
+
+- migration: latest record/booking equals best customer data?
+
 ## ToDo
 
 - switch to atdgen?
 
 - automatic save (on leave / by time)
-- customer_form model as set of form states
 - new booking/guest/room: copy the last one / sensible defaults
+
+- deletion of customer/booking/room/guest
 
 - indicate unsaved state
 - hide customer form while no data present
@@ -24,7 +29,6 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 - letter templates (first clipboard, then mailto / openoffice / print)
 
 - advanced search, potentially powered by database backend
-- migration: street number, #beds, multiple rooms
 - authentication with backend
 - smart form: country code, zip and area code lookup; first guest from
   main data; further guest with pre-filled family name; room description
