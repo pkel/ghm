@@ -1,6 +1,6 @@
 open Ghm
-module Date = Core_kernel.Date
-module Option = Core_kernel.Option
+open Core_kernel
+module String = Caml.String
 
 let str r f = Csv.Row.find r f |> String.trim
 
@@ -154,7 +154,7 @@ let row db r =
   in
   let bookings =
     let open Customer in
-    match Storage.load db cid with
+    match Int.Map.find db cid with
     | Some {bookings; _} -> bookings
     | None -> []
   in
@@ -162,7 +162,7 @@ let row db r =
     match booking_of_row r with Some b -> b :: bookings | None -> bookings
   in
   let c = customer_of_row r in
-  Storage.save db ~key:cid ~data:{c with bookings}
+  Int.Map.set db ~key:cid ~data:{c with bookings}
 
 include struct
   [@@@warning "-39"]
@@ -174,20 +174,23 @@ end
 
 let main () =
   (* Read *)
-  let ch = if Array.length Sys.argv > 1 then open_in Sys.argv.(1) else stdin in
+  let ch =
+    if Array.length Sys.argv > 1 then In_channel.create Sys.argv.(1)
+    else In_channel.stdin
+  in
   Printf.eprintf "reading...%!" ;
   let db =
     Csv.of_channel ~separator:';' ~has_header:true ch
-    |> Csv.Rows.fold_left ~f:row ~init:Storage.empty
+    |> Csv.Rows.fold_left ~f:row ~init:Int.Map.empty
   in
   (* Write *)
-  Printf.eprintf "\r%d customers read.\n%!" (Storage.size db) ;
+  Printf.eprintf "\r%d customers read.\n%!" (Int.Map.length db) ;
   let l =
     Core_kernel.Int.Map.fold_right db
       ~f:(fun ~key:_ ~data acc -> {data} :: acc)
       ~init:[]
   in
-  let y = [%to_yojson: wrapped list] l in
+  let y = Caml.([%to_yojson: wrapped list]) l in
   Yojson.Safe.to_channel stdout y
 
 let () = main ()

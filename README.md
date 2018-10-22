@@ -6,7 +6,6 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 
 ## ToDo
 
-- revise/drop storage.mli
 - switch to atdgen?
 
 - automatic save (on leave / by time)
@@ -18,7 +17,7 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 - indicate is saving/loading state
 - handle 50x status -> api/server not available
 
-- title handling (variant + dropdown)
+- title handling (letter? suggestions?)
 - indicate units in form fields (%, €, ...)
 
 - backwards compatible export to clipboard for billing

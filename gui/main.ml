@@ -53,7 +53,8 @@ module Navigation = struct
 end
 
 module Model = struct
-  type customer = {row: int; data: Customer.t} [@@deriving compare]
+  (* TODO: make this Customer.with_id? *)
+  type customer = {id: int; data: Customer.t} [@@deriving compare]
 
   type view = Overview | Customer [@@deriving compare]
 
@@ -66,16 +67,12 @@ module Model = struct
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
-
-  (* let min_row_id =
-    Int.Map.fold ~init:Int.max_value ~f:(fun ~key:_ ~data a -> min data.row a)
-    *)
 end
 
 let search_form = Form.(create ~name:"keyword search" Description.string)
 
 let init () : Model.t =
-  { Model.customers= Storage.empty
+  { Model.customers= Int.Map.empty
   ; customer_table= Customer_table.Model.create ()
   ; customer_form= Customer_form.Model.create ()
   ; view= Model.Overview
@@ -122,12 +119,8 @@ let create model ~old_model ~inject =
       inject (Action.navigate Navigation.(Customer (Customer.id i)))
     and inject = Fn.compose inject Action.customertable
     and rows =
-      Incr_map.unordered_fold customers ~init:Int.Map.empty
-        ~add:(fun ~key:id ~data acc ->
-          let key = data.row in
-          let data = Customer_table.Model.Row.of_customer ~id data.data in
-          Int.Map.set ~key ~data acc )
-        ~remove:(fun ~key:_ ~data acc -> Int.Map.remove acc data.row)
+      Incr_map.mapi customers ~f:(fun ~key:_ ~data ->
+          Customer_table.Model.Row.of_customer ~id:data.id data.data )
     in
     Customer_table.create rows ~old_model ~inject ~select ~model
   in
@@ -146,7 +139,7 @@ let create model ~old_model ~inject =
     | GotCustomers l ->
         let open Model in
         let customers =
-          List.mapi l ~f:(fun i (id, c) -> (id, {row= i; data= c}))
+          List.mapi l ~f:(fun i (id, data) -> (i, {id; data}))
           |> Int.Map.of_alist_or_error
           |> function Error e -> Log.error e ; Int.Map.empty | Ok m -> m
         in
