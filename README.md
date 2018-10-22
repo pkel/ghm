@@ -9,11 +9,9 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 - revise/drop storage.mli
 - switch to atdgen?
 
-- allow creation/deletion of customer/booking/guest/room
 - automatic save (on leave / by time)
-
-- overview: icons for room/guest/bed counts
-- overview: currently checked-in, upcoming
+- customer_form model as set of form states
+- new booking/guest/room: copy the last one / sensible defaults
 
 - indicate unsaved state
 - hide customer form while no data present
@@ -37,3 +35,6 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 - in-app billing or interop with libreoffice
 - room allocation tool/view
 - offline mode
+- overview: currently checked-in, upcoming
+
+- remove font-awesome bits, if not used
