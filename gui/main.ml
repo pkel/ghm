@@ -188,8 +188,7 @@ let create model ~old_model ~inject =
           | None -> ()
           | Some s ->
               Request.XHR.send'
-                Remote.Customers.(
-                  get ~limit:250 ~sort:(Desc Modified) ~filter:(Keyword s) ())
+                Remote.Customers.(get ~limit:250 ~filter:(Keyword s) ())
                 ~handler:(function
                   | Error e -> Log.error e
                   | Ok l -> schedule_action (Action.GotCustomers l))
@@ -224,7 +223,5 @@ let on_startup ~schedule_action _model =
     | Ok page -> schedule_action (Action.GotCustomers page)
     | Error e -> Log.error e
   in
-  Request.XHR.send'
-    Remote.(Customers.get ~sort:(Desc Customers.Modified) ~limit:250 ())
-    ~handler ;
+  Request.XHR.send' Remote.(Customers.get ~limit:250 ()) ~handler ;
   Async_kernel.Deferred.unit

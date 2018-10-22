@@ -24,7 +24,7 @@ module Customers : sig
   val get :
        ?offset:int
     -> ?limit:int
-    -> ?sort:key order
+    -> ?sort:key order list
     -> ?filter:filter
     -> unit
     -> (unit, t) Request.t

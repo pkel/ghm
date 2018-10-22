@@ -80,7 +80,10 @@ module Customers = struct
 
   let string_of_order = string_of_order string_of_key
 
-  let get ?offset ?limit ?sort ?filter () =
+  let string_of_sort l =
+    List.map ~f:string_of_order l |> String.concat ~sep:","
+
+  let get ?offset ?limit ?(sort = [Desc Modified; Desc Id]) ?filter () =
     let opt_param to_string key = function
       | Some i -> Request.param ~key ~value:(to_string i)
       | None -> Fn.id
@@ -89,7 +92,7 @@ module Customers = struct
       get_all_customers
       |> opt_param string_of_int "offset" offset
       |> opt_param string_of_int "limit" limit
-      |> opt_param string_of_order "order" sort
+      |> param ~key:"order" ~value:(string_of_sort sort)
       |> opt_param string_of_filter "keyword" filter
       |> map_resp ~f:(List.map ~f:(fun r -> (r.id, r.data))))
 end
