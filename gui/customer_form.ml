@@ -208,7 +208,8 @@ module Model = struct
     { customer_f: Form.State.t
     ; booking_f:
         Form.State.t
-        (* TODO: use one form, avoid having the copy of customer here *)
+        (* TODO: use one form states only, avoid having the copy of customer here
+             a list of form states might do for the bookings. *)
     ; customer: Customer.t
     ; nav: Navigation.t
     ; selected: int }
@@ -233,6 +234,7 @@ module Action = struct
     | Navigate of Navigation.t
     | GotCustomer of (int * Customer.t) Or_error.t
     | Save
+    | NewBooking
   [@@deriving sexp, variants]
 end
 
@@ -244,6 +246,15 @@ let _default_period () =
   let today = Ext_date.today () in
   let from = Date.add_days today 1 and till = Date.add_days today 2 in
   Period.of_dates from till
+
+let fresh_booking () =
+  Booking.
+    { deposit_asked= None
+    ; deposit_got= None
+    ; note= ""
+    ; guests= []
+    ; rooms= []
+    ; no_tax= false }
 
 let apply_action (model : Model.t) (action : Action.t) (_state : State.t)
     ~schedule_action : Model.t =
@@ -300,6 +311,26 @@ let apply_action (model : Model.t) (action : Action.t) (_state : State.t)
                 Request.XHR.send ~body:c ~handler rq
           in
           model )
+  | NewBooking -> (
+      let b_opt, booking_f =
+        Form.State.read_value model.booking_f booking_form
+      in
+      schedule_action (Action.Update_b booking_f) ;
+      match b_opt with
+      | None -> (* booking form blocked by error *) model
+      | Some b ->
+          (* save current booking, create new, reload *)
+          let new_b = fresh_booking () in
+          (* TODO: copy latest booking with new datem currently a bug is doing it *)
+          let booking_f = Form.State.create ~init:new_b booking_form in
+          let bookings =
+            new_b
+            :: List.mapi model.customer.bookings ~f:(fun i old ->
+                   if i = model.selected then b else old )
+          in
+          { model with
+            customer= {model.customer with bookings}; selected= 0; booking_f }
+      )
   | GotCustomer response -> (
     match response with
     | Ok (id, c) -> Model.load (Id id) c
@@ -535,15 +566,19 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   let c_ids = Form.State.field_ids customer_f customer_form
   and b_ids = Form.State.field_ids booking_f booking_form in
   let save _evt = inject Action.Save
-  and selection = view_booking_list ~inject bookings ~selected in
+  and new_b _evt = inject Action.NewBooking
+  and selection = view_booking_list ~inject bookings ~selected
+  and colattr = [Attr.classes ["col-auto"; "mt-2"]] in
   Node.create "form" []
-    (Bs.rows
-       [ [ Bs.button' ~href:back_href "Übersicht"
-         ; Bs.button ~action:save "Speichern" ]
-       ; [Node.hr []]
-       ; [view_customer customer_f c_ids]
-       ; [Node.hr []]
-       ; view_booking ~inject selection booking_f b_ids ])
+    ( Node.div [Attr.class_ "row"]
+        [ Node.div colattr [Bs.button' ~href:back_href "Zurück"]
+        ; Node.div colattr [Bs.button ~action:save "Speichern"]
+        ; Node.div colattr [Bs.button ~action:new_b "Neue Buchung"] ]
+    :: Bs.rows
+         [ [Node.hr []]
+         ; [view_customer customer_f c_ids]
+         ; [Node.hr []]
+         ; view_booking ~inject selection booking_f b_ids ] )
 
 let create ~(back_href : string) ~(inject : Action.t -> Vdom.Event.t)
     (model : Model.t Incr.t) =
