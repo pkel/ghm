@@ -9,7 +9,7 @@ type t =
   ; guests: guest list
   ; rooms: room list }
 
-and guest = {given: string; second: string; family: string; born: Date.t option}
+and guest = {given: string; family: string; born: Date.t option}
 
 and room =
   { room: string

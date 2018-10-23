@@ -115,7 +115,7 @@ let monetary_opt =
             Error
               [ Form.Form_error.create ~id
                   (Error.of_string "Geldwert erwartet.") ] )
-  |> contra_map ~f:(function None -> "" | Some x -> string_of_float x)
+  |> contra_map ~f:(function None -> "" | Some x -> sprintf "%.2f" x)
 
 let monetary =
   let open Form.Description in
@@ -128,7 +128,7 @@ let monetary =
             Error
               [ Form.Form_error.create ~id
                   (Error.of_string "Geldwert erwartet.") ] )
-  |> contra_map ~f:(function 0. -> "" | x -> string_of_float x)
+  |> contra_map ~f:(function 0. -> "" | x -> sprintf "%.2f" x)
 
 let int =
   let open Form.Description in
@@ -169,7 +169,7 @@ let guest_descr =
     Of_record.(
       build_for_record
         (Booking.Fields_of_guest.make_creator ~given:(field string)
-           ~second:(field string) ~family:(field string) ~born:(field opt_date)))
+           ~family:(field string) ~born:(field opt_date)))
   in
   conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
 
@@ -379,7 +379,8 @@ let _input_bool state label id =
       ; Node.label [Attr.class_ "form-check-label"] [Node.text label] ]
     @ divs )
 
-let input_str ?(input = Form.Input.text) ?(type_ = "text") state label id =
+let input_str ?(attr = []) ?(input = Form.Input.text) ?(type_ = "text") state
+    label id =
   let classes, divs =
     match err_of_block state id with
     | None -> ([], [])
@@ -389,8 +390,12 @@ let input_str ?(input = Form.Input.text) ?(type_ = "text") state label id =
   group
     ( [ Node.label [] [Node.text label]
       ; input state id
-          [Attr.classes ("form-control" :: classes); Attr.type_ type_] ]
+          (Attr.classes ("form-control" :: classes) :: Attr.type_ type_ :: attr)
+      ]
     @ divs )
+
+let input_number ~step =
+  input_str ~attr:[Attr.create "step" (string_of_float step)] ~type_:"number"
 
 let view_name state ids =
   let block, (title, (letter, (given, (family, ())))) = ids in
@@ -452,20 +457,32 @@ let view_room state ids =
   Node.div []
     (Bs.rows
        [ prepend_err_div state block []
-       ; [input_str state "Nummer" room; input_str state "Betten" beds]
+       ; [ input_str state "Nummer" room
+         ; input_number ~step:1. state "Betten" beds ]
        ; [input_str state "Beschreibung" description]
-       ; [ input_str state "Preis" price_per_bed
-         ; input_str state "Faktor" factor ] ])
+       ; [ input_number ~step:0.01 state "Preis" price_per_bed
+         ; input_number ~step:1. state "Faktor" factor
+           (* TODO
+<div class="col align-self-end text-right">
+  <a href="" class="btn btn-secondary" role="button" tabindex="-1">Löschen</a>
+</div>
+*)
+         ; Bs.button' ~href:"" "Löschen" ] ])
 
 let view_guest state ids =
-  let block, (given, (second, (family, (born, ())))) = ids in
+  let block, (given, (family, (born, ()))) = ids in
   Node.div []
     (Bs.rows
        [ prepend_err_div state block []
-       ; [ input_str state "Vorname" given
-         ; input_str state "Weitere Vornamen" second ]
-       ; [ input_str state "Nachname" family
-         ; input_str state "Geburtstag" ~type_:"date" born ] ])
+       ; [input_str state "Vorname(n)" given; input_str state "Nachname" family]
+       ; [ input_str state "Geburtstag" ~type_:"date" born
+         ; Bs.button' ~href:"" "Löschen" ] ])
+
+(* TODO
+<div class="col align-self-end text-right">
+  <a href="" class="btn btn-secondary" role="button" tabindex="-1">Löschen</a>
+</div>
+*)
 
 let textarea n state id attr =
   Form.Input.textarea state id (Attr.create "rows" (string_of_int n) :: attr)
@@ -507,8 +524,8 @@ let view_booking ~inject selection state ids =
          [ [selection]
          ; prepend_err_div state block []
          ; view_period state period
-         ; [ input_str state "Anzahlung gefordert" deposit_asked
-           ; input_str state "Anzahlung erhalten" deposit_got ]
+         ; [ input_number ~step:0.01 state "Anzahlung gefordert" deposit_asked
+           ; input_number ~step:0.01 state "Anzahlung erhalten" deposit_got ]
          ; [input_str ~input:(textarea 8) state "Notiz" note] ])
   in
   [main; rooms; guests]

@@ -105,7 +105,7 @@ let guests_of_row r : Booking.guest list =
     and born = dat_opt r born in
     match (given, family, born) with
     | "", "", None -> acc
-    | _ -> {given; second= ""; family; born} :: acc
+    | _ -> {given; family; born} :: acc
   in
   f "VORNAME" "NAME" "GEB_DAT01" []
   |> f "P_VORNAME" "P_NAME" "GEB_DAT02"
