@@ -399,20 +399,21 @@ let input_number ~step =
 
 let view_name state ids =
   let block, (title, (letter, (given, (family, ())))) = ids in
-  Node.div []
-    (Bs.rows
-       [ prepend_err_div state block []
-       ; [input_str state "Titel" title; input_str state "Anrede Brief" letter]
-       ; [input_str state "Vorname" given; input_str state "Nachname" family]
-       ])
+  Bs.Grid.
+    [ frow [col (prepend_err_div state block [])]
+    ; frow
+        [ col4 [input_str state "Titel" title]
+        ; col8 [input_str state "Anrede Brief" letter] ]
+    ; frow
+        [ col [input_str state "Vorname" given]
+        ; col [input_str state "Nachname" family] ] ]
 
 let view_company state ids =
   let block, (name, (address, ())) = ids in
-  Node.div []
-    (Bs.rows
-       [ prepend_err_div state block []
-       ; [input_str state "Firma" name]
-       ; [input_str state "Abteilung" address] ])
+  Bs.Grid.
+    [ frow [col (prepend_err_div state block [])]
+    ; frow [col [input_str state "Firma" name]]
+    ; frow [col [input_str state "Abteilung" address]] ]
 
 let view_address state ids =
   let ( block
@@ -420,14 +421,15 @@ let view_address state ids =
       ) =
     ids
   in
-  Node.div []
-    (Bs.rows
-       [ prepend_err_div state block []
-       ; [input_str state "Straße und Hausnummer" street_with_num]
-       ; [ input_str state "Postleitzahl" postal_code
-         ; input_str state "Ort" city ]
-       ; [input_str state "Land" country; input_str state "Code" country_code]
-       ])
+  Bs.Grid.
+    [ frow [col (prepend_err_div state block [])]
+    ; frow [col [input_str state "Straße und Hausnummer" street_with_num]]
+    ; frow
+        [ col4 [input_str state "Postleitzahl" postal_code]
+        ; col8 [input_str state "Ort" city] ]
+    ; frow
+        [ col8 [input_str state "Land" country]
+        ; col4 [input_str state "Code" country_code] ] ]
 
 let view_contact state ids =
   let ( block
@@ -435,54 +437,57 @@ let view_contact state ids =
       ) =
     ids
   in
-  Node.div []
-    (Bs.rows
-       [ prepend_err_div state block []
-       ; [input_str state "Telefon" phone; input_str state "Telefon" phone2]
-       ; [input_str state "Mobil" mobile]
-       ; [input_str state "Fax" fax; input_str state "Fax" fax2]
-       ; [input_str state "Mail" mail]
-       ; [input_str state "Mail" mail2]
-       ; [input_str state "Internet" web] ])
+  Bs.Grid.
+    [ frow [col (prepend_err_div state block [])]
+    ; frow
+        [ col [input_str state "Telefon" phone]
+        ; col [input_str state "Telefon" phone2] ]
+    ; frow [col [input_str state "Mobil" mobile]]
+    ; frow [col [input_str state "Fax" fax]; col [input_str state "Fax" fax2]]
+    ; frow [col [input_str state "Mail" mail]]
+    ; frow [col [input_str state "Mail" mail2]]
+    ; frow [col [input_str state "Internet" web]] ]
 
 let view_period state ids =
   let from, till = ids in
-  [ input_str state "Von" ~type_:"date" from
-  ; input_str state "Bis" ~type_:"date" till ]
+  Bs.Grid.(
+    frow
+      [ col [input_str state "Von" ~type_:"date" from]
+      ; col [input_str state "Bis" ~type_:"date" till] ])
 
 let view_room state ids =
   let block, (room, (beds, (price_per_bed, (factor, (description, ()))))) =
     ids
   in
-  Node.div []
-    (Bs.rows
-       [ prepend_err_div state block []
-       ; [ input_str state "Nummer" room
-         ; input_number ~step:1. state "Betten" beds ]
-       ; [input_str state "Beschreibung" description]
-       ; [ input_number ~step:0.01 state "Preis" price_per_bed
-         ; input_number ~step:1. state "Faktor" factor
-           (* TODO
-<div class="col align-self-end text-right">
-  <a href="" class="btn btn-secondary" role="button" tabindex="-1">Löschen</a>
-</div>
-*)
-         ; Bs.button' ~href:"" "Löschen" ] ])
+  Bs.Grid.
+    [ frow [col2 (prepend_err_div state block [])]
+    ; frow
+        [ col3 [input_str state "Nummer" room]
+        ; col9 [input_str state "Beschreibung" description] ]
+    ; frow
+        [ col3 [input_number ~step:1. state "Betten" beds]
+        ; col3 [input_number ~step:0.01 state "Preis" price_per_bed]
+        ; col3 [input_number ~step:1. state "Faktor" factor]
+        ; col3
+            ~c:["align-self-end"; "text-right"]
+            [ Bs.button' ~i:(R "trash-alt") ~style:"outline-danger"
+                ~attr:[A.create "tabindex" "-1"] ~href:"" "Zimmer Löschen" ]
+        ] ]
 
 let view_guest state ids =
   let block, (given, (family, (born, ()))) = ids in
-  Node.div []
-    (Bs.rows
-       [ prepend_err_div state block []
-       ; [input_str state "Vorname(n)" given; input_str state "Nachname" family]
-       ; [ input_str state "Geburtstag" ~type_:"date" born
-         ; Bs.button' ~href:"" "Löschen" ] ])
-
-(* TODO
-<div class="col align-self-end text-right">
-  <a href="" class="btn btn-secondary" role="button" tabindex="-1">Löschen</a>
-</div>
-*)
+  Bs.Grid.
+    [ frow [col (prepend_err_div state block [])]
+    ; frow
+        [ col [input_str state "Vorname(n)" given]
+        ; col [input_str state "Nachname" family] ]
+    ; frow
+        [ col [input_str state "Geburtsdatum" ~type_:"date" born]
+        ; col
+            ~c:["align-self-end"; "text-right"]
+            [ Bs.button' ~i:(R "trash-alt") ~style:"outline-danger"
+                ~attr:[A.create "tabindex" "-1"] ~href:"" "Gast Löschen" ] ]
+    ]
 
 let textarea n state id attr =
   Form.Input.textarea state id (Attr.create "rows" (string_of_int n) :: attr)
@@ -506,29 +511,27 @@ let view_booking ~inject selection state ids =
   in
   let new_g = new_ g_lst and new_r = new_ r_lst in
   let guests =
-    Node.div []
-      ( Node.h4 [] [Node.text "Gäste"]
-        :: List.concat_map guests ~f:(fun ids ->
-               [Node.hr []; view_guest state ids] )
-      @ [Node.hr []; Node.div [] [Bs.button ~action:new_g "Weiterer Gast"]] )
+    Node.h4 [] [Node.text "Gäste"]
+    :: List.concat_map guests ~f:(fun ids -> Node.hr [] :: view_guest state ids)
+    @ [Node.hr []; Node.div [] [Bs.button ~action:new_g "Weiterer Gast"]]
   and rooms =
-    Node.div []
-      ( Node.h4 [] [Node.text "Zimmer"]
-        :: List.concat_map rooms ~f:(fun ids ->
-               [Node.hr []; view_room state ids] )
-      @ [Node.hr []; Node.div [] [Bs.button ~action:new_r "Weiteres Zimmer"]]
-      )
+    Node.h4 [] [Node.text "Zimmer"]
+    :: List.concat_map rooms ~f:(fun ids -> Node.hr [] :: view_room state ids)
+    @ [Node.hr []; Node.div [] [Bs.button ~action:new_r "Weiteres Zimmer"]]
   and main =
-    Node.div []
-      (Bs.rows
-         [ [selection]
-         ; prepend_err_div state block []
-         ; view_period state period
-         ; [ input_number ~step:0.01 state "Anzahlung gefordert" deposit_asked
-           ; input_number ~step:0.01 state "Anzahlung erhalten" deposit_got ]
-         ; [input_str ~input:(textarea 8) state "Notiz" note] ])
+    Bs.Grid.
+      [ frow [col [selection]]
+      ; frow [col (prepend_err_div state block [])]
+      ; view_period state period
+      ; frow
+          [ col
+              [ input_number ~step:0.01 state "Anzahlung gefordert"
+                  deposit_asked ]
+          ; col [input_number ~step:0.01 state "Anzahlung erhalten" deposit_got]
+          ]
+      ; frow [col [input_str ~input:(textarea 8) state "Notiz" note]] ]
   in
-  [main; rooms; guests]
+  Bs.Grid.(row [col main; col rooms; col guests])
 
 let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
   let f i b =
@@ -559,14 +562,15 @@ let view_customer state ids =
     ids
   in
   let left =
-    Node.div []
-      [ input_str state "Schlüsselwort" keyword
-      ; view_name state name
-      ; input_str ~input:(textarea 8) state "Notiz" note ]
-  and middle =
-    Node.div [] [view_address state address; view_company state company]
+    Bs.Grid.(
+      frow [col [input_str state "Schlüsselwort" keyword]]
+      :: view_name state name
+      @ [frow [col [input_str ~input:(textarea 8) state "Notiz" note]]])
+  and middle = view_address state address @ view_company state company
   and right = view_contact state contact in
-  Node.div [] (Bs.rows [prepend_err_div state block []; [left; middle; right]])
+  Bs.Grid.
+    [ row (prepend_err_div state block [])
+    ; row [col left; col middle; col right] ]
 
 let view (model : Model.t Incr.t) ~back_href ~inject =
   let open Vdom in
@@ -580,16 +584,17 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   and new_b _evt = inject Action.NewBooking
   and selection = view_booking_list ~inject bookings ~selected
   and colattr = [Attr.classes ["col-auto"; "mt-2"]] in
-  Node.create "form" []
-    ( Node.div [Attr.class_ "row"]
-        [ Node.div colattr [Bs.button' ~href:back_href "Zurück"]
-        ; Node.div colattr [Bs.button ~action:save "Speichern"]
-        ; Node.div colattr [Bs.button ~action:new_b "Neue Buchung"] ]
-    :: Bs.rows
-         [ [Node.hr []]
-         ; [view_customer customer_f c_ids]
-         ; [Node.hr []]
-         ; view_booking ~inject selection booking_f b_ids ] )
+  let rows =
+    let open Bs.Grid in
+    [ [ row
+          [ Node.div colattr [Bs.button' ~href:back_href "Zurück"]
+          ; Node.div colattr [Bs.button ~action:save "Speichern"]
+          ; Node.div colattr [Bs.button ~action:new_b "Neue Buchung"] ]
+      ; Node.hr [] ]
+    ; view_customer customer_f c_ids
+    ; [Node.hr []; view_booking ~inject selection booking_f b_ids] ]
+  in
+  Node.create "form" [] (List.concat rows)
 
 let create ~(back_href : string) ~(inject : Action.t -> Vdom.Event.t)
     (model : Model.t Incr.t) =

@@ -196,7 +196,7 @@ let create model ~old_model ~inject =
     | Overview ->
         body
           [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
-          (Bs.rows [[view_head inject search_state]; [Component.view table]])
+          [view_head inject search_state; Component.view table]
     | Customer -> body [] [Component.view customer]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in

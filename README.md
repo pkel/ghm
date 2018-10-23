@@ -12,7 +12,7 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 
 - switch to atdgen?
 
-- proper grid for customer form
+- use datalist to suggest values (anrede, preis, beschreibung, ...)
 
 - automatic save (on leave / by time)
 - new booking/guest/room: copy the last one / sensible defaults
