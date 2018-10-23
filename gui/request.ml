@@ -1,6 +1,11 @@
 open Core_kernel
 
-type verb = GET | POST | PUT | PATCH | DELETE
+type verb =
+  | GET
+  | POST
+  | PUT
+  | PATCH
+  | DELETE
 
 let string_of_verb = function
   | GET -> "GET"
@@ -8,52 +13,52 @@ let string_of_verb = function
   | PUT -> "PUT"
   | PATCH -> "PATCH"
   | DELETE -> "DELETE"
+;;
 
 type ('a, 'b) t =
-  { body: 'a -> string
-  ; resp: string -> 'b Or_error.t
-  ; url: string
-  ; verb: verb
-  ; params: string option String.Map.t
-  ; headers: string String.Map.t }
+  { body : 'a -> string
+  ; resp : string -> 'b Or_error.t
+  ; url : string
+  ; verb : verb
+  ; params : string option String.Map.t
+  ; headers : string String.Map.t }
 
 let create ~url =
-  { verb= GET
-  ; resp= (fun s -> Ok s)
-  ; body= (fun () -> "")
+  { verb = GET
+  ; resp = (fun s -> Ok s)
+  ; body = (fun () -> "")
   ; url
-  ; params= String.Map.empty
-  ; headers= String.Map.empty }
+  ; params = String.Map.empty
+  ; headers = String.Map.empty }
+;;
 
-let conv_resp ~f t = {t with resp= Fn.compose (Or_error.bind ~f) t.resp}
-
-let map_resp ~f t = {t with resp= Fn.compose (Or_error.map ~f) t.resp}
-
-let map_body ~f t = {t with body= Fn.compose t.body f}
-
+let conv_resp ~f t = {t with resp = Fn.compose (Or_error.bind ~f) t.resp}
+let map_resp ~f t = {t with resp = Fn.compose (Or_error.map ~f) t.resp}
+let map_body ~f t = {t with body = Fn.compose t.body f}
 let verb verb t = {t with verb}
-
-let header ~key ~value t =
-  {t with headers= String.Map.set ~key ~data:value t.headers}
+let header ~key ~value t = {t with headers = String.Map.set ~key ~data:value t.headers}
 
 let param ~key ?value t =
   let data = Option.map ~f:Browser.Misc.encode_uri_component value in
   let key = Browser.Misc.encode_uri_component key in
-  {t with params= String.Map.set ~key ~data t.params}
+  {t with params = String.Map.set ~key ~data t.params}
+;;
 
 let want_json t =
   header ~key:"accept" ~value:"application/json" t
   |> conv_resp ~f:(fun str ->
-         try Ok (Yojson.Safe.from_string str) with e -> Error (Error.of_exn e)
-     )
+         try Ok (Yojson.Safe.from_string str) with e -> Error (Error.of_exn e) )
+;;
 
 let give_json t =
   let t = header ~key:"Content-Type" ~value:"application/json" t in
-  {t with body= Yojson.Safe.to_string}
+  {t with body = Yojson.Safe.to_string}
+;;
 
 let give_text t =
   let t = header ~key:"Content-Type" ~value:"text/plain" t in
-  {t with body= Fn.id}
+  {t with body = Fn.id}
+;;
 
 module XHR = struct
   open Browser.XHR
@@ -67,23 +72,23 @@ module XHR = struct
       |> function
       | [] -> t.url
       | l ->
-          let p = String.concat ~sep:"&" l in
-          sprintf "%s?%s" (Browser.Misc.encode_uri t.url) p
+        let p = String.concat ~sep:"&" l in
+        sprintf "%s?%s" (Browser.Misc.encode_uri t.url) p
     in
-    open_ xhr (string_of_verb t.verb) url_with_params ;
-    String.Map.iteri t.headers ~f:(fun ~key ~data ->
-        set_request_header xhr key data ) ;
+    open_ xhr (string_of_verb t.verb) url_with_params;
+    String.Map.iteri t.headers ~f:(fun ~key ~data -> set_request_header xhr key data);
     set_onreadystatechange xhr (fun () ->
         match ready_state xhr with
         | Done ->
-            let status = status xhr in
-            if 200 <= status && status < 300 then
-              t.resp (response_text xhr) |> handler
-            else
-              let msg = status_text xhr in
-              Or_error.errorf "XHR failed: %i %s" status msg |> handler
-        | _ -> () ) ;
+          let status = status xhr in
+          if 200 <= status && status < 300
+          then t.resp (response_text xhr) |> handler
+          else
+            let msg = status_text xhr in
+            Or_error.errorf "XHR failed: %i %s" status msg |> handler
+        | _ -> () );
     send xhr (t.body body)
+  ;;
 
   let send' ~handler t = send ~body:() ~handler t
 end

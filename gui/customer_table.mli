@@ -1,7 +1,6 @@
 open Ghm
 open Core_kernel
 open Incr_dom
-
 module RowId : module type of Int
 
 module Model : sig
@@ -12,8 +11,8 @@ module Model : sig
   module Row : sig
     type t [@@deriving compare]
 
-    val of_customer : id:int -> Customer.t -> t
     (** [id] is used with the select argument of {!create} *)
+    val of_customer : id:int -> Customer.t -> t
   end
 end
 
@@ -21,8 +20,8 @@ module Action : sig
   type t [@@deriving sexp_of]
 end
 
-val create :
-     model:Model.t Incr.t
+val create 
+  :  model:Model.t Incr.t
   -> old_model:Model.t Incr.t
   -> inject:(Action.t -> Vdom.Event.t)
   -> select:(int -> Vdom.Event.t)

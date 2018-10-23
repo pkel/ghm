@@ -32,57 +32,63 @@ module Column = struct
     module Contents : CONTENTS
 
     val name : string
-
     val group : string option
-
     val get : row -> Contents.t
-
     val sort_by : Contents.t -> Sort_key.t
   end
 
-  let create (type row contents) ~name ?group ?sort_by
-      (module Contents : CONTENTS with type t = contents) ~get =
+  let create
+      (type row contents)
+      ~name
+      ?group
+      ?sort_by
+      (module Contents : CONTENTS with type t = contents)
+      ~get =
     let sort_by =
       match sort_by with
       | Some f -> f
       | None -> fun x -> Sort_key.String (Contents.to_string x)
     in
-    ( module struct
+    (module struct
       type nonrec row = row
 
       module Contents = Contents
 
       let name = name
-
       let group = group
-
       let get = get
-
       let sort_by = sort_by
     end
     : T
-      with type row = row )
+      with type row = row)
+  ;;
 
-  let of_field (type contents) field ?name ?group ?sort_by
+  let of_field
+      (type contents)
+      field
+      ?name
+      ?group
+      ?sort_by
       (module Contents : CONTENTS with type t = contents) =
     let name = Option.value ~default:(Field.name field) name in
     create ~name ?group ?sort_by (module Contents) ~get:(Field.get field)
+  ;;
 
   let name (type row) (module T : T with type row = row) = T.name
-
   let group (type row) (module T : T with type row = row) = T.group
 
   let get (type row) (module T : T with type row = row) row =
     T.Contents.to_string (T.get row)
+  ;;
 
-  let sort_by (type row) (module T : T with type row = row) row =
-    T.sort_by (T.get row)
+  let sort_by (type row) (module T : T with type row = row) row = T.sort_by (T.get row)
 
   let to_table_widget_column t =
     let name = name t in
     let group = group t in
     let sort_by _row_id row = sort_by t row in
     Table.Column.create ~header:(Vdom.Node.text name) ~sort_by ?group ()
+  ;;
 end
 
 module Row = struct
@@ -95,36 +101,34 @@ module Row = struct
     let to_string t = Option.map ~f:string_of_int t |> Option.value ~default:""
 
     let sort_key x =
-      Sort_key.Integer
-        Option.(map ~f:Int63.of_int x |> value ~default:Int63.zero)
+      Sort_key.Integer Option.(map ~f:Int63.of_int x |> value ~default:Int63.zero)
+    ;;
   end
 
   module DateOpt = struct
     type t = Date.t option
 
     let string_of_date d = Localize.date d
-
-    let to_string t =
-      Option.map ~f:string_of_date t |> Option.value ~default:""
+    let to_string t = Option.map ~f:string_of_date t |> Option.value ~default:""
 
     let sort_key x =
       Sort_key.String
-        ( Option.map ~f:Date.to_string_iso8601_basic x
-        |> Option.value ~default:"" )
+        (Option.map ~f:Date.to_string_iso8601_basic x |> Option.value ~default:"")
+    ;;
   end
 
   module Model = struct
     type t =
-      { id: int
-      ; keyword: string
-      ; given: string
-      ; family: string
-      ; company: string (* last booking *)
-      ; from: Date.t option
-      ; till: Date.t option
-      ; rooms: int option
-      ; beds: int option
-      ; guests: int option }
+      { id : int
+      ; keyword : string
+      ; given : string
+      ; family : string
+      ; company : string (* last booking *)
+      ; from : Date.t option
+      ; till : Date.t option
+      ; rooms : int option
+      ; beds : int option
+      ; guests : int option }
     [@@deriving compare, fields]
 
     let columns =
@@ -132,11 +136,13 @@ module Row = struct
       let add ?group ?sort_by m name =
         append (fun field -> Column.of_field field m ~name ?group ?sort_by)
       in
-      let dsc = "Stammdaten" and visit = "Letzter Aufenthalt" in
+      let dsc = "Stammdaten"
+      and visit = "Letzter Aufenthalt" in
       let lex_s x = Sort_key.String x in
       let dat_s = DateOpt.sort_key in
       let int_s = IntOpt.sort_key in
-      Fields.fold ~init:[]
+      Fields.fold
+        ~init:[]
         ~id:(fun l _ -> l)
         ~keyword:(add (module String) ~sort_by:lex_s "Schlüssel")
         ~given:(add (module String) ~sort_by:lex_s "Vorname" ~group:dsc)
@@ -148,11 +154,10 @@ module Row = struct
         ~beds:(fun l _ -> l)
         ~guests:(add (module IntOpt) ~sort_by:int_s "Gäste" ~group:visit)
       |> List.rev
+    ;;
 
     let of_customer ~id c : t =
-      let summary =
-        Customer.first_booking c |> Option.map ~f:Booking.summarize
-      in
+      let summary = Customer.first_booking c |> Option.map ~f:Booking.summarize in
       let period = Option.map ~f:Booking.Summary.period summary in
       let given = c.name.given
       and family = c.name.family
@@ -164,6 +169,7 @@ module Row = struct
       and from = period |> Option.map ~f:Period.from
       and till = period |> Option.map ~f:Period.till in
       {id; given; family; company; keyword; from; till; guests; rooms; beds}
+    ;;
   end
 
   let view ?select (m : Model.t Incr.t) =
@@ -172,28 +178,33 @@ module Row = struct
       match select with
       | None -> []
       | Some f ->
-          Attr.
-            [ on_click (fun _ -> f m.id)
-            ; style (Css.create ~field:"cursor" ~value:"pointer") ]
+        Attr.
+          [ on_click (fun _ -> f m.id)
+          ; style (Css.create ~field:"cursor" ~value:"pointer") ]
     in
     let row_attrs = Rn_spec.Attrs.create ~attrs () in
     let cells =
       List.map Model.columns ~f:(fun col ->
-          { Rn_spec.Cell.attrs= Rn_spec.Attrs.create ()
-          ; node= Node.span [] [Node.text (Column.get col m)] } )
+          { Rn_spec.Cell.attrs = Rn_spec.Attrs.create ()
+          ; node = Node.span [] [Node.text (Column.get col m)] } )
     in
     {Rn_spec.row_attrs; cells}
+  ;;
 end
 
 module Model = struct
-  type t = {table: Table.Model.t} [@@deriving compare, fields]
+  type t = {table : Table.Model.t} [@@deriving compare, fields]
 
   let create () =
-    { table=
+    { table =
         Table.Model.create
           ~scroll_margin:(Incr_dom_widgets.Table.Margin.uniform 5.)
-          ~scroll_region:Window ~float_header:None ~float_first_col:None
-          ~height_guess:43. () }
+          ~scroll_region:Window
+          ~float_header:None
+          ~float_first_col:None
+          ~height_guess:43.
+          () }
+  ;;
 
   module Row :
     sig
@@ -211,11 +222,17 @@ end
 
 let create_table rows model ~old_model ~inject ~select =
   let columns = List.map ~f:Column.to_table_widget_column Row.Model.columns in
-  let columns = Incr.const (List.mapi columns ~f:(fun i col -> (i, col))) in
+  let columns = Incr.const (List.mapi columns ~f:(fun i col -> i, col)) in
   let render_row ~row_id:_ ~row = Row.view ~select row in
-  Table.create model ~old_model ~rows ~columns ~render_row
+  Table.create
+    model
+    ~old_model
+    ~rows
+    ~columns
+    ~render_row
     ~inject:(fun a -> inject (Action.Table a))
     ~attrs:[Attr.classes ["table"; "table-hover"; "table-sm"]]
+;;
 
 let create ~model ~old_model ~inject ~select rows =
   let table =
@@ -223,19 +240,21 @@ let create ~model ~old_model ~inject ~select rows =
     and old_model = old_model >>| Model.table >>| Option.some in
     create_table rows ~select ~old_model ~inject model
   in
-  let%map table = table and model = model in
+  let%map table = table
+  and model = model in
   let apply_action (a : Action.t) _state ~schedule_action =
     match a with Table a ->
       let schedule_action = Fn.compose schedule_action Action.table in
       let table' = Component.apply_action ~schedule_action table a () in
-      Model.{table= table'}
+      Model.{table = table'}
   and view = Component.view table
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.table in
     let table' = Component.update_visibility table ~schedule_action in
-    Model.{table= table'}
+    Model.{table = table'}
   and on_display _state ~schedule_action =
     let schedule_action = Fn.compose schedule_action Action.table in
     Component.on_display table ~schedule_action ()
   in
   Component.create ~update_visibility ~apply_action ~on_display model view
+;;
