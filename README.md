@@ -41,5 +41,3 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 - room allocation tool/view
 - offline mode
 - overview: currently checked-in, upcoming
-
-- remove font-awesome bits, if not used
