@@ -101,20 +101,26 @@ end
 let view_head inject state =
   let open Vdom in
   let fld_id = Form.State.field_ids state search_form in
-  let col = Node.div [Attr.classes ["col-auto"; "mb-2"; "mt-2"]] in
   let newc = Location.href_of Navigation.(path_of (Customer Customer.new_)) in
   Node.create
     "form"
     [Attr.on "submit" (fun _ -> inject Action.Search)]
-    [ Node.div
-        [Attr.classes ["form-row"]]
-        [ col
-            [ Form.Input.text
-                state
-                fld_id
-                [Attr.class_ "form-control"; Attr.placeholder "Schlüsselwort"] ]
-        ; col [Bs.submit "Suchen"]
-        ; col [Bs.button' ~href:newc "Neu"] ] ]
+    [ Bs.Grid.(
+        frow
+          ~c:["mb-4"; "mt-2"]
+          [ col_auto
+              [ div
+                  [A.class_ "input-group"]
+                  [ div
+                      [A.class_ "input-group-prepend"]
+                      [Bs.button' ~i:(S "undo") ~href:"TODO" "Zurücksetzen"]
+                  ; Form.Input.text
+                      state
+                      fld_id
+                      [Attr.class_ "form-control"; Attr.placeholder "Schlüsselwort"]
+                  ; div [A.class_ "input-group-append"] [Bs.submit "Suchen"] ] ]
+          ; col [frow ~c:["justify-content-end"] [Bs.button' ~href:newc "Neuer Kunde"]]
+          ]) ]
 ;;
 
 let create model ~old_model ~inject =

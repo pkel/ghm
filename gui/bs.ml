@@ -1,6 +1,8 @@
 open Incr_dom.Vdom
 open Core_kernel
 
+let tab_skip = Attr.create "tabindex" "-1"
+
 type icon =
   | B of string
   | R of string
@@ -14,21 +16,24 @@ let classes_of_icon = function
   | L s -> ["fal"; sprintf "fa-%s" s]
 ;;
 
-let icon i label =
-  Node.create "i" [Attr.create "title" label; Attr.classes (classes_of_icon i)] []
-;;
+let icon i = Node.create "i" [Attr.classes (classes_of_icon i)] []
 
-let button ~action label =
+let button ?i ?(attr = []) ?(style = "secondary") ~action label =
+  let style = sprintf "btn-%s" style in
   Node.button
-    [Attr.on_click action; Attr.classes ["btn"; "btn-secondary"]; Attr.type_ "button"]
-    [Node.text label]
+    ( attr
+    @ [Attr.on_click action; Attr.classes ["btn"; style]; Attr.type_ "button"]
+    @ match i with None -> [] | Some _ -> [Attr.create "title" label] )
+    [(match i with None -> Node.text label | Some i -> icon i)]
 ;;
 
 let button' ?i ?(attr = []) ?(style = "secondary") ~href label =
   let style = sprintf "btn-%s" style in
   Node.a
-    (attr @ [Attr.href href; Attr.classes ["btn"; style]; Attr.create "role" "button"])
-    [(match i with None -> Node.text label | Some i -> icon i label)]
+    ( attr
+    @ [Attr.href href; Attr.classes ["btn"; style]; Attr.create "role" "button"]
+    @ match i with None -> [] | Some _ -> [Attr.create "title" label] )
+    [(match i with None -> Node.text label | Some i -> icon i)]
 ;;
 
 let submit label =
@@ -44,8 +49,8 @@ module Grid = struct
   open A
 
   let div = div
-  let row = div [class_ "row"]
-  let frow = div [class_ "form-row"]
+  let row ?(c = []) = div [classes ("row" :: c)]
+  let frow ?(c = []) = div [classes ("form-row" :: c)]
   let col ?(c = []) = div [classes ("col" :: c)]
   let col1 ?(c = []) = div [classes ("col-1" :: c)]
   let col2 ?(c = []) = div [classes ("col-2" :: c)]
@@ -58,4 +63,5 @@ module Grid = struct
   let col9 ?(c = []) = div [classes ("col-9" :: c)]
   let col10 ?(c = []) = div [classes ("col-10" :: c)]
   let col11 ?(c = []) = div [classes ("col-11" :: c)]
+  let col_auto ?(c = []) = div [classes ("col-auto" :: c)]
 end

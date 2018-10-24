@@ -487,7 +487,7 @@ let view_room state ids =
   Bs.Grid.
     [ frow [col2 (prepend_err_div state block [])]
     ; frow
-        [ col3 [input_str state "Nummer" room]
+        [ col3 [input_str state "Nr." room]
         ; col9 [input_str state "Beschreibung" description] ]
     ; frow
         [ col3 [input_number ~step:1. state "Betten" beds]
@@ -498,7 +498,7 @@ let view_room state ids =
             [ Bs.button'
                 ~i:(R "trash-alt")
                 ~style:"outline-danger"
-                ~attr:[A.create "tabindex" "-1"]
+                ~attr:[Bs.tab_skip]
                 ~href:""
                 "Zimmer Löschen" ] ] ]
 ;;
@@ -517,7 +517,7 @@ let view_guest state ids =
             [ Bs.button'
                 ~i:(R "trash-alt")
                 ~style:"outline-danger"
-                ~attr:[A.create "tabindex" "-1"]
+                ~attr:[Bs.tab_skip]
                 ~href:""
                 "Gast Löschen" ] ] ]
 ;;
@@ -547,15 +547,16 @@ let view_booking ~inject selection state ids =
   let guests =
     ( Node.h4 [] [Node.text "Gäste"]
     :: List.concat_map guests ~f:(fun ids -> Node.hr [] :: view_guest state ids) )
-    @ [Node.hr []; Node.div [] [Bs.button ~action:new_g "Weiterer Gast"]]
+    @ [Node.hr []; Node.div [] [Bs.button ~i:(S "plus") ~action:new_g "Weiterer Gast"]]
   and rooms =
     ( Node.h4 [] [Node.text "Zimmer"]
     :: List.concat_map rooms ~f:(fun ids -> Node.hr [] :: view_room state ids) )
-    @ [Node.hr []; Node.div [] [Bs.button ~action:new_r "Weiteres Zimmer"]]
+    @ [Node.hr []; Node.div [] [Bs.button ~i:(S "plus") ~action:new_r "Weiteres Zimmer"]]
   and main =
     Bs.Grid.
-      [ frow [col [selection]]
-      ; frow [col (prepend_err_div state block [])]
+      [ Node.h4 [A.class_ "mb-3"] [Node.text "Buchungen"]
+      ; selection
+      ; div [] (prepend_err_div state block [])
       ; view_period state period
       ; frow
           [ col [input_number ~step:0.01 state "Anzahlung gefordert" deposit_asked]
@@ -611,17 +612,39 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   and b_ids = Form.State.field_ids booking_f booking_form in
   let save _evt = inject Action.Save
   and new_b _evt = inject Action.NewBooking
-  and selection = view_booking_list ~inject bookings ~selected
-  and colattr = [Attr.classes ["col-auto"; "mt-2"]] in
+  and selection = view_booking_list ~inject bookings ~selected in
   let rows =
     let open Bs.Grid in
-    [ [ row
-          [ Node.div colattr [Bs.button' ~href:back_href "Zurück"]
-          ; Node.div colattr [Bs.button ~action:save "Speichern"]
-          ; Node.div colattr [Bs.button ~action:new_b "Neue Buchung"] ]
+    [ [ frow
+          [ col_auto ~c:["mt-2"] [Bs.button' ~href:back_href "Zurück"]
+          ; col
+              [ frow
+                  ~c:["justify-content-end"]
+                  [col_auto ~c:["mb-2"; "mt-2"] [Bs.button ~action:save "Speichern"]] ]
+          ]
       ; Node.hr [] ]
     ; view_customer customer_f c_ids
-    ; [Node.hr []; view_booking ~inject selection booking_f b_ids] ]
+    ; [ Node.hr []
+      ; view_booking ~inject selection booking_f b_ids
+      ; frow
+          [ col_auto ~c:["mb-2"; "mt-2"] [Bs.button ~action:new_b "Neue Buchung"]
+          ; col
+              [ frow
+                  ~c:["justify-content-end"]
+                  [ col_auto
+                      ~c:["mb-2"; "mt-2"]
+                      [ Bs.button'
+                          ~attr:[Bs.tab_skip]
+                          ~style:"outline-danger"
+                          ~href:""
+                          "Buchung löschen" ]
+                  ; col_auto
+                      ~c:["mb-2"; "mt-2"]
+                      [ Bs.button'
+                          ~attr:[Bs.tab_skip]
+                          ~style:"outline-danger"
+                          ~href:""
+                          "Kunde löschen" ] ] ] ] ] ]
   in
   Node.create "form" [] (List.concat rows)
 ;;
