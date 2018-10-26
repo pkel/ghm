@@ -67,6 +67,7 @@ module Model = struct
     ; customer_table : Customer_table.Model.t
     ; customer_form : Customer_form.Model.t
     ; view : view
+    ; last_search : string
     ; search : Form.State.t }
   [@@deriving compare, fields]
 
@@ -80,6 +81,7 @@ let init () : Model.t =
   ; customer_table = Customer_table.Model.create ()
   ; customer_form = Customer_form.Model.create ()
   ; view = Model.Overview
+  ; last_search = ""
   ; search = Form.State.create ~init:"" search_form }
 ;;
 
@@ -88,6 +90,7 @@ module Action = struct
     | Navigate of Navigation.t
     | Location of Location.t
     | Search
+    | ResetSearch
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
     | GotCustomers of (int * Customer.t) list
@@ -98,7 +101,7 @@ module State = struct
   type t = unit
 end
 
-let view_head inject state =
+let view_head inject last_search state =
   let open Vdom in
   let fld_id = Form.State.field_ids state search_form in
   let newc = Location.href_of Navigation.(path_of (Customer Customer.new_)) in
@@ -113,14 +116,26 @@ let view_head inject state =
                   [A.class_ "input-group"]
                   [ div
                       [A.class_ "input-group-prepend"]
-                      [Bs.button' ~i:(S "undo") ~href:"TODO" "Zurücksetzen"]
+                      [ Bs.button
+                          ~i:(S "undo")
+                          ~action:(fun _ -> inject Action.ResetSearch)
+                          "Zurücksetzen" ]
                   ; Form.Input.text
                       state
                       fld_id
-                      [Attr.class_ "form-control"; Attr.placeholder "Schlüsselwort"]
+                      [ Attr.class_ "form-control"
+                      ; Attr.placeholder "Schlüsselwort"
+                      ; Attr.value last_search ]
                   ; div [A.class_ "input-group-append"] [Bs.submit "Suchen"] ] ]
           ; col [frow ~c:["justify-content-end"] [Bs.button' ~href:newc "Neuer Kunde"]]
           ]) ]
+;;
+
+let get_customers ~schedule_action ?filter () =
+  Request.XHR.send'
+    Remote.Customers.(get ~limit:250 ?filter ())
+    ~handler:(function
+      | Error e -> Log.error e | Ok l -> schedule_action (Action.GotCustomers l))
 ;;
 
 let create model ~old_model ~inject =
@@ -146,7 +161,8 @@ let create model ~old_model ~inject =
   let%map table = table
   and model = model
   and customer = customer
-  and search_state = model >>| Model.search in
+  and search_state = model >>| Model.search
+  and last_search = model >>| Model.last_search in
   let apply_action (a : Action.t) _state ~schedule_action =
     match a with
     | GotCustomers l ->
@@ -184,16 +200,14 @@ let create model ~old_model ~inject =
       | Some Overview -> {model with view = Overview})
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
-      let () =
-        match pattern_o with
-        | None -> ()
-        | Some s ->
-          Request.XHR.send'
-            Remote.Customers.(get ~limit:250 ~filter:(Keyword s) ())
-            ~handler:(function
-              | Error e -> Log.error e | Ok l -> schedule_action (Action.GotCustomers l))
-      in
-      {model with search}
+      (match pattern_o with
+      | None -> model
+      | Some s ->
+        get_customers ~schedule_action ~filter:(Keyword s) ();
+        {model with search; last_search = s})
+    | ResetSearch ->
+      get_customers ~schedule_action ();
+      {model with last_search = ""; search = Form.State.create search_form}
   and view =
     let open Vdom in
     let body attrs divs =
@@ -203,7 +217,7 @@ let create model ~old_model ~inject =
     | Overview ->
       body
         [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
-        [view_head inject search_state; Component.view table]
+        [view_head inject last_search search_state; Component.view table]
     | Customer -> body [] [Component.view customer]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
