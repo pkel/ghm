@@ -482,7 +482,11 @@ let view_period state ids =
       ; col [input_str state "Bis" ~type_:"date" till] ])
 ;;
 
-let view_room state ids =
+let view_delete_button action title =
+  Bs.button ~i:(R "trash-alt") ~style:"outline-danger" ~attr:[Bs.tab_skip] ~action title
+;;
+
+let view_room delete state ids =
   let block, (room, (beds, (price_per_bed, (factor, (description, ()))))) = ids in
   Bs.Grid.
     [ frow [col2 (prepend_err_div state block [])]
@@ -495,15 +499,10 @@ let view_room state ids =
         ; col3 [input_number ~step:1. state "Faktor" factor]
         ; col3
             ~c:["align-self-end"; "text-right"]
-            [ Bs.button'
-                ~i:(R "trash-alt")
-                ~style:"outline-danger"
-                ~attr:[Bs.tab_skip]
-                ~href:""
-                "Zimmer Löschen" ] ] ]
+            [view_delete_button delete "Zimmer löschen"] ] ]
 ;;
 
-let view_guest state ids =
+let view_guest delete state ids =
   let block, (given, (family, (born, ()))) = ids in
   Bs.Grid.
     [ frow [col (prepend_err_div state block [])]
@@ -514,12 +513,7 @@ let view_guest state ids =
         [ col [input_str state "Geburtsdatum" ~type_:"date" born]
         ; col
             ~c:["align-self-end"; "text-right"]
-            [ Bs.button'
-                ~i:(R "trash-alt")
-                ~style:"outline-danger"
-                ~attr:[Bs.tab_skip]
-                ~href:""
-                "Gast Löschen" ] ] ]
+            [view_delete_button delete "Gast löschen"] ] ]
 ;;
 
 let textarea n state id attr =
@@ -542,15 +536,23 @@ let view_booking ~inject selection state ids =
     let state = Form.List.modify_list state lst_id ~f:list_adder in
     inject (Action.Update_b state)
   in
+  let delete lst_id i _ev =
+    let state = Form.List.remove_nth state lst_id i in
+    inject (Action.Update_b state)
+  in
   let new_g = new_ g_lst
-  and new_r = new_ r_lst in
+  and new_r = new_ r_lst
+  and delete_g = delete g_lst
+  and delete_r = delete r_lst in
   let guests =
     ( Node.h4 [] [Node.text "Gäste"]
-    :: List.concat_map guests ~f:(fun ids -> Node.hr [] :: view_guest state ids) )
+    :: List.concat_mapi guests ~f:(fun i ids ->
+           Node.hr [] :: view_guest (delete_g i) state ids ) )
     @ [Node.hr []; Node.div [] [Bs.button ~i:(S "plus") ~action:new_g "Weiterer Gast"]]
   and rooms =
     ( Node.h4 [] [Node.text "Zimmer"]
-    :: List.concat_map rooms ~f:(fun ids -> Node.hr [] :: view_room state ids) )
+    :: List.concat_mapi rooms ~f:(fun i ids ->
+           Node.hr [] :: view_room (delete_r i) state ids ) )
     @ [Node.hr []; Node.div [] [Bs.button ~i:(S "plus") ~action:new_r "Weiteres Zimmer"]]
   and main =
     Bs.Grid.

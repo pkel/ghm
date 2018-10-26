@@ -213,15 +213,12 @@ let create model ~old_model ~inject =
       {model with last_search = ""; search = Form.State.create search_form}
   and view =
     let open Vdom in
-    let body attrs divs =
-      Node.body attrs [Node.div [Attr.class_ "container-fluid"] divs]
-    in
     match model.view with
     | Overview ->
-      body
+      Node.div
         [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
         [view_head inject last_search search_state; Component.view table]
-    | Customer -> body [] [Component.view customer]
+    | Customer -> Component.view customer
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in
