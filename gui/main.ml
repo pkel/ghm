@@ -93,7 +93,7 @@ module Action = struct
     | ResetSearch
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
-    | GotCustomers of (int * Customer.t) list
+    | GotCustomers of (int * Customer.t) list Or_error.t
   [@@deriving sexp_of, variants]
 end
 
@@ -134,8 +134,7 @@ let view_head inject last_search state =
 let get_customers ~schedule_action ?filter () =
   Request.XHR.send'
     Remote.Customers.(get ~limit:250 ?filter ())
-    ~handler:(function
-      | Error e -> Log.error e | Ok l -> schedule_action (Action.GotCustomers l))
+    ~handler:(Fn.compose schedule_action Action.gotcustomers)
 ;;
 
 let create model ~old_model ~inject =
@@ -165,7 +164,11 @@ let create model ~old_model ~inject =
   and last_search = model >>| Model.last_search in
   let apply_action (a : Action.t) _state ~schedule_action =
     match a with
-    | GotCustomers l ->
+    | GotCustomers (Error e) ->
+      (* TODO: the gui should react to this *)
+      Log.error e;
+      model
+    | GotCustomers (Ok l) ->
       let open Model in
       let customers =
         List.mapi l ~f:(fun i (id, data) -> i, {id; data})
@@ -233,11 +236,6 @@ let create model ~old_model ~inject =
 let on_startup ~schedule_action _model =
   Location.listen (Fn.compose schedule_action Action.location);
   schedule_action (Action.Location (Location.get ()));
-  (* TODO: it might be cleaner to change the Action type to Or_error *)
-  let handler = function
-    | Ok page -> schedule_action (Action.GotCustomers page)
-    | Error e -> Log.error e
-  in
-  Request.XHR.send' Remote.(Customers.get ~limit:250 ()) ~handler;
+  get_customers ~schedule_action ();
   Async_kernel.Deferred.unit
 ;;
