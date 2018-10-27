@@ -267,6 +267,8 @@ module Action = struct
     | GotCustomer of (int * Customer.t) Or_error.t
     | Save
     | NewBooking
+    | DeleteBooking
+    | DeleteCustomer
   [@@deriving sexp, variants]
 end
 
@@ -349,7 +351,7 @@ let apply_action
     | Some b ->
       (* save current booking, create new, reload *)
       let new_b = fresh_booking () in
-      (* TODO: copy latest booking with new datem currently a bug is doing it *)
+      (* TODO: copy latest booking with new date, currently a bug is doing it *)
       let booking_f = Form.State.create ~init:new_b booking_form in
       let bookings =
         new_b
@@ -357,6 +359,25 @@ let apply_action
                if i = model.selected then b else old )
       in
       {model with customer = {model.customer with bookings}; selected = 0; booking_f})
+  | DeleteBooking ->
+    let bookings =
+      List.filteri ~f:(fun i _ -> i <> model.selected) model.customer.bookings
+    in
+    let selected = min model.selected (List.length bookings - 1) in
+    let booking_f =
+      Form.State.create booking_form ~init:(List.nth_exn bookings selected)
+    in
+    {model with customer = {model.customer with bookings}; selected; booking_f}
+  | DeleteCustomer ->
+    (* TODO: navigate back to overview *)
+    let () =
+      match model.nav with
+      | New -> () (* Navigate *)
+      | Id i ->
+        let handler = function Error e -> Log.error e | Ok () -> () (* Navigate *) in
+        Request.XHR.send' ~handler (Remote.Customer.delete i)
+    in
+    model
   | GotCustomer response ->
     (match response with
     | Ok (id, c) -> Model.load (Id id) c
@@ -614,7 +635,12 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   and b_ids = Form.State.field_ids booking_f booking_form in
   let save _evt = inject Action.Save
   and new_b _evt = inject Action.NewBooking
-  and selection = view_booking_list ~inject bookings ~selected in
+  and delete_b _evt = inject Action.DeleteBooking
+  and delete_c _evt = inject Action.DeleteCustomer
+  and selection = view_booking_list ~inject bookings ~selected
+  and danger_btn action title =
+    Bs.button ~attr:[Bs.tab_skip] ~style:"outline-danger" ~action title
+  in
   let rows =
     let open Bs.Grid in
     [ [ frow
@@ -633,20 +659,9 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
           ; col
               [ frow
                   ~c:["justify-content-end"]
-                  [ col_auto
-                      ~c:["mb-2"; "mt-2"]
-                      [ Bs.button'
-                          ~attr:[Bs.tab_skip]
-                          ~style:"outline-danger"
-                          ~href:""
-                          "Buchung löschen" ]
-                  ; col_auto
-                      ~c:["mb-2"; "mt-2"]
-                      [ Bs.button'
-                          ~attr:[Bs.tab_skip]
-                          ~style:"outline-danger"
-                          ~href:""
-                          "Kunde löschen" ] ] ] ] ] ]
+                  [ col_auto ~c:["mb-2"; "mt-2"] [danger_btn delete_b "Buchung löschen"]
+                  ; col_auto ~c:["mb-2"; "mt-2"] [danger_btn delete_c "Kunde löschen"]
+                  ] ] ] ] ]
   in
   Node.create "form" [] (List.concat rows)
 ;;

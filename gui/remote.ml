@@ -44,6 +44,13 @@ module Customer = struct
   type t = Customer.t
   type id = int
 
+  let delete id =
+    Request.(
+      create ~url:(base_url "customers")
+      |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
+      |> verb DELETE)
+  ;;
+
   let get id =
     Request.(
       get_single_customer

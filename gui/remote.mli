@@ -11,6 +11,7 @@ module Customer : sig
   val get : id -> (unit, t) Request.t
   val post : (t, id * t) Request.t
   val patch : id -> (t, t) Request.t
+  val delete : id -> (unit, unit) Request.t
 end
 
 module Customers : sig

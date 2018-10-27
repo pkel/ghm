@@ -17,7 +17,7 @@ let string_of_verb = function
 
 type ('a, 'b) t =
   { body : 'a -> string
-  ; resp : string -> 'b Or_error.t
+  ; resp : string Lazy.t -> 'b Or_error.t
   ; url : string
   ; verb : verb
   ; params : string option String.Map.t
@@ -25,7 +25,7 @@ type ('a, 'b) t =
 
 let create ~url =
   { verb = GET
-  ; resp = (fun s -> Ok s)
+  ; resp = (fun _ -> Ok ())
   ; body = (fun () -> "")
   ; url
   ; params = String.Map.empty
@@ -44,10 +44,15 @@ let param ~key ?value t =
   {t with params = String.Map.set ~key ~data t.params}
 ;;
 
+let want_text t = {t with resp = (function (lazy s) -> Ok s)}
+
 let want_json t =
-  header ~key:"accept" ~value:"application/json" t
-  |> conv_resp ~f:(fun str ->
-         try Ok (Yojson.Safe.from_string str) with e -> Error (Error.of_exn e) )
+  let t' = header ~key:"accept" ~value:"application/json" t in
+  { t' with
+    resp =
+      (function
+      | (lazy str) ->
+        (try Ok (Yojson.Safe.from_string str) with e -> Error (Error.of_exn e))) }
 ;;
 
 let give_json t =
@@ -82,7 +87,7 @@ module XHR = struct
         | Done ->
           let status = status xhr in
           if 200 <= status && status < 300
-          then t.resp (response_text xhr) |> handler
+          then t.resp (lazy (response_text xhr)) |> handler
           else
             let msg = status_text xhr in
             Or_error.errorf "XHR failed: %i %s" status msg |> handler
