@@ -73,3 +73,12 @@ let empty =
   ; note = ""
   ; bookings = [] }
 ;;
+
+let letter_by_title =
+  [ "Herrn", "Sehr geehrter Herr"
+  ; "Herrn und Frau", "Sehr geehrte Frau, sehr geehrter Herr"
+  ; "Frau", "Sehr geehrte Frau"
+  ; "Herrn Dr.", "Sehr geehrter Herr Dr."
+  ; "Frau Dr.", "Sehr geehrte Frau Dr."
+  ; "Familie", "Liebe Familie" ]
+;;

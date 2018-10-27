@@ -38,3 +38,12 @@ let summarize (t : t) : Summary.t =
   and period = t.period in
   {rooms; guests; period; beds}
 ;;
+
+let room_descriptions =
+  [ "Einzelzimmer"
+  ; "Doppelzimmer"
+  ; "Dreibettzimmer"
+  ; "Vierbettzimmer"
+  ; "Doppel- als Einzelzimmer"
+  ; "Kurtaxe" ]
+;;

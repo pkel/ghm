@@ -4,6 +4,13 @@ open Incr_dom
 open Incr_dom_widgets
 open Incr.Let_syntax
 
+let last_id = ref (-1)
+
+let id () =
+  incr last_id;
+  sprintf "customer_form_%i" !last_id
+;;
+
 let name_descr =
   let open Form.Description in
   let unvalidated =
@@ -411,11 +418,22 @@ let _input_bool state label id =
     @ divs )
 ;;
 
-let input_str ?(attr = []) ?(input = Form.Input.text) ?(type_ = "text") state label id =
-  let classes, divs =
+let input_str
+    ?(attr = []) ?(input = Form.Input.text) ?(type_ = "text") ?datalist state label id =
+  let classes, error =
     match err_of_block state id with
     | None -> [], []
     | Some m -> ["is-invalid"], [Node.div [Attr.class_ "invalid-feedback"] [m]]
+  in
+  let attr, datalist =
+    match datalist with
+    | None -> attr, []
+    | Some (id, l) ->
+      ( Attr.create "list" id :: attr
+      , [ Node.create
+            "datalist"
+            [Attr.id id]
+            (List.map l ~f:(fun s -> Node.create "option" [Attr.value s] [])) ] )
   in
   group
     ( [ Node.label [] [Node.text label]
@@ -423,20 +441,27 @@ let input_str ?(attr = []) ?(input = Form.Input.text) ?(type_ = "text") state la
           state
           id
           (Attr.classes ("form-control" :: classes) :: Attr.type_ type_ :: attr) ]
-    @ divs )
+    @ error
+    @ datalist )
 ;;
 
 let input_number ~step =
   input_str ~attr:[Attr.create "step" (string_of_float step)] ~type_:"number"
 ;;
 
+let dl1_id = id ()
+let dl2_id = id ()
+
 let view_name state ids =
   let block, (title, (letter, (given, (family, ())))) = ids in
+  let titles, letters = List.unzip Customer.letter_by_title in
+  let titles = dl1_id, titles in
+  let letters = dl2_id, letters in
   Bs.Grid.
     [ frow [col (prepend_err_div state block [])]
     ; frow
-        [ col4 [input_str state "Titel" title]
-        ; col8 [input_str state "Anrede Brief" letter] ]
+        [ col4 [input_str ~datalist:titles state "Titel" title]
+        ; col8 [input_str ~datalist:letters state "Anrede Brief" letter] ]
     ; frow
         [col [input_str state "Vorname" given]; col [input_str state "Nachname" family]]
     ]
@@ -491,17 +516,22 @@ let view_delete_button action title =
   Bs.button ~i:(R "trash-alt") ~style:"outline-danger" ~attr:[Bs.tab_skip] ~action title
 ;;
 
+let dl_id = id ()
+
 let view_room delete state ids =
   let block, (room, (beds, (price_per_bed, (factor, (description, ()))))) = ids in
+  (* This puts redundant datalist with same id into the form. One for each room
+     Since datalists are static, it is no problem. *)
+  let datalist = dl_id, Booking.room_descriptions in
   Bs.Grid.
     [ frow [col2 (prepend_err_div state block [])]
     ; frow
         [ col3 [input_str state "Nr." room]
-        ; col9 [input_str state "Beschreibung" description] ]
+        ; col9 [input_str ~datalist state "Beschreibung" description] ]
     ; frow
         [ col3 [input_number ~step:1. state "Betten" beds]
         ; col3 [input_number ~step:0.01 state "Preis" price_per_bed]
-        ; col3 [input_number ~step:1. state "Faktor" factor]
+        ; col3 [input_number ~step:1. state "Faktor (%)" factor]
         ; col3
             ~c:["align-self-end"; "text-right"]
             [view_delete_button delete "Zimmer löschen"] ] ]
