@@ -85,7 +85,7 @@ let booking_note_of_row r : string =
       and proz = str r proz in
       match art, preis with
       | "", "0,00" -> acc
-      | _ -> Printf.sprintf "%s- %sx %s à %s€ (%s%%)\n" acc anzahl art preis proz
+      | _ -> sprintf "%s- %sx %s à %s€ (%s%%)\n" acc anzahl art preis proz
     in
     sprintf "Importiert aus Combit (%s).\n\n" (str r "RECORDID")
     |> f "ANZAHL1" "ART1" "PREIS1" "PROZ1"
@@ -116,21 +116,19 @@ let guests_of_row r : Booking.guest list =
 let room_of_row_opt r room i : Booking.room option =
   let price = flt_opt r (sprintf "PREIS%i" i)
   and description = str r (sprintf "ART%i" i)
+  and amount = str r (sprintf "ANZAHL%i" i)
   and percent =
     Option.value ~default:100 (int_of_string_opt (str r (sprintf "PROZ%i" i)))
   in
-  if description = "Kurtaxe"
-  then None
-  else
-    match price with
-    | Some price_per_bed when price_per_bed <> 0. ->
-      Some
-        { room
-        ; beds = percent / 100
-        ; price_per_bed
-        ; factor = float_of_int percent /. 100.
-        ; description }
-    | _ -> None
+  let beds =
+    if description = "Kurtaxe"
+    then match Caml.int_of_string_opt amount with Some i -> i | None -> percent / 100
+    else (percent + 99) / 100
+  in
+  match price with
+  | Some price_per_bed when price_per_bed <> 0. ->
+    Some {room; beds; price_per_bed; factor = float_of_int percent /. 100.; description}
+  | _ -> None
 ;;
 
 let rooms_of_row r : Booking.room list =
