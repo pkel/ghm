@@ -172,15 +172,12 @@ module Row = struct
     ;;
   end
 
-  let view ?select (m : Model.t Incr.t) =
+  let view (m : Model.t Incr.t) =
     let%map m = m in
     let attrs =
-      match select with
-      | None -> []
-      | Some f ->
-        Attr.
-          [ on_click (fun _ -> f m.id)
-          ; style (Css.create ~field:"cursor" ~value:"pointer") ]
+      Attr.
+        [ on_click Nav.(navigate (Customer (Id m.id)))
+        ; style (Css.create ~field:"cursor" ~value:"pointer") ]
     in
     let row_attrs = Rn_spec.Attrs.create ~attrs () in
     let cells =
@@ -220,10 +217,10 @@ module Action = struct
   type t = Table of Table.Action.t [@@deriving sexp_of, variants]
 end
 
-let create_table rows model ~old_model ~inject ~select =
+let create_table rows model ~old_model ~inject =
   let columns = List.map ~f:Column.to_table_widget_column Row.Model.columns in
   let columns = Incr.const (List.mapi columns ~f:(fun i col -> i, col)) in
-  let render_row ~row_id:_ ~row = Row.view ~select row in
+  let render_row ~row_id:_ ~row = Row.view row in
   Table.create
     model
     ~old_model
@@ -234,11 +231,11 @@ let create_table rows model ~old_model ~inject ~select =
     ~attrs:[Attr.classes ["table"; "table-hover"; "table-sm"]]
 ;;
 
-let create ~model ~old_model ~inject ~select rows =
+let create ~model ~old_model ~inject rows =
   let table =
     let model = model >>| Model.table
     and old_model = old_model >>| Model.table >>| Option.some in
-    create_table rows ~select ~old_model ~inject model
+    create_table rows ~old_model ~inject model
   in
   let%map table = table
   and model = model in

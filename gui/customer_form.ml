@@ -4,21 +4,6 @@ open Incr_dom
 open Incr_dom_widgets
 open Incr.Let_syntax
 
-module Navigation = struct
-  type t =
-    | New
-    | Id of int
-  [@@deriving compare, sexp, variants]
-
-  let of_path = function
-    | ["new"] -> Some New
-    | [s] -> Option.map ~f:id (int_of_string_opt s)
-    | _ -> None
-  ;;
-
-  let to_path = function New -> ["new"] | Id i -> [string_of_int i]
-end
-
 let name_descr =
   let open Form.Description in
   let unvalidated =
@@ -242,7 +227,7 @@ module Model = struct
         (* TODO: use one form states only, avoid having the copy of customer here
              a list of form states might do for the bookings. *)
     ; customer : Customer.t
-    ; nav : Navigation.t
+    ; nav : Nav.customer
     ; selected : int }
   [@@deriving compare, fields]
 
@@ -263,7 +248,7 @@ module Action = struct
     | Update_c of Form.State.t sexp_opaque
     | Update_b of Form.State.t sexp_opaque
     | SelectBooking of int
-    | Navigate of Navigation.t
+    | NavChange of Nav.customer sexp_opaque
     | GotCustomer of (int * Customer.t) Or_error.t
     | Save
     | NewBooking
@@ -369,12 +354,11 @@ let apply_action
     in
     {model with customer = {model.customer with bookings}; selected; booking_f}
   | DeleteCustomer ->
-    (* TODO: navigate back to overview *)
     let () =
       match model.nav with
-      | New -> () (* Navigate *)
+      | New -> Nav.(set Overview)
       | Id i ->
-        let handler = function Error e -> Log.error e | Ok () -> () (* Navigate *) in
+        let handler = function Error e -> Log.error e | Ok () -> Nav.(set Overview) in
         Request.XHR.send' ~handler (Remote.Customer.delete i)
     in
     model
@@ -384,7 +368,7 @@ let apply_action
     | Error e ->
       Log.error e;
       model (* TODO: display this to user, ideally don't show form without data. *))
-  | Navigate n ->
+  | NavChange n ->
     (match n with
     | Id i ->
       let rq = Request.map_resp ~f:(fun c -> i, c) (Remote.Customer.get i) in

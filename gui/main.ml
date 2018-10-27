@@ -4,52 +4,6 @@ open Incr_dom
 module Incr_map = Incr_map.Make (Incr)
 module Form = Incr_dom_widgets.Form
 
-module Location : sig
-  type t = string list [@@deriving sexp_of]
-
-  val href_of : t -> string
-  val listen : (t -> unit) -> unit
-  val set : t -> unit
-  val get : unit -> t
-end = struct
-  type t = string list [@@deriving sexp_of]
-
-  let of_string s =
-    let drop c = Caml.List.mem c ['/'; '#'] in
-    String.split ~on:'/' (String.strip ~drop s)
-  ;;
-
-  let string_of p = "/" ^ String.concat ~sep:"/" p
-  let href_of p = "#" ^ string_of p
-  let set t = Browser.Location.set_hash (string_of t)
-  let get () = of_string (Browser.Location.get_hash ())
-
-  let listen on_change =
-    let open Browser in
-    Window.add_event_listener window "hashchange" (fun _ -> on_change (get ())) false
-  ;;
-end
-
-module Navigation = struct
-  module Customer = Customer_form.Navigation
-
-  type t =
-    | Overview
-    | Customer of Customer.t
-  [@@deriving sexp_of, compare, variants]
-
-  let of_path = function
-    | ["overview"] -> Some Overview
-    | "customer" :: tl -> Option.map ~f:customer (Customer.of_path tl)
-    | _ -> None
-  ;;
-
-  let path_of = function
-    | Overview -> ["overview"]
-    | Customer n -> "customer" :: Customer.to_path n
-  ;;
-end
-
 module Model = struct
   (* TODO: make this Customer.with_id? *)
   type customer =
@@ -87,8 +41,7 @@ let init () : Model.t =
 
 module Action = struct
   type t =
-    | Navigate of Navigation.t
-    | Location of Location.t
+    | NavChange of Nav.t option sexp_opaque
     | Search
     | ResetSearch
     | CustomerTable of Customer_table.Action.t
@@ -104,7 +57,6 @@ end
 let view_head inject last_search state =
   let open Vdom in
   let fld_id = Form.State.field_ids state search_form in
-  let newc = Location.href_of Navigation.(path_of (Customer Customer.new_)) in
   Node.create
     "form"
     [Attr.on "submit" (fun _ -> inject Action.Search)]
@@ -127,8 +79,10 @@ let view_head inject last_search state =
                       ; Attr.placeholder "Schlüsselwort"
                       ; Attr.value last_search ]
                   ; div [A.class_ "input-group-append"] [Bs.submit "Suchen"] ] ]
-          ; col [frow ~c:["justify-content-end"] [Bs.button' ~href:newc "Neuer Kunde"]]
-          ]) ]
+          ; col
+              [ frow
+                  ~c:["justify-content-end"]
+                  [Bs.button' ~href:Nav.(href_of (Customer New)) "Neuer Kunde"] ] ]) ]
 ;;
 
 let get_customers ~schedule_action ?filter () =
@@ -143,17 +97,16 @@ let create model ~old_model ~inject =
   let table =
     let model = model >>| Model.customer_table
     and old_model = old_model >>| Model.customer_table
-    and select i = inject (Action.navigate Navigation.(Customer (Customer.id i)))
     and inject = Fn.compose inject Action.customertable
     and rows =
       Incr_map.mapi customers ~f:(fun ~key:_ ~data ->
           Customer_table.Model.Row.of_customer ~id:data.id data.data )
     in
-    Customer_table.create rows ~old_model ~inject ~select ~model
+    Customer_table.create rows ~old_model ~inject ~model
   in
   let customer =
     let inject = Fn.compose inject Action.customerform
-    and back_href = Location.href_of (Navigation.path_of Overview)
+    and back_href = Nav.(href_of Overview)
     and form_model = model >>| Model.customer_form in
     Customer_form.create ~inject ~back_href form_model
   in
@@ -188,19 +141,13 @@ let create model ~old_model ~inject =
       let schedule_action = Fn.compose schedule_action Action.customerform in
       let customer_form = Component.apply_action ~schedule_action customer a () in
       {model with customer_form}
-    | Navigate nav ->
-      (* Sideeffect: triggers Location Action *)
-      Location.set (Navigation.path_of nav);
+    | NavChange None ->
+      Nav.(set Overview);
       model
-    | Location path ->
-      (match Navigation.of_path path with
-      | None ->
-        Location.set Navigation.(path_of Overview);
-        model
-      | Some (Customer x) ->
-        schedule_action (Action.CustomerForm (Customer_form.Action.navigate x));
-        {model with view = Customer}
-      | Some Overview -> {model with view = Overview})
+    | NavChange (Some (Customer x)) ->
+      schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
+      {model with view = Customer}
+    | NavChange (Some Overview) -> {model with view = Overview}
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
@@ -231,8 +178,8 @@ let create model ~old_model ~inject =
 ;;
 
 let on_startup ~schedule_action _model =
-  Location.listen (Fn.compose schedule_action Action.location);
-  schedule_action (Action.Location (Location.get ()));
+  Nav.listen (Fn.compose schedule_action Action.navchange);
+  schedule_action (Action.NavChange (Nav.get ()));
   get_customers ~schedule_action ();
   Async_kernel.Deferred.unit
 ;;
