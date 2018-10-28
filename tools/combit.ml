@@ -98,27 +98,30 @@ let guests_of_row r : Booking.guest list =
   |> f "P_VORNAME6" "P_NAME6" "GEB_DAT06"
 ;;
 
-let room_of_row_opt r room i : Booking.room option =
+let alloc_of_row_opt r room i : Booking.alloc list =
   let price = flt_opt r (sprintf "PREIS%i" i)
   and description = str r (sprintf "ART%i" i)
-  and amount = str r (sprintf "ANZAHL%i" i)
+  and amount =
+    match str r (sprintf "ANZAHL%i" i) |> int_of_string_opt with
+    | None -> 0
+    | Some i -> i
   and percent =
     Option.value ~default:100 (int_of_string_opt (str r (sprintf "PROZ%i" i)))
   in
-  let beds =
-    if description = "Kurtaxe"
-    then match Caml.int_of_string_opt amount with Some i -> i | None -> percent / 100
-    else (percent + 99) / 100
-  in
-  match price with
-  | Some price_per_bed when price_per_bed <> 0. ->
-    Some {room; beds; price_per_bed; factor = float_of_int percent /. 100.; description}
-  | _ -> None
+  let beds = (percent + 99) / 100 in
+  match description, price with
+  | "Kurtaxe", _ -> []
+  | _, Some price_per_bed when price_per_bed <> 0. ->
+    List.init amount ~f:(fun i ->
+        let room = if i = 0 then room else "" in
+        {Booking.room; beds; price_per_bed; description} )
+  | _ -> []
 ;;
 
-let rooms_of_row r : Booking.room list =
-  let room = str r "ZIMMER" in
-  List.filter_opt (List.map [1; 2; 3; 4] ~f:(fun i -> room_of_row_opt r room i))
+let allocs_of_row r : Booking.alloc list =
+  List.concat_map
+    [1, str r "ZIMMER"; 2, ""; 3, ""; 4, ""]
+    ~f:(fun (i, room) -> alloc_of_row_opt r room i)
 ;;
 
 let booking_of_row r : Booking.t option =
@@ -128,10 +131,11 @@ let booking_of_row r : Booking.t option =
     Some
       { deposit_asked = flt_nz_opt r "AGEF"
       ; deposit_got = flt_nz_opt r "AEING"
+      ; tax_free = false (* TODO: read from dataset *)
       ; note = booking_note_of_row r
       ; guests = guests_of_row r
       ; period
-      ; rooms = rooms_of_row r }
+      ; allocs = allocs_of_row r }
 ;;
 
 let row db r =
