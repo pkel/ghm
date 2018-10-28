@@ -3,28 +3,13 @@ open Core_kernel
 module String = Caml.String
 
 let str r f = Csv.Row.find r f |> String.trim
-
-let flt_opt r f =
-  match str r f with
-  | "" -> None
-  | s -> Str.replace_first (Str.regexp ",") "." s |> float_of_string |> fun x -> Some x
-;;
+let flt_opt r f = match str r f with "" -> None | s -> Some (float_of_string s)
 
 let flt_nz_opt r k =
   match flt_opt r k with Some 0. -> None | Some x -> Some x | None -> None
 ;;
 
-let dat_opt r k =
-  match str r k with
-  | "" -> None
-  | s ->
-    (match String.split_on_char '.' s with
-    | [d; m; y] ->
-      let s = Printf.sprintf "%s-%s-%s" y m d in
-      Some (Date.of_string s)
-    | _ -> raise (Invalid_argument s))
-;;
-
+let dat_opt r k = match str r k with "" -> None | s -> Some (Date.of_string s)
 let coalesc prefer fallback = match prefer with None -> fallback | _ -> prefer
 let coalesc_str prefer fallback = match prefer with "" -> fallback | _ -> prefer
 
@@ -84,7 +69,7 @@ let booking_note_of_row r : string =
       and anzahl = str r anzahl
       and proz = str r proz in
       match art, preis with
-      | "", "0,00" -> acc
+      | "", "0.00" -> acc
       | _ -> sprintf "%s- %sx %s à %s€ (%s%%)\n" acc anzahl art preis proz
     in
     sprintf "Importiert aus Combit (%s).\n\n" (str r "RECORDID")
@@ -183,8 +168,7 @@ let main () =
   in
   Printf.eprintf "reading...%!";
   let db =
-    Csv.of_channel ~separator:';' ~has_header:true ch
-    |> Csv.Rows.fold_left ~f:row ~init:Int.Map.empty
+    Csv.of_channel ~has_header:true ch |> Csv.Rows.fold_left ~f:row ~init:Int.Map.empty
   in
   (* Write *)
   Printf.eprintf "\r%d customers read.\n%!" (Int.Map.length db);
