@@ -126,8 +126,7 @@ module Row = struct
       ; company : string (* last booking *)
       ; from : Date.t option
       ; till : Date.t option
-      ; rooms : int option
-      ; beds : int option
+      ; rooms : string
       ; guests : int option }
     [@@deriving compare, fields]
 
@@ -144,31 +143,34 @@ module Row = struct
       Fields.fold
         ~init:[]
         ~id:(fun l _ -> l)
-        ~keyword:(add (module String) ~sort_by:lex_s "Schlüssel")
+        ~keyword:(add (module String) ~sort_by:lex_s "Schlüsselwort")
         ~given:(add (module String) ~sort_by:lex_s "Vorname" ~group:dsc)
         ~family:(add (module String) ~sort_by:lex_s "Nachname" ~group:dsc)
         ~company:(add (module String) ~sort_by:lex_s "Firma" ~group:dsc)
         ~from:(add (module DateOpt) ~sort_by:dat_s "Von" ~group:visit)
         ~till:(add (module DateOpt) ~sort_by:dat_s "Bis" ~group:visit)
-        ~rooms:(fun l _ -> l)
-        ~beds:(fun l _ -> l)
+        ~rooms:(add (module String) ~sort_by:lex_s "Zimmer" ~group:visit)
         ~guests:(add (module IntOpt) ~sort_by:int_s "Gäste" ~group:visit)
       |> List.rev
     ;;
 
     let of_customer ~id c : t =
-      let summary = Customer.first_booking c |> Option.map ~f:Booking.summarize in
-      let period = Option.map ~f:Booking.Summary.period summary in
+      let booking = Customer.first_booking c in
+      let summary = Option.map ~f:Booking.summarize booking in
+      let period = Option.map ~f:Booking.period booking in
       let given = c.name.given
       and family = c.name.family
       and company = c.company.name
       and keyword = c.keyword
       and guests = summary |> Option.map ~f:Booking.Summary.guests
-      and rooms = summary |> Option.map ~f:Booking.Summary.rooms
-      and beds = summary |> Option.map ~f:Booking.Summary.beds
+      and rooms =
+        summary
+        |> Option.map ~f:Booking.Summary.rooms
+        |> Option.map ~f:(String.concat ~sep:", ")
+        |> Option.value ~default:""
       and from = period |> Option.map ~f:Period.from
       and till = period |> Option.map ~f:Period.till in
-      {id; given; family; company; keyword; from; till; guests; rooms; beds}
+      {id; given; family; company; keyword; from; till; guests; rooms}
     ;;
   end
 

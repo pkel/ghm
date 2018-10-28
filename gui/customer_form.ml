@@ -156,12 +156,6 @@ let int =
   |> contra_map ~f:(function 0 -> "" | i -> string_of_int i)
 ;;
 
-let percent =
-  let open Form.Description in
-  map int ~f:(fun x -> float_of_int x /. 100.)
-  |> contra_map ~f:(fun x -> Float.round_down (x *. 100.) |> int_of_float)
-;;
-
 let customer_descr =
   let open Form.Description in
   let unvalidated =
@@ -192,16 +186,15 @@ let guest_descr =
   conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
 ;;
 
-let room_descr =
+let alloc_descr =
   let open Form.Description in
   let unvalidated =
     Of_record.(
       build_for_record
-        (Booking.Fields_of_room.make_creator
+        (Booking.Fields_of_alloc.make_creator
            ~room:(field string)
            ~beds:(field int)
            ~price_per_bed:(field monetary)
-           ~factor:(field percent)
            ~description:(field string)))
   in
   conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
@@ -215,9 +208,10 @@ let booking_descr =
         (Booking.Fields.make_creator
            ~deposit_asked:(field monetary_opt)
            ~deposit_got:(field monetary_opt)
+           ~tax_free:(field bool)
            ~note:(field string)
            ~guests:(field (list guest_descr))
-           ~rooms:(field (list room_descr))
+           ~allocs:(field (list alloc_descr))
            ~period:(field period)))
   in
   conv unvalidated ~f:(fun b _ ~block_id:_ -> Ok b)
@@ -279,10 +273,11 @@ let fresh_booking () =
   Booking.
     { deposit_asked = None
     ; deposit_got = None
+    ; tax_free = false
     ; note = ""
     ; period = default_period ()
     ; guests = []
-    ; rooms = [] }
+    ; allocs = [] }
 ;;
 
 let apply_action
@@ -405,16 +400,16 @@ let prepend_err_div state (id : Form.Block.t Form.Id.t) rows =
 
 let group = Node.div [Attr.class_ "form-group"]
 
-let _input_bool state label id =
+let input_bool state label id =
   let classes, divs =
     match err_of_block state id with
     | None -> [], []
     | Some m -> ["is-invalid"], [Node.div [Attr.class_ "invalid-feedback"] [m]]
   in
   Node.div
-    [Attr.classes ["form-check"; "form-group"]]
-    ( [ Form.Input.checkbox state id [Attr.classes ("form-check-input" :: classes)]
-      ; Node.label [Attr.class_ "form-check-label"] [Node.text label] ]
+    [Attr.classes ["custom-control"; "custom-checkbox"]]
+    ( [ Form.Input.checkbox state id [Attr.classes ("custom-control-input" :: classes)]
+      ; Form.Input.label id [Attr.class_ "custom-control-label"] [Node.text label] ]
     @ divs )
 ;;
 
@@ -436,7 +431,7 @@ let input_str
             (List.map l ~f:(fun s -> Node.create "option" [Attr.value s] [])) ] )
   in
   group
-    ( [ Node.label [] [Node.text label]
+    ( [ Form.Input.label id [] [Node.text label]
       ; input
           state
           id
@@ -518,8 +513,8 @@ let view_delete_button action title =
 
 let dl_id = id ()
 
-let view_room delete state ids =
-  let block, (room, (beds, (price_per_bed, (factor, (description, ()))))) = ids in
+let view_alloc delete state ids =
+  let block, (room, (price_per_bed, (beds, (description, ())))) = ids in
   (* This puts redundant datalist with same id into the form. One for each room
      Since datalists are static, it is no problem. *)
   let datalist = dl_id, Booking.room_descriptions in
@@ -529,10 +524,9 @@ let view_room delete state ids =
         [ col3 [input_str state "Nr." room]
         ; col9 [input_str ~datalist state "Beschreibung" description] ]
     ; frow
-        [ col3 [input_number ~step:1. state "Betten" beds]
-        ; col3 [input_number ~step:0.01 state "Preis" price_per_bed]
-        ; col3 [input_number ~step:1. state "Faktor (%)" factor]
-        ; col3
+        [ col4 [input_number ~step:1. state "Betten" beds]
+        ; col4 [input_number ~step:0.01 state "Preis" price_per_bed]
+        ; col4
             ~c:["align-self-end"; "text-right"]
             [view_delete_button delete "Zimmer löschen"] ] ]
 ;;
@@ -558,7 +552,8 @@ let textarea n state id attr =
 let view_booking ~inject selection state ids =
   let ( block
       , ( period
-        , (deposit_asked, (deposit_got, (note, ((guests, g_lst), ((rooms, r_lst), ())))))
+        , ( deposit_asked
+          , (deposit_got, (tax_free, (note, ((guests, g_lst), ((allocs, a_lst), ()))))) )
         ) ) =
     ids
   in
@@ -576,19 +571,19 @@ let view_booking ~inject selection state ids =
     inject (Action.Update_b state)
   in
   let new_g = new_ g_lst
-  and new_r = new_ r_lst
+  and new_a = new_ a_lst
   and delete_g = delete g_lst
-  and delete_r = delete r_lst in
+  and delete_a = delete a_lst in
   let guests =
     ( Node.h4 [] [Node.text "Gäste"]
     :: List.concat_mapi guests ~f:(fun i ids ->
            Node.hr [] :: view_guest (delete_g i) state ids ) )
     @ [Node.hr []; Node.div [] [Bs.button ~i:(S "plus") ~action:new_g "Weiterer Gast"]]
-  and rooms =
-    ( Node.h4 [] [Node.text "Zimmer"]
-    :: List.concat_mapi rooms ~f:(fun i ids ->
-           Node.hr [] :: view_room (delete_r i) state ids ) )
-    @ [Node.hr []; Node.div [] [Bs.button ~i:(S "plus") ~action:new_r "Weiteres Zimmer"]]
+  and allocs =
+    ( Node.h4 [] [Node.text "Belegung"]
+    :: List.concat_mapi allocs ~f:(fun i ids ->
+           Node.hr [] :: view_alloc (delete_a i) state ids ) )
+    @ [Node.hr []; Node.div [] [Bs.button ~i:(S "plus") ~action:new_a "Weitere Belegung"]]
   and main =
     Bs.Grid.
       [ Node.h4 [A.class_ "mb-3"] [Node.text "Buchungen"]
@@ -598,16 +593,16 @@ let view_booking ~inject selection state ids =
       ; frow
           [ col [input_number ~step:0.01 state "Anzahlung gefordert" deposit_asked]
           ; col [input_number ~step:0.01 state "Anzahlung erhalten" deposit_got] ]
+      ; frow [col ~c:["mb-2"] [input_bool state "befreit von Kurtaxe" tax_free]]
       ; frow [col [input_str ~input:(textarea 8) state "Notiz" note]] ]
   in
-  Bs.Grid.(row [col main; col rooms; col guests])
+  Bs.Grid.(row [col main; col allocs; col guests])
 ;;
 
 let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
   let f i b =
-    let s = Booking.summarize b in
     let f, t =
-      let p = s.period in
+      let p = Booking.period b in
       let open Period in
       Localize.date (from p), Localize.date (till p)
     in
