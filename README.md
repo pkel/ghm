@@ -23,7 +23,6 @@ Guesthouse management using [incr_dom](gh:incr_dom).
 - indicate is saving/loading state
 - handle 50x status -> api/server not available
 
-- backwards compatible export to clipboard for billing
 - letter templates (first clipboard, then mailto / openoffice / print)
 
 - advanced search, potentially powered by database backend

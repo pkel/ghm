@@ -78,7 +78,7 @@ let view_head inject last_search state =
                       [ Attr.class_ "form-control"
                       ; Attr.placeholder "Schlüsselwort"
                       ; Attr.value last_search ]
-                  ; div [A.class_ "input-group-append"] [Bs.submit "Suchen"] ] ]
+                  ; div [A.class_ "input-group-append"] [Bs.button_submit "Suchen"] ] ]
           ; col
               [ frow
                   ~c:["justify-content-end"]

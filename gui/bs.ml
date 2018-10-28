@@ -36,7 +36,32 @@ let button' ?i ?(attr = []) ?(style = "secondary") ~href label =
     [(match i with None -> Node.text label | Some i -> icon i)]
 ;;
 
-let submit label =
+let button_clipboard ?i ?(attr = []) ?(style = "secondary") ~id ~value label =
+  let style = sprintf "btn-%s" style in
+  Node.div
+    []
+    [ Node.button
+        ( attr
+        @ [ Attr.create "data-clipboard-target" ("#" ^ id)
+          ; Attr.classes ["btn"; "clipboard-js"; style] ]
+        @ match i with None -> [] | Some _ -> [Attr.create "title" label] )
+        [(match i with None -> Node.text label | Some i -> icon i)]
+    ; Node.textarea
+        [ Attr.id id
+        ; Attr.style
+            Css.(
+              concat
+                [ opacity 0.
+                ; position ~left:(`Px 0) ~top:(`Px 0) `Absolute
+                ; z_index (-1)
+                ; height (`Px 0)
+                ; width (`Px 0)
+                ; overflow `Hidden
+                ; border ~style:`None () ]) ]
+        [Node.text value] ]
+;;
+
+let button_submit label =
   Node.button
     [Attr.classes ["btn"; "btn-secondary"]; Attr.type_ "submit"]
     [Node.text label]

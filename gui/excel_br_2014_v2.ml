@@ -101,7 +101,7 @@ let of_customer_and_booking (c : Customer.t) (b : Booking.t) =
     ; map_nth items 2 (comp Int.to_string fst)
     ; map_nth items 2 (comp description snd)
     ; map_nth items 2 (comp Float.to_string (comp price_per_bed snd))
-    ; Int.to_string s.tax_payers
+    ; (if b.tax_free then "0" else Int.to_string s.tax_payers)
     ; (if s.tax_payers < 1 || b.tax_free then "" else "Kurtaxe")
     ; (if s.tax_payers < 1 || b.tax_free then "0.00" else "2.00")
     ; Float.to_string (Option.value ~default:0. b.deposit_got) ]

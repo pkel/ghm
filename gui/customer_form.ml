@@ -638,8 +638,14 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   let open Vdom in
   let%map customer_f = model >>| Model.customer_f
   and booking_f = model >>| Model.booking_f
+  and customer = model >>| Model.customer
   and bookings = model >>| Model.customer >>| Customer.bookings
   and selected = model >>| Model.selected in
+  let excel =
+    match List.nth bookings selected with
+    | None -> ""
+    | Some b -> Excel_br_2014_v2.of_customer_and_booking customer b
+  in
   let c_ids = Form.State.field_ids customer_f customer_form
   and b_ids = Form.State.field_ids booking_f booking_form in
   let save _evt = inject Action.Save
@@ -657,14 +663,16 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
           ; col
               [ frow
                   ~c:["justify-content-end"]
-                  [col_auto ~c:["mb-2"; "mt-2"] [Bs.button ~action:save "Speichern"]] ]
-          ]
+                  [col_auto ~c:["mb-2"; "mt-2"] [Bs.button_submit "Speichern"]] ] ]
       ; Node.hr [] ]
     ; view_customer customer_f c_ids
     ; [ Node.hr []
       ; view_booking ~inject selection booking_f b_ids
       ; frow
           [ col_auto ~c:["mb-2"; "mt-2"] [Bs.button ~action:new_b "Neue Buchung"]
+          ; col_auto
+              ~c:["mb-2"; "mt-2"]
+              [Bs.button_clipboard ~value:excel ~id:"excel-copy" "Excel"]
           ; col
               [ frow
                   ~c:["justify-content-end"]
@@ -672,7 +680,7 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
                   ; col_auto ~c:["mb-2"; "mt-2"] [danger_btn delete_c "Kunde löschen"]
                   ] ] ] ] ]
   in
-  Node.create "form" [] (List.concat rows)
+  Node.create "form" [Attr.on "submit" save] (List.concat rows)
 ;;
 
 let create

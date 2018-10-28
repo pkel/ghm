@@ -6,11 +6,17 @@
     <link rel="stylesheet" href="assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/css/font-awesome-all.min.css">
     <script type='text/javascript' src='app.bc.js'></script>
-    <style> :root { font-size:12px } </style>
   </head>
   <body>
     <div class="container-fluid">
       <div id="ghm_main">Loading ...</div>
     </div>
+    <script type='text/javascript' src='assets/js/clipboard.min.js'></script>
+    <script type='text/javascript'>
+      var clipboard = new ClipboardJS('.clipboard-js');
+      clipboard.on('error', function(e) {
+        console.log(e);
+      });
+    </script>
   </body>
 </html>

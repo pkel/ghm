@@ -31,11 +31,12 @@ module Summary = struct
 end
 
 let summarize (t : t) : Summary.t =
+  (* Age on arrival >= 15 makes you a tax payer *)
   let tax_cutoff = Date.add_years (Period.till t.period) (-15) in
   let guests = List.length t.guests
   and tax_payers =
     List.count t.guests ~f:(fun g ->
-        match g.born with None -> true | Some d -> Date.compare tax_cutoff d < 0 )
+        match g.born with None -> true | Some d -> Date.compare tax_cutoff d > 0 )
   and rooms =
     List.map t.allocs ~f:room
     |> List.filter ~f:(Fn.compose not String.is_empty)
