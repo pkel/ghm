@@ -5,38 +5,43 @@ type t =
   { period : Period.t
   ; deposit_asked : float option
   ; deposit_got : float option
+  ; tax_free : bool
   ; note : string
   ; guests : guest list
-  ; rooms : room list }
+  ; allocs : alloc list }
 
 and guest =
   { given : string
   ; family : string
   ; born : Date.t option }
 
-and room =
+and alloc =
   { room : string
-  ; beds : int
   ; price_per_bed : float
-  ; factor : float
+  ; beds : int
   ; description : string }
 [@@deriving yojson, fields, compare, sexp]
 
 module Summary = struct
   type t =
-    { rooms : int
-    ; beds : int
+    { rooms : string list
     ; guests : int
-    ; period : Period.t }
+    ; tax_payers : int }
   [@@deriving fields]
 end
 
 let summarize (t : t) : Summary.t =
+  let tax_cutoff = Date.add_years (Period.till t.period) (-15) in
   let guests = List.length t.guests
-  and rooms, beds =
-    List.fold_left t.rooms ~init:(0, 0) ~f:(fun (r, b) e -> r + 1, b + e.beds)
-  and period = t.period in
-  {rooms; guests; period; beds}
+  and tax_payers =
+    List.count t.guests ~f:(fun g ->
+        match g.born with None -> true | Some d -> Date.compare tax_cutoff d < 0 )
+  and rooms =
+    List.map t.allocs ~f:room
+    |> List.filter ~f:(Fn.compose not String.is_empty)
+    |> String.(List.dedup_and_sort ~compare)
+  in
+  {rooms; guests; tax_payers}
 ;;
 
 let room_descriptions =
