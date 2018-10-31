@@ -1,7 +1,9 @@
+server=localhost:2015
+
 .PHONY: all watch format serve import clean-db clean
 
 all:
-	dune build gui/{app.bc.js,index.html,assets/*/*} tools/combit.exe
+	dune build --profile release gui/{app.bc.js,index.html,assets/*/*} tools/combit.exe
 
 watch:
 	fd 'ml|dune' | entr -s 'make all'
@@ -19,16 +21,19 @@ serve:
 
 clean-db:
 	curl \
-		-X DELETE "http://localhost:2015/api/customers" \
+		-X DELETE "http://${server}/api/customers" \
 		-H "accept: application/json"
 
 import: clean-db
 	dune exec tools/combit.exe data/combit.csv | \
 		curl \
-		-X POST "http://localhost:2015/api/customers" \
+		-X POST "http://${server}/api/customers" \
 		-H "accept: application/json" -H  "Prefer: return=none" \
 		-H "Content-Type: application/json" \
 		-d @-
 
 clean:
 	dune clean
+
+deploy:
+	scp -r _build/default/gui/(index.html|assets|app.bc.js) jhestia:/var/www/html/

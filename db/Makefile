@@ -1,24 +1,32 @@
+SHELL=/bin/bash
+compose=sudo docker-compose
+
 .PHONY: up
 up :
-	sudo docker-compose up -d
+	${compose} up -d
 
 .PHONY: log
 log :
-	sudo docker-compose logs -f || true
+	${compose} logs -f || true
 
 .PHONY: down
 down :
-	sudo docker-compose down
+	${compose} down
 
 .PHONY: init
 init :
-	source ./.env ; sudo docker-compose exec -e PGPASSWORD=$$pg_pwd -T db psql -U $$pg_user $$pg_db < init.sql
-	sudo docker-compose restart server
+	source ./.env ; ${compose} exec -e PGPASSWORD=$$pg_pwd -T db psql -U $$pg_user $$pg_db < init.sql
+	${compose} restart server
 
 .PHONY: psql
 psql :
-	source ./.env ; sudo docker-compose exec -e PGPASSWORD=$$pg_pwd db psql -U $$pg_user $$pg_db
+	source ./.env ; ${compose} exec -e PGPASSWORD=$$pg_pwd db psql -U $$pg_user $$pg_db
 
 .PHONY: purge
 purge :
-	sudo docker-compose down -v
+	${compose} down -v
+
+.PHONE: get-compose
+get-compose:
+	curl -L https://github.com/docker/compose/releases/download/1.20.1/docker-compose-`uname -s`-`uname -m` -o docker-compose
+	chmod +x docker-compose
