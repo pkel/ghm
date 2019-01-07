@@ -24,3 +24,16 @@ for each row execute procedure set_modified_now ();
 create or replace function keyword(customers) returns text as $$
   select $1.data->>'keyword';
 $$ language sql;
+
+/* letter templates */
+
+drop table if exists templates;
+
+create table templates (
+  name text not null,
+  header text not null,
+  body text not null);
+
+insert into templates(name, header, body) values('Leer', '', '');
+insert into templates(name, header, body) values('Bestätigung', 'Buchungsbestätigung', 'hiermit bestätigen wir Ihre Buchung');
+insert into templates(name, header, body) values('Schlüssel', 'Herzlich Willkommen', 'hierin finden Sie ihren Schlüssel');

@@ -7,6 +7,7 @@ type customer =
 and t =
   | Overview
   | Customer of customer
+  | Letter
 [@@deriving compare]
 
 let customer_of_path = function
@@ -20,12 +21,14 @@ let customer_to_path = function New -> ["new"] | Id i -> [Int.to_string i]
 let of_path = function
   | ["overview"] -> Some Overview
   | "customer" :: tl -> Option.map ~f:(fun x -> Customer x) (customer_of_path tl)
+  | ["letter"] -> Some Letter
   | _ -> None
 ;;
 
 let path_of = function
   | Overview -> ["overview"]
   | Customer x -> "customer" :: customer_to_path x
+  | Letter -> ["letter"]
 ;;
 
 let path_of_string s =
