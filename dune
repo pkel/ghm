@@ -1,1 +1,1 @@
-(ignored_subdirs (scripts data db))
+(ignored_subdirs (scripts data db letter))
