@@ -35,8 +35,8 @@ p {
 
 }
 
-.clear-storage-btn {
-  display: none;
+.top-btn {
+  /* display: none; */
   position: fixed;
   left: 0;
   top: 0;
@@ -51,15 +51,15 @@ p {
   text-decoration: none;
 }
 
-.clear-storage-btn:hover {
+.top-btn:hover {
   background: rgba(0, 0, 0, 0.5);
 }
 
-.clear-storage-btn:active {
+.top-btn:active {
   background: rgba(0, 0, 0, 0.7);
 }
 
-.clear-storage-btn.is-visible {
+.top-btn.is-visible {
   display: block;
 }
 
@@ -98,7 +98,7 @@ p {
   width: 90mm;
   height: 45mm;
 
-  border-radius: 4mm;
+  border-radius: 2mm;
   background: rgba(0, 0, 0, 0.05);
   z-index: 0;
 }
@@ -128,6 +128,10 @@ p {
   width: 40mm;
   height: 182pt;
   font-size: 8pt;
+}
+
+.sidebar p {
+  margin: 14pt 0 0 0;
 }
 
 .align-bottom {
@@ -160,7 +164,6 @@ p {
   margin-bottom: 14pt;
 }
 
-
 .attachments-hd {
   font-style: italic;
   font-size: 8pt;
@@ -176,12 +179,10 @@ p {
 .line {
   position: absolute;
   left: 5mm;
-  height: 0.3mm;
-  /* Won´t get printed, using 1x1 pixel instead */
-  /*background-color: rgba(0, 0, 0, 0.3);*/
+  height: 1pt;
 }
 
-.line-img-helper {
+.line-img {
   width: 100%;
   height: 100%;
   display: block;
@@ -216,26 +217,6 @@ p {
   padding-bottom: 1.4pt;
 }
 
-/* Only for debugging */
-.baselines {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.baseline {
-  height: 14pt;
-}
-
-.baseline:nth-child(2n) {
-  background: rgba(255,0,0,0.3);
-}
-
 @media screen {
   /* Create a wider border around the element without effecting other elements */
   *[contenteditable] {
@@ -244,7 +225,7 @@ p {
     margin: -7pt;
     padding: 7pt;
     width: 100%;
-    border-radius: 8px;
+    border-radius: 3px;
     background-color: rgba(255, 255, 255, 0);
     -webkit-transition: box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out;
     transition: box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out;
@@ -252,7 +233,7 @@ p {
 
   *[contenteditable]:focus {
     z-index: 20;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0px 10px rgba(0, 0, 0, 0.5);
     outline: none;
     background-color: rgba(255, 255, 255, 0.95);
   }
@@ -281,7 +262,7 @@ p {
 
 @media print {
   @page {
-    size: auto;   /* auto is the current printer page size */
+    size:   A4;     /* auto is the current printer page size */
     margin: 0mm;  /* This affects the margin in the printer settings */
   }
 
