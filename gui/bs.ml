@@ -27,12 +27,16 @@ let button ?i ?(attr = []) ?(style = "secondary") ~action label =
     [(match i with None -> Node.text label | Some i -> icon i)]
 ;;
 
-let button' ?i ?(attr = []) ?(style = "secondary") ~href label =
+let button' ?i ?(attr = []) ?(style = "secondary") ?(blank = false) ~href label =
   let style = sprintf "btn-%s" style in
   Node.a
     ( attr
     @ [Attr.href href; Attr.classes ["btn"; style]; Attr.create "role" "button"]
-    @ match i with None -> [] | Some _ -> [Attr.create "title" label] )
+    @ (match i with None -> [] | Some _ -> [Attr.create "title" label])
+    @
+    if blank
+    then [Attr.create "target" "_blank"; Attr.create "rel" "noopener norefferer"]
+    else [] )
     [(match i with None -> Node.text label | Some i -> icon i)]
 ;;
 

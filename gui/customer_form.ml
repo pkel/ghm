@@ -655,6 +655,9 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   and selection = view_booking_list ~inject bookings ~selected
   and danger_btn action title =
     Bs.button ~attr:[Bs.tab_skip] ~style:"outline-danger" ~action title
+  and letter_href =
+    let date = Browser.Date.(now () |> to_GMT_string) in
+    "../letter/#" ^ Letter.(instanciate ~date base customer |> to_b64)
   in
   let rows =
     let open Bs.Grid in
@@ -673,6 +676,9 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
           ; col_auto
               ~c:["mb-2"; "mt-2"]
               [Bs.button_clipboard ~value:excel ~id:"excel-copy" "Excel"]
+          ; col_auto
+              ~c:["mb-2"; "mt-2"]
+              [Bs.button' ~href:letter_href ~blank:true "Brief"]
           ; col
               [ frow
                   ~c:["justify-content-end"]

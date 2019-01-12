@@ -31,9 +31,9 @@ drop table if exists templates;
 
 create table templates (
   name text not null,
-  header text not null,
+  subject text not null,
   body text not null);
 
-insert into templates(name, header, body) values('Leer', '', '');
-insert into templates(name, header, body) values('Bestätigung', 'Buchungsbestätigung', 'hiermit bestätigen wir Ihre Buchung');
-insert into templates(name, header, body) values('Schlüssel', 'Herzlich Willkommen', 'hierin finden Sie ihren Schlüssel');
+insert into templates(name, subject, body) values('Leer', '', '');
+insert into templates(name, subject, body) values('Bestätigung', 'Buchungsbestätigung', 'hiermit bestätigen wir Ihre Buchung');
+insert into templates(name, subject, body) values('Schlüssel', 'Herzlich Willkommen', 'hierin finden Sie ihren Schlüssel');
