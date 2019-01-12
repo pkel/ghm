@@ -5,7 +5,6 @@ type customer =
 and t =
   | Overview
   | Customer of customer
-  | Letter
 [@@deriving compare]
 
 val href_of : t -> string

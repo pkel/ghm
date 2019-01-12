@@ -14,14 +14,12 @@ module Model = struct
   type view =
     | Overview
     | Customer
-    | Letter
   [@@deriving compare]
 
   type t =
     { customers : customer Int.Map.t
     ; customer_table : Customer_table.Model.t
     ; customer_form : Customer_form.Model.t
-    ; letter : Letter.Model.t
     ; view : view
     ; last_search : string
     ; search : Form.State.t }
@@ -36,7 +34,6 @@ let init () : Model.t =
   { Model.customers = Int.Map.empty
   ; customer_table = Customer_table.Model.create ()
   ; customer_form = Customer_form.Model.create ()
-  ; letter = Letter.Model.create ()
   ; view = Model.Overview
   ; last_search = ""
   ; search = Form.State.create ~init:"" search_form }
@@ -49,7 +46,6 @@ module Action = struct
     | ResetSearch
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
-    | Letter of Letter.Action.t
     | GotCustomers of (int * Customer.t) list Or_error.t
   [@@deriving sexp_of, variants]
 end
@@ -113,15 +109,10 @@ let create model ~old_model ~inject =
     and back_href = Nav.(href_of Overview)
     and form_model = model >>| Model.customer_form in
     Customer_form.create ~inject ~back_href form_model
-  and letter =
-    let inject = Fn.compose inject Action.letter
-    and letter_model = model >>| Model.letter in
-    Letter.create ~inject letter_model
   in
   let%map table = table
   and model = model
   and customer = customer
-  and letter = letter
   and search_state = model >>| Model.search
   and last_search = model >>| Model.last_search in
   let apply_action (a : Action.t) _state ~schedule_action =
@@ -150,10 +141,6 @@ let create model ~old_model ~inject =
       let schedule_action = Fn.compose schedule_action Action.customerform in
       let customer_form = Component.apply_action ~schedule_action customer a () in
       {model with customer_form}
-    | Letter a ->
-      let schedule_action = Fn.compose schedule_action Action.letter in
-      let letter = Component.apply_action ~schedule_action letter a () in
-      {model with letter}
     | NavChange None ->
       Nav.(set Overview);
       model
@@ -161,7 +148,6 @@ let create model ~old_model ~inject =
       schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
       {model with view = Customer}
     | NavChange (Some Overview) -> {model with view = Overview}
-    | NavChange (Some Letter) -> {model with view = Letter}
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
@@ -180,7 +166,6 @@ let create model ~old_model ~inject =
         [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
         [view_head inject last_search search_state; Component.view table]
     | Customer -> Component.view customer
-    | Letter -> Component.view letter
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in
