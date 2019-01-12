@@ -1,5 +1,5 @@
 {$base_uri} {
-  root _build/default/gui
+  root _build/default/
   redir /api /api/
   proxy /api/ localhost:3000 {
     without /api

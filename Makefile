@@ -2,7 +2,7 @@ server=localhost:2015
 
 .PHONY: all watch format serve import clean-db clean
 
-all:
+all: _build/default/letter
 	dune build --profile release gui/{app.bc.js,index.html,assets/*/*} tools/combit.exe
 
 watch:
@@ -11,6 +11,9 @@ watch:
 format:
 	# do not auto promote test output
 	dune runtest && dune build @fmt --auto-promote
+
+_build/default/letter:
+	ln -s ../../letter _build/default/letter
 
 serve:
 	@echo ""
