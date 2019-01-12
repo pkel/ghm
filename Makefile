@@ -13,6 +13,7 @@ format:
 	dune runtest && dune build @fmt --auto-promote
 
 _build/default/letter:
+	mkdir -p _build/default
 	ln -s ../../letter _build/default/letter
 
 serve:
