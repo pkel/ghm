@@ -1,3 +1,5 @@
+open Base
+
 type t =
   { sender : string
   ; recipient : string
@@ -10,13 +12,21 @@ type t =
 type template =
   { name : string
   ; subject : string
-  ; body : string }
-[@@deriving yojson]
+  ; body : string
+  ; attachments : string }
+[@@deriving yojson, compare, sexp_of]
 
 let base =
-  { name = "Leeres Template"
+  { name = "Leere Vorlage"
   ; subject = "Kein Betreff"
-  ; body = " <p>...</p><p>Mit freundlichen Grüßen</p><p>Christine Keller</p>" }
+  ; body = "<p>...</p>"
+  ; attachments = "" }
+;;
+
+let base_with_attachments =
+  { base with
+    name = base.name ^ " (mit Anhang)"
+  ; attachments = "<p><b>Anlagen:</b><br>Anlage 1, Anlage 2</p>" }
 ;;
 
 let to_b64 t = to_yojson t |> Yojson.Safe.to_string |> B64.encode
@@ -31,11 +41,17 @@ let instanciate ?(date = "") (t : template) (c : Customer.t) =
       c.address.country_code
       c.address.postal_code
       c.address.city
-  and body = Printf.sprintf "<p>%s %s,</p>%s" c.name.letter c.name.family t.body in
+  and body =
+    Printf.sprintf
+      "<p>%s %s,</p>%s<p>Mit freundlichen Grüßen</p><p></p><p>Christine Keller</p>"
+      c.name.letter
+      c.name.family
+      t.body
+  in
   { sender = "Pension Keller, Am Vögelisberg 13, D-78479 Reichenau"
   ; recipient
   ; sidebar = date
   ; subject = t.subject
   ; body
-  ; attachments = "" }
+  ; attachments = t.attachments }
 ;;

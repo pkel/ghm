@@ -3,7 +3,7 @@ server=localhost:2015
 .PHONY: all watch format serve import clean-db clean
 
 all: _build/default/letter
-	dune build --profile release gui/{app.bc.js,index.html,assets/*/*} tools/combit.exe
+	dune build gui/{app.bc.js,index.html,assets/*/*} tools/combit.exe
 
 watch:
 	fd 'ml|dune' | entr -s 'make all'

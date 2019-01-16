@@ -634,11 +634,15 @@ let view_customer state ids =
   Bs.Grid.[row (prepend_err_div state block []); row [col left; col middle; col right]]
 ;;
 
-let view (model : Model.t Incr.t) ~back_href ~inject =
+let letter_dropdown_id = id ()
+let excel_id = id ()
+
+let view letters (model : Model.t Incr.t) ~back_href ~inject =
   let open Vdom in
   let%map customer_f = model >>| Model.customer_f
   and booking_f = model >>| Model.booking_f
   and customer = model >>| Model.customer
+  and letters = letters
   and bookings = model >>| Model.customer >>| Customer.bookings
   and selected = model >>| Model.selected in
   let excel =
@@ -655,9 +659,35 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   and selection = view_booking_list ~inject bookings ~selected
   and danger_btn action title =
     Bs.button ~attr:[Bs.tab_skip] ~style:"outline-danger" ~action title
-  and letter_href =
-    let date = Browser.Date.(now () |> to_GMT_string) in
-    "../letter/#" ^ Letter.(instanciate ~date base customer |> to_b64)
+  and letter_dropdown =
+    let items =
+      let uri t =
+        let date = Browser.Date.(now () |> to_locale_date_string) in
+        "../letter/#" ^ Letter.(instanciate ~date t customer |> to_b64)
+      in
+      let f tmpl =
+        Node.a
+          Attr.[class_ "dropdown-item"; href (uri tmpl); create "target" "_blank"]
+          [Node.text tmpl.name]
+      in
+      List.map ~f letters
+    in
+    Node.(
+      div
+        [Attr.classes ["dropdown"; "dropup"]]
+        [ a
+            Attr.
+              [ classes ["btn"; "btn-secondary"; "dropdown-toggle"]
+              ; href "#"
+              ; type_ "button"
+              ; id letter_dropdown_id
+              ; create "data-toggle" "dropdown"
+              ; create "aria-haspopup" "true"
+              ; create "aria-expanded" "false" ]
+            [Node.text "Brief"]
+        ; div
+            Attr.[class_ "dropdown-menu"; create "aria-labelledby" letter_dropdown_id]
+            items ])
   in
   let rows =
     let open Bs.Grid in
@@ -672,27 +702,28 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
     ; [ Node.hr []
       ; view_booking ~inject selection booking_f b_ids
       ; frow
-          [ col_auto ~c:["mb-2"; "mt-2"] [Bs.button ~action:new_b "Neue Buchung"]
-          ; col_auto
+          [ col_auto
               ~c:["mb-2"; "mt-2"]
-              [Bs.button_clipboard ~value:excel ~id:"excel-copy" "Excel"]
-          ; col_auto
-              ~c:["mb-2"; "mt-2"]
-              [Bs.button' ~href:letter_href ~blank:true "Brief"]
+              [Bs.button_clipboard ~value:excel ~id:excel_id "Excel"]
+          ; col_auto ~c:["mb-2"; "mt-2"] [letter_dropdown]
           ; col
               [ frow
                   ~c:["justify-content-end"]
                   [ col_auto ~c:["mb-2"; "mt-2"] [danger_btn delete_b "Buchung löschen"]
                   ; col_auto ~c:["mb-2"; "mt-2"] [danger_btn delete_c "Kunde löschen"]
+                  ; col_auto ~c:["mb-2"; "mt-2"] [Bs.button ~action:new_b "Neue Buchung"]
                   ] ] ] ] ]
   in
   Node.create "form" [Attr.on "submit" save] (List.concat rows)
 ;;
 
 let create
-    ~(back_href : string) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
+    ~(back_href : string)
+    ~(inject : Action.t -> Vdom.Event.t)
+    (letters : Letter.template list Incr.t)
+    (model : Model.t Incr.t) =
   let%map model = model
-  and view = view ~inject ~back_href model in
+  and view = view ~inject ~back_href letters model in
   let apply_action = apply_action model in
   Component.create ~apply_action model view
 ;;
