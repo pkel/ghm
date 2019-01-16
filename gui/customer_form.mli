@@ -16,6 +16,5 @@ end
 val create 
   :  back_href:string
   -> inject:(Action.t -> Vdom.Event.t)
-  -> Ghm.Letter.template list Incr.t
   -> Model.t Incr.t
   -> (Action.t, Model.t, unit) Component.t Incr.t

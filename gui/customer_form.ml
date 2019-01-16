@@ -637,12 +637,11 @@ let view_customer state ids =
 let letter_dropdown_id = id ()
 let excel_id = id ()
 
-let view letters (model : Model.t Incr.t) ~back_href ~inject =
+let view (model : Model.t Incr.t) ~back_href ~inject =
   let open Vdom in
   let%map customer_f = model >>| Model.customer_f
   and booking_f = model >>| Model.booking_f
   and customer = model >>| Model.customer
-  and letters = letters
   and bookings = model >>| Model.customer >>| Customer.bookings
   and selected = model >>| Model.selected in
   let excel =
@@ -670,7 +669,7 @@ let view letters (model : Model.t Incr.t) ~back_href ~inject =
           Attr.[class_ "dropdown-item"; href (uri tmpl); create "target" "_blank"]
           [Node.text tmpl.name]
       in
-      List.map ~f letters
+      List.map ~f Letter.[empty; empty_with_attachments; flyer]
     in
     Node.(
       div
@@ -718,12 +717,9 @@ let view letters (model : Model.t Incr.t) ~back_href ~inject =
 ;;
 
 let create
-    ~(back_href : string)
-    ~(inject : Action.t -> Vdom.Event.t)
-    (letters : Letter.template list Incr.t)
-    (model : Model.t Incr.t) =
+    ~(back_href : string) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let%map model = model
-  and view = view ~inject ~back_href letters model in
+  and view = view ~inject ~back_href model in
   let apply_action = apply_action model in
   Component.create ~apply_action model view
 ;;

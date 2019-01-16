@@ -22,15 +22,13 @@ module Model = struct
     ; customer_form : Customer_form.Model.t
     ; view : view
     ; last_search : string
-    ; search : Form.State.t
-    ; letter_templates : Letter.template list }
+    ; search : Form.State.t }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
 end
 
 let search_form = Form.(create ~name:"keyword search" Description.string)
-let std_letters = Letter.[base; base_with_attachments]
 
 let init () : Model.t =
   { Model.customers = Int.Map.empty
@@ -38,8 +36,7 @@ let init () : Model.t =
   ; customer_form = Customer_form.Model.create ()
   ; view = Model.Overview
   ; last_search = ""
-  ; search = Form.State.create ~init:"" search_form
-  ; letter_templates = std_letters }
+  ; search = Form.State.create ~init:"" search_form }
 ;;
 
 module Action = struct
@@ -50,7 +47,6 @@ module Action = struct
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
     | GotCustomers of (int * Customer.t) list Or_error.t
-    | GotLetterTemplates of Letter.template list Or_error.t
   [@@deriving sexp_of, variants]
 end
 
@@ -95,12 +91,6 @@ let get_customers ~schedule_action ?filter () =
     ~handler:(Fn.compose schedule_action Action.gotcustomers)
 ;;
 
-let get_letter_templates ~schedule_action () =
-  Request.XHR.send'
-    Remote.LetterTemplates.get
-    ~handler:(Fn.compose schedule_action Action.gotlettertemplates)
-;;
-
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
   let customers = model >>| Model.customers in
@@ -117,9 +107,8 @@ let create model ~old_model ~inject =
   let customer =
     let inject = Fn.compose inject Action.customerform
     and back_href = Nav.(href_of Overview)
-    and form_model = model >>| Model.customer_form
-    and letters = model >>| Model.letter_templates in
-    Customer_form.create ~inject ~back_href letters form_model
+    and form_model = model >>| Model.customer_form in
+    Customer_form.create ~inject ~back_href form_model
   in
   let%map table = table
   and model = model
@@ -128,7 +117,7 @@ let create model ~old_model ~inject =
   and last_search = model >>| Model.last_search in
   let apply_action (a : Action.t) _state ~schedule_action =
     match a with
-    | GotCustomers (Error e) | GotLetterTemplates (Error e) ->
+    | GotCustomers (Error e) ->
       (* TODO: the gui should react to this *)
       Log.error e;
       model
@@ -144,7 +133,6 @@ let create model ~old_model ~inject =
         | Ok m -> m
       in
       {model with customers}
-    | GotLetterTemplates (Ok l) -> {model with letter_templates = l @ std_letters}
     | CustomerTable a ->
       let schedule_action = Fn.compose schedule_action Action.customertable in
       let customer_table = Component.apply_action ~schedule_action table a () in
@@ -192,7 +180,6 @@ let create model ~old_model ~inject =
 let on_startup ~schedule_action _model =
   Nav.listen (Fn.compose schedule_action Action.navchange);
   schedule_action (Action.NavChange (Nav.get ()));
-  get_letter_templates ~schedule_action ();
   get_customers ~schedule_action ();
   Async_kernel.Deferred.unit
 ;;

@@ -31,9 +31,3 @@ module Customers : sig
     -> unit
     -> (unit, t) Request.t
 end
-
-module LetterTemplates : sig
-  type t = Letter.template list
-
-  val get : (unit, t) Request.t
-end

@@ -108,12 +108,3 @@ module Customers = struct
       |> map_resp ~f:(List.map ~f:(fun r -> r.id, r.data)))
   ;;
 end
-
-module LetterTemplates = struct
-  type t = Letter.template list [@@deriving of_yojson]
-
-  let get =
-    Request.(
-      create ~url:(base_url "templates") |> want_json |> conv_resp ~f:(parse of_yojson))
-  ;;
-end
