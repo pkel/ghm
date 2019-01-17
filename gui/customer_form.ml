@@ -351,9 +351,7 @@ let apply_action
       List.filteri ~f:(fun i _ -> i <> model.selected) model.customer.bookings
     in
     let selected = min model.selected (List.length bookings - 1) in
-    let booking_f =
-      Form.State.create booking_form ~init:(List.nth_exn bookings selected)
-    in
+    let booking_f = Form.State.create booking_form ?init:(List.nth bookings selected) in
     {model with customer = {model.customer with bookings}; selected; booking_f}
   | DeleteCustomer ->
     let () =
@@ -660,16 +658,27 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
     Bs.button ~attr:[Bs.tab_skip] ~style:"outline-danger" ~action title
   and letter_dropdown =
     let items =
-      let uri t =
-        let date = Browser.Date.(now () |> to_locale_date_string) in
-        "../letter/#" ^ Letter.(instanciate ~date t customer |> to_b64)
-      in
-      let f tmpl =
+      let f x =
+        let uri t =
+          let date = Browser.Date.(now () |> to_locale_date_string)
+          and sender = "Pension Keller, Am Vögelisberg 13, D-78479 Reichenau"
+          and signer = "Christine Keller" in
+          "../letter/#" ^ Letter.(t ~sender ~signer ~date customer |> to_b64)
+        in
         Node.a
-          Attr.[class_ "dropdown-item"; href (uri tmpl); create "target" "_blank"]
-          [Node.text tmpl.name]
+          Attr.[class_ "dropdown-item"; href (uri (snd x)); create "target" "_blank"]
+          [Node.text (fst x)]
+      and letters =
+        let open Letter in
+        [ "Leere Vorlage", blank ~attachments:[]
+        ; "Leere Vorlage (mit Anhang)", blank ~attachments:["Anhang 1"; "Anhang 2"]
+        ; "Hausprospekt", flyer ]
+        @
+        match List.nth bookings selected with
+        | None -> []
+        | Some booking -> ["Bestätigung", confirm ~booking]
       in
-      List.map ~f Letter.[empty; empty_with_attachments; flyer]
+      List.map ~f letters
     in
     Node.(
       div
