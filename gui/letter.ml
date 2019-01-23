@@ -1,3 +1,4 @@
+open Ghm
 open Base
 
 type t =
@@ -72,19 +73,30 @@ Ihre schriftliche Zimmerreservierung. |}
       ]
 ;;
 
+let base_date_to_string d =
+  Date_yojson.to_string d |> Browser.Date.of_string |> Browser.Date.to_locale_date_string
+;;
+
 let confirm ~(booking : Booking.t) =
+  let period = Period.to_string_hum base_date_to_string booking.period in
+  let positions =
+    let n = List.length booking.allocs in
+    let comma i = match n - i with 1 -> "" | 2 -> " und" | _ -> "," in
+    List.mapi
+      ~f:(fun i x -> H.li [H.pcdata (Booking.string_of_alloc x ^ comma i)])
+      booking.allocs
+  in
   let open Printf in
   generic
     ~subject:"Anzahlung"
     ~attachments:[]
     ~body:
       [ p'
-          (sprintf
-             {|
+          {|
 vielen Dank für Ihre Bestellung. Hiermit bestätigen wir Ihre
-Zimmerreservierung über 1 Doppelzimmer für den Zeitraum vom 19.10.2018
-bis 21.10.2018. Die Übernachtung im Doppelzimmer kostet € 52.00 pro
-Person und Nacht, inkl. Frühstücksbüffet. |})
+Zimmerreservierung über |}
+      ; H.ul positions
+      ; p' (sprintf {| für den Zeitraum vom %s. |} period)
       ; p'
           (match booking.deposit_asked with
           | None ->
@@ -96,14 +108,13 @@ Danke schön! |}
           | Some deposit ->
             sprintf
               {|
-Bitte überweisen Sie eine Anzahlung in Höhe von %.2f € auf unser Konto
-IBAN DE74 6905 1410 0007 0356 86 BIC: SOLADES1REN. Wir erbeten eine Zahlung
-innerhalb von 14 Tagen. Nach Eingang Ihrer Anzahlung gilt Ihre
-Reservierung als endgültig bestätigt. |}
+Bitte überweisen Sie eine Anzahlung in Höhe von %.2f€ auf unten angebenes
+Konto. Wir erbeten eine Zahlung innerhalb von 14 Tagen. Nach Eingang Ihrer
+Anzahlung gilt Ihre Reservierung als endgültig bestätigt. |}
               deposit)
       ; p'
           {|
-Es wäre schön, wenn Sie uns kurz vor Ihrem Aufenthalt Ihre ungefähre Ankunftszeit
-mitteilen könnten. Danke schön! |}
+Es wäre schön, wenn Sie uns kurz vor Ihrem Aufenthalt Ihre ungefähre
+Ankunftszeit mitteilen könnten. Danke schön! |}
       ]
 ;;

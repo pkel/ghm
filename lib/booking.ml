@@ -53,3 +53,20 @@ let room_descriptions =
   ; "Doppel- als Einzelzimmer"
   ; "Kurtaxe" ]
 ;;
+
+let pp_money fmt x = Format.fprintf fmt "%.2f€" x
+
+let pp_alloc fmt alloc =
+  let a, b = if alloc.beds < 2 then "Bett", "für" else "Betten", "zu je" in
+  Format.fprintf
+    fmt
+    "%d %s im %s %s %a pro Nacht"
+    alloc.beds
+    a
+    alloc.description
+    b
+    pp_money
+    alloc.price_per_bed
+;;
+
+let string_of_alloc x = Format.asprintf "%a" pp_alloc x
