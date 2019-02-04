@@ -40,4 +40,7 @@ clean:
 	dune clean
 
 deploy:
-	scp -r _build/default/gui/(index.html|assets|app.bc.js) jhestia:/var/www/html/
+	cd _build/default/gui && rsync -a --delete index.html assets app.bc.js jhestia:/var/www/html/gui/
+	cd _build/default/ && rsync -a --delete letter jhestia:/var/www/html/gui/
+	rsync -a ./nginx-recipe jhestia:/etc/nginx/sites-available/default
+	ssh jhestia "nginx -t && systemctl restart nginx"
