@@ -151,7 +151,8 @@ let row db r =
     match booking_of_row r with Some b -> b :: bookings | None -> bookings
   in
   let c = customer_of_row r in
-  (* TODO: This assumes that best customer data is at the end of the table *)
+  (* We assume that best customer data is at the end of the table, i.e. in the
+     last Nebenadresse. *)
   Int.Map.set db ~key:cid ~data:{c with bookings}
 ;;
 
