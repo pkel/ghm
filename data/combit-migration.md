@@ -8,7 +8,7 @@
 
 ```
 $ file combit-for-ghm.20181028.csv
-combit-for-ghm.20181028.csv: ISO-8859 text, with very long lines, with CRLF line terminators
+combit-20181028.csv: ISO-8859 text, with very long lines, with CRLF line terminators
 $ iconv -f ISO-8859-1 -t utf-8 > combit.csv
 $ dos2unix combit.csv
 $ file combit.csv
