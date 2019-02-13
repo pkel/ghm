@@ -108,7 +108,7 @@ Danke schön! |}
           | Some deposit ->
             sprintf
               {|
-Bitte überweisen Sie eine Anzahlung in Höhe von %.2f€ auf unten angebenes
+Bitte überweisen Sie eine Anzahlung in Höhe von %.2f € auf unten angebenes
 Konto. Wir erbeten eine Zahlung innerhalb von 14 Tagen. Nach Eingang Ihrer
 Anzahlung gilt Ihre Reservierung als endgültig bestätigt. |}
               deposit)

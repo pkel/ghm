@@ -54,7 +54,7 @@ let room_descriptions =
   ; "Kurtaxe" ]
 ;;
 
-let pp_money fmt x = Format.fprintf fmt "%.2f€" x
+let pp_money fmt x = Format.fprintf fmt "%.2f €" x
 
 let pp_alloc fmt alloc =
   let a, b = if alloc.beds < 2 then "Bett", "für" else "Betten", "zu je" in
