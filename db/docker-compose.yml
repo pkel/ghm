@@ -4,15 +4,8 @@ services:
     image: postgrest/postgrest
     ports:
       - "3000:3000"
-    links:
-      - db:db
-    environment:
-      PGRST_DB_URI: postgres://${pg_user}:${pg_pwd}@db:5432/${pg_db}
-      PGRST_DB_SCHEMA: ${pg_schema}
-      PGRST_DB_ANON_ROLE: ${pg_anon}
-      PGRST_JWT_SECRET: ${jwt_secret}
-      PGRST_SECRET_IS_BASE64: "true"
-      PGRST_SERVER_PROXY_URI: ${base_uri}/api
+    volumes:
+      - ./postgrest.conf:/etc/postgrest.conf:Z
     depends_on:
       - db
   db:

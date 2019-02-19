@@ -2,8 +2,11 @@ SHELL=/bin/bash
 compose=sudo docker-compose
 
 .PHONY: up
-up :
+up : postgrest.conf
 	${compose} up -d
+
+postgrest.conf : env postgrest.conf.sh
+	./postgrest.conf.sh > postgrest.conf
 
 .PHONY: log
 log :
@@ -14,14 +17,13 @@ down :
 	${compose} down
 
 .PHONY: init
-init :
-	source ./.env ; ${compose} exec -e PGPASSWORD=$$pg_pwd -T db psql -U $$pg_user $$pg_db < jwt.sql
-	source ./.env ; ${compose} exec -e PGPASSWORD=$$pg_pwd -T db psql -U $$pg_user $$pg_db < init.sql
+init : postgrest.conf
+	./init.sh
 	${compose} restart server
 
 .PHONY: psql
 psql :
-	source ./.env ; ${compose} exec -e PGPASSWORD=$$pg_pwd db psql -U $$pg_user $$pg_db
+	source ./env ; ${compose} exec -e PGPASSWORD=$$pg_pwd db psql -U $$pg_user $$pg_db
 
 .PHONY: purge
 purge :

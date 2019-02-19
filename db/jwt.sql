@@ -2,12 +2,10 @@
 -- 19.02.19
 -- TODO update automatically
 
-drop extension if exists pgcrypto;
+set search_path = crypto;
 create extension pgcrypto;
 
-drop schema if exists jwt cascade;
-create schema jwt;
-set search_path=jwt,public;
+set search_path=jwt, crypto;
 
 CREATE OR REPLACE FUNCTION url_encode(data bytea) RETURNS text LANGUAGE sql AS $$
     SELECT translate(encode(data, 'base64'), E'+/=\n', '-_');
@@ -35,7 +33,7 @@ WITH
       WHEN algorithm = 'HS384' THEN 'sha384'
       WHEN algorithm = 'HS512' THEN 'sha512'
       ELSE '' END AS id)  -- hmac throws error
-SELECT url_encode(hmac(signables, secret, alg.id)) FROM alg;
+SELECT url_encode(crypto.hmac(signables, secret, alg.id)) FROM alg;
 $$;
 
 
@@ -43,17 +41,17 @@ CREATE OR REPLACE FUNCTION sign(payload json, secret text, algorithm text DEFAUL
 RETURNS text LANGUAGE sql AS $$
 WITH
   header AS (
-    SELECT url_encode(convert_to('{"alg":"' || algorithm || '","typ":"JWT"}', 'utf8')) AS data
+    SELECT jwt.url_encode(convert_to('{"alg":"' || algorithm || '","typ":"JWT"}', 'utf8')) AS data
     ),
   payload AS (
-    SELECT url_encode(convert_to(payload::text, 'utf8')) AS data
+    SELECT jwt.url_encode(convert_to(payload::text, 'utf8')) AS data
     ),
   signables AS (
     SELECT header.data || '.' || payload.data AS data FROM header, payload
     )
 SELECT
     signables.data || '.' ||
-    algorithm_sign(signables.data, secret, algorithm) FROM signables;
+    jwt.algorithm_sign(signables.data, secret, algorithm) FROM signables;
 $$;
 
 

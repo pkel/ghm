@@ -1,0 +1,4 @@
+pg_user=postgrest
+pg_pwd=TODOsetSafePasswordOnInit
+pg_db=postgrest
+base_uri=http://localhost:2015
