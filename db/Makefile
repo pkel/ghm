@@ -15,6 +15,7 @@ down :
 
 .PHONY: init
 init :
+	source ./.env ; ${compose} exec -e PGPASSWORD=$$pg_pwd -T db psql -U $$pg_user $$pg_db < jwt.sql
 	source ./.env ; ${compose} exec -e PGPASSWORD=$$pg_pwd -T db psql -U $$pg_user $$pg_db < init.sql
 	${compose} restart server
 
