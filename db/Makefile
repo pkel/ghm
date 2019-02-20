@@ -2,11 +2,14 @@ SHELL=/bin/bash
 compose=sudo docker-compose
 
 .PHONY: up
-up : postgrest.conf
+up : .env postgrest.conf
 	${compose} up -d
 
-postgrest.conf : env postgrest.conf.sh
-	./postgrest.conf.sh > postgrest.conf
+.env : env.sh
+	./env.sh > .env
+
+postgrest.conf :
+	touch postgrest.conf
 
 .PHONY: log
 log :
@@ -17,17 +20,18 @@ down :
 	${compose} down
 
 .PHONY: init
-init : postgrest.conf
-	./init.sh
+init :
+	./init.sh # generates postgrest.conf
 	${compose} restart server
 
 .PHONY: psql
-psql :
-	source ./env ; ${compose} exec -e PGPASSWORD=$$pg_pwd db psql -U $$pg_user $$pg_db
+psql : .env
+	source .env ; ${compose} exec -e PGPASSWORD=$$pg_pwd db psql -U $$pg_user $$pg_db
 
 .PHONY: purge
 purge :
 	${compose} down -v
+	rm -f .env postgrest.conf
 
 .PHONE: get-compose
 get-compose:

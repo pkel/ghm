@@ -1,6 +1,3 @@
--- used for connection postgrest <-> postgres
-create role authenticator noinherit login password 'todo_randomize';
-
 -- used for unauthorized access, i.e. without jwt
 create role anonymous nologin;
 -- switch to anonymous role
