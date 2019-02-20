@@ -260,8 +260,8 @@ end
 
 let default_period () =
   let today = Ext_date.today () in
-  let from = Date.add_days today 1
-  and till = Date.add_days today 2 in
+  let from = Date.add_days today 7
+  and till = Date.add_days today 8 in
   Period.of_dates from till
 ;;
 
@@ -327,21 +327,31 @@ let apply_action
       in
       model)
   | NewBooking ->
-    let b_opt, booking_f = Form.State.read_value model.booking_f booking_form in
-    schedule_action (Action.Update_b booking_f);
-    (match b_opt with
-    | None -> (* booking form blocked by error *) model
-    | Some b ->
-      (* save current booking, create new, reload *)
+    (match List.nth model.customer.bookings model.selected with
+    | None ->
       let new_b = fresh_booking () in
-      (* TODO: copy latest booking with new date, currently a bug is doing it *)
       let booking_f = Form.State.create ~init:new_b booking_form in
-      let bookings =
-        new_b
-        :: List.mapi model.customer.bookings ~f:(fun i old ->
-               if i = model.selected then b else old )
-      in
-      {model with customer = {model.customer with bookings}; selected = 0; booking_f})
+      let bookings = new_b :: model.customer.bookings in
+      {model with customer = {model.customer with bookings}; selected = 0; booking_f}
+    | Some _ ->
+      let b_opt, booking_f = Form.State.read_value model.booking_f booking_form in
+      schedule_action (Action.Update_b booking_f);
+      (match b_opt with
+      | None -> (* booking form blocked by error *) model
+      | Some b ->
+        (* TODO: keep different form states, paint only one, then copy
+              latest booking, set default period on place new form state.
+
+              Currently the same form is reused, i.e. all values stay the same.
+           *)
+        let new_b = b in
+        let booking_f = Form.State.create ~init:new_b booking_form in
+        let bookings =
+          new_b
+          :: List.mapi model.customer.bookings ~f:(fun i old ->
+                 if i = model.selected then b else old )
+        in
+        {model with customer = {model.customer with bookings}; selected = 0; booking_f}))
   | DeleteBooking ->
     let bookings =
       List.filteri ~f:(fun i _ -> i <> model.selected) model.customer.bookings
@@ -574,13 +584,13 @@ let view_booking ~inject selection state ids =
            Node.hr [] :: view_guest (delete_g i) state ids ) )
     @ [Node.hr []; Node.div [] [Bs.button ~i:(S "plus") ~action:new_g "Weiterer Gast"]]
   and allocs =
-    ( Node.h4 [] [Node.text "Belegung"]
+    ( Node.h4 [] [Node.text "Positionen"]
     :: List.concat_mapi allocs ~f:(fun i ids ->
            Node.hr [] :: view_alloc (delete_a i) state ids ) )
     @ [Node.hr []; Node.div [] [Bs.button ~i:(S "plus") ~action:new_a "Weitere Belegung"]]
   and main =
     Bs.Grid.
-      [ Node.h4 [A.class_ "mb-3"] [Node.text "Buchungen"]
+      [ Node.h4 [A.class_ "mb-3"] [Node.text "Aufenthalte"]
       ; selection
       ; div [] (prepend_err_div state block [])
       ; view_period state period
@@ -695,18 +705,22 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   in
   let rows =
     let open Bs.Grid in
+    let back_btn = Bs.button' ~href:back_href "Zurück"
+    and save_btn = Bs.button_submit "Speichern" in
     [ [ frow
-          [ col_auto ~c:["mt-2"] [Bs.button' ~href:back_href "Zurück"]
+          [ col_auto ~c:["mb-2"; "mt-2"] [back_btn]
           ; col
-              [ frow
-                  ~c:["justify-content-end"]
-                  [col_auto ~c:["mb-2"; "mt-2"] [Bs.button_submit "Speichern"]] ] ]
+              [frow ~c:["justify-content-end"] [col_auto ~c:["mb-2"; "mt-2"] [save_btn]]]
+          ]
       ; Node.hr [] ]
     ; view_customer customer_f c_ids
     ; [ Node.hr []
-      ; view_booking ~inject selection booking_f b_ids
+      ; (if List.length bookings > 0
+        then view_booking ~inject selection booking_f b_ids
+        else frow [])
       ; frow
-          [ col_auto
+          [ col_auto ~c:["mb-2"; "mt-2"] [back_btn]
+          ; col_auto
               ~c:["mb-2"; "mt-2"]
               [Bs.button_clipboard ~value:excel ~id:excel_id "Excel"]
           ; col_auto ~c:["mb-2"; "mt-2"] [letter_dropdown]
@@ -716,7 +730,7 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
                   [ col_auto ~c:["mb-2"; "mt-2"] [danger_btn delete_b "Buchung löschen"]
                   ; col_auto ~c:["mb-2"; "mt-2"] [danger_btn delete_c "Kunde löschen"]
                   ; col_auto ~c:["mb-2"; "mt-2"] [Bs.button ~action:new_b "Neue Buchung"]
-                  ] ] ] ] ]
+                  ; col_auto ~c:["mb-2"; "mt-2"] [save_btn] ] ] ] ] ]
   in
   Node.create "form" [Attr.on "submit" save] (List.concat rows)
 ;;
