@@ -27,6 +27,8 @@ val want_text : ('a, unit) t -> ('a, string) t
 val want_json : ('a, unit) t -> ('a, json) t
 
 module XHR : sig
-  val send : body:'a -> handler:('b Or_error.t -> unit) -> ('a, 'b) t -> unit
-  val send' : handler:('b Or_error.t -> unit) -> (unit, 'b) t -> unit
+  val send 
+    : ?jwt:string -> body:'a -> handler:('b Or_error.t -> unit) -> ('a, 'b) t -> unit
+
+  val send' : ?jwt:string -> handler:('b Or_error.t -> unit) -> (unit, 'b) t -> unit
 end

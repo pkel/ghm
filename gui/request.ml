@@ -68,7 +68,15 @@ let give_text t =
 module XHR = struct
   open Browser.XHR
 
-  let send ~body ~handler t =
+  let send ?jwt ~body ~handler t =
+    let t =
+      match jwt with
+      | None -> t
+      | Some token ->
+        let key = "Authorization"
+        and value = "Bearer " ^ token in
+        header ~key ~value t
+    in
     let xhr = create () in
     let url_with_params =
       String.Map.to_alist t.params
@@ -95,5 +103,5 @@ module XHR = struct
     send xhr (t.body body)
   ;;
 
-  let send' ~handler t = send ~body:() ~handler t
+  let send' ?jwt ~handler t = send ?jwt ~body:() ~handler t
 end

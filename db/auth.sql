@@ -82,7 +82,7 @@ begin
     ) as token
     from (
       select _role as role, login.id as id,
-         extract(epoch from now())::integer + 60*60 as exp
+         extract(epoch from now())::integer + 60*5 as exp -- token valid for 5 minutes
     ) r
     into result;
   return result;

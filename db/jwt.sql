@@ -5,7 +5,7 @@
 set search_path = crypto;
 create extension pgcrypto;
 
-set search_path=jwt, crypto;
+set search_path=jwt;
 
 CREATE OR REPLACE FUNCTION url_encode(data bytea) RETURNS text LANGUAGE sql AS $$
     SELECT translate(encode(data, 'base64'), E'+/=\n', '-_');
@@ -33,7 +33,7 @@ WITH
       WHEN algorithm = 'HS384' THEN 'sha384'
       WHEN algorithm = 'HS512' THEN 'sha512'
       ELSE '' END AS id)  -- hmac throws error
-SELECT url_encode(crypto.hmac(signables, secret, alg.id)) FROM alg;
+SELECT jwt.url_encode(crypto.hmac(signables, secret, alg.id)) FROM alg;
 $$;
 
 
@@ -58,8 +58,8 @@ $$;
 CREATE OR REPLACE FUNCTION verify(token text, secret text, algorithm text DEFAULT 'HS256')
 RETURNS table(header json, payload json, valid boolean) LANGUAGE sql AS $$
   SELECT
-    convert_from(url_decode(r[1]), 'utf8')::json AS header,
-    convert_from(url_decode(r[2]), 'utf8')::json AS payload,
-    r[3] = algorithm_sign(r[1] || '.' || r[2], secret, algorithm) AS valid
+    convert_from(jwt.url_decode(r[1]), 'utf8')::json AS header,
+    convert_from(jwt.url_decode(r[2]), 'utf8')::json AS payload,
+    r[3] = jwt.algorithm_sign(r[1] || '.' || r[2], secret, algorithm) AS valid
   FROM regexp_split_to_array(token, '\.') r;
 $$;

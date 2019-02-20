@@ -1,6 +1,32 @@
 open Core_kernel
 open Ghm
 
+let base_url = sprintf "/api/%s"
+let data_only json = `Assoc ["data", json]
+let parse f x = match f x with Ok v -> Ok v | Error s -> Or_error.error_string s
+
+module Login = struct
+  type credentials =
+    { user : string [@key "id"]
+    ; pass : string }
+  [@@deriving to_yojson, compare]
+
+  type token = string [@@deriving compare]
+  type foreign = {token : string} [@@deriving of_yojson]
+
+  let get_token =
+    Request.(
+      create ~url:(base_url "rpc/login")
+      |> verb POST
+      |> want_json
+      |> Request.header ~key:"Accept" ~value:"application/vnd.pgrst.object+json"
+      |> conv_resp ~f:(parse foreign_of_yojson)
+      |> map_resp ~f:(fun f -> f.token)
+      |> give_json
+      |> map_body ~f:credentials_to_yojson)
+  ;;
+end
+
 type 'a order =
   | Asc of 'a
   | Desc of 'a
@@ -9,10 +35,6 @@ let string_of_order f = function
   | Asc key -> sprintf "%s.asc" (f key)
   | Desc key -> sprintf "%s.desc" (f key)
 ;;
-
-let base_url = sprintf "/api/%s"
-let data_only json = `Assoc ["data", json]
-let parse f x = match f x with Ok v -> Ok v | Error s -> Or_error.error_string s
 
 module Customer = struct
   type t = Customer.t
