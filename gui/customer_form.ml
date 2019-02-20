@@ -120,27 +120,23 @@ let period =
 let monetary_opt =
   let open Form.Description in
   conv_without_block string ~f:(fun s id ->
+      let e =
+        Error [Form.Form_error.create ~id (Error.of_string "Geldwert erwartet.")]
+      in
       if s = ""
       then Ok None
       else
         match float_of_string s with
-        | x -> Ok (Some (Float.round_decimal ~decimal_digits:2 x))
-        | exception _ ->
-          Error [Form.Form_error.create ~id (Error.of_string "Geldwert erwartet.")] )
-  |> contra_map ~f:(function None -> "" | Some x -> sprintf "%.2f" x)
+        | x -> (match Monetary.of_float x with Some m -> Ok (Some m) | None -> e)
+        | exception _ -> e )
+  |> contra_map ~f:(function None -> "" | Some x -> Monetary.to_string_dot x)
 ;;
 
 let monetary =
   let open Form.Description in
-  conv_without_block string ~f:(fun s id ->
-      if s = ""
-      then Ok 0.
-      else
-        match float_of_string s with
-        | x -> Ok (Float.round_decimal ~decimal_digits:2 x)
-        | exception _ ->
-          Error [Form.Form_error.create ~id (Error.of_string "Geldwert erwartet.")] )
-  |> contra_map ~f:(function 0. -> "" | x -> sprintf "%.2f" x)
+  conv_without_block monetary_opt ~f:(fun opt _id ->
+      match opt with None -> Ok Monetary.zero | Some m -> Ok m )
+  |> contra_map ~f:(fun x -> if Monetary.(compare zero x) = 0 then None else Some x)
 ;;
 
 let int =
