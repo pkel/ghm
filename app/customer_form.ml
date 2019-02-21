@@ -663,7 +663,7 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
           let date = Browser.Date.(now () |> to_locale_date_string)
           and sender = "Pension Keller, Am Vögelisberg 13, D-78479 Reichenau"
           and signer = "Christine Keller" in
-          "../letter/#" ^ Letter.(t ~sender ~signer ~date customer |> to_b64)
+          "/letter/#" ^ Letter.(t ~sender ~signer ~date customer |> to_b64)
         in
         Node.a
           Attr.[class_ "dropdown-item"; href (uri (snd x)); create "target" "_blank"]

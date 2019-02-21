@@ -1,0 +1,1 @@
+../_build/default/app/app.bc.js

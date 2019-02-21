@@ -26,5 +26,11 @@ services:
       - "3001"
     environment:
       API_URL: ${base_uri}/api
+  php:
+    image: php:7.3-fpm-alpine
+    ports:
+      - "9000:9000"
+    volumes:
+      - ../webroot/:/var/www/html:Z
 volumes:
   data:
