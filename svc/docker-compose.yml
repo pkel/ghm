@@ -13,9 +13,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: ${pg_db}
-      POSTGRES_USER: ${pg_user}
-      POSTGRES_PASSWORD: ${pg_pwd}
+      POSTGRES_DB: ${db_name}
+      POSTGRES_USER: ${db_root_user}
+      POSTGRES_PASSWORD: ${db_root_pass}
     volumes:
       - data:/var/lib/postgresql/data
   swagger:
@@ -27,10 +27,19 @@ services:
     environment:
       API_URL: ${base_uri}/api
   php:
-    image: php:7.3-fpm-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile-for-php
     ports:
       - "9000:9000"
     volumes:
       - ../webroot/:/var/www/html:Z
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${db_name}
+      DB_USER: ${db_auth_user}
+      DB_PASS: ${db_auth_pass}
+      JWT_SECRET: ${jwt_secret}
 volumes:
   data:

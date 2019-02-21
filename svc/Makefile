@@ -26,7 +26,7 @@ init :
 
 .PHONY: psql
 psql : .env
-	source .env ; ${compose} exec -e PGPASSWORD=$$pg_pwd db psql -U $$pg_user $$pg_db
+	source .env ; ${compose} exec -e PGPASSWORD=$$db_root_pass db psql -U $$db_root_user $$db_name
 
 .PHONY: purge
 purge :

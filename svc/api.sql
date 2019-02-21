@@ -24,5 +24,3 @@ for each row execute procedure set_modified_now ();
 create or replace function keyword(customers) returns text as $$
   select $1.data->>'keyword';
 $$ language sql;
-
-grant all on customers to ghm_user;

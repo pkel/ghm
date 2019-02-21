@@ -1,23 +1,9 @@
--- used for unauthorized access, i.e. without jwt
-create role anonymous nologin;
--- switch to anonymous role
-grant anonymous to authenticator;
--- anonymous has to use login
-grant usage on schema api, auth, crypto, jwt to anonymous;
-
--- standard authenticated user
-create role ghm_user nologin;
-grant ghm_user to authenticator;
-grant usage on schema api to ghm_user;
-
 set search_path = auth;
 
 create table users (
   id text not null,
   pass text not null,
   role name not null);
-
-grant select on users to anonymous;
 
 -- enforce role being a postgres db role
 create or replace function check_role_exists() returns trigger as $$
@@ -40,7 +26,7 @@ create constraint trigger ensure_user_role_exists
 create or replace function encrypt_pass() returns trigger as $$
 begin
   if tg_op = 'INSERT' or new.pass <> old.pass then
-    new.pass = crypt(new.pass, gen_salt('bf'));
+    new.pass = crypto.crypt(new.pass, crypto.gen_salt('bf'));
   end if;
   return new;
 end
@@ -51,7 +37,7 @@ create trigger encrypt_pass
   for each row
   execute procedure encrypt_pass();
 
-/* authentication */
+/* authentication TODO: This is now done by php. Drop */
 
 create or replace function user_role(id text, pass text) returns name as $$
 begin
@@ -88,5 +74,3 @@ begin
   return result;
 end;
 $$ language plpgsql;
-
-grant execute on function api.login(text,text) to anonymous;

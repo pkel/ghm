@@ -59,6 +59,32 @@ function print_login() { ?>
 </html>
 <?php }
 
+session_start();
+
+function fail ($status) {
+  http_response_code ($status);
+  exit();
+}
+
+function pdo() {
+  global $__pdo;
+  if (isset($__pdo)) {
+    return $__pdo;
+  } else {
+    $host = getenv('DB_HOST');
+    $port = getenv('DB_PORT');
+    $pass = getenv('DB_PASS');
+    $user = getenv('DB_USER');
+    $name = getenv('DB_NAME');
+    $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $name
+      . ';user=' . $user . ';password=' . $pass;
+    $pdo = new PDO($dsn);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $__pdo = $pdo;
+    return $pdo;
+  }
+}
+
 function redirect_get($status="") {
   // TODO: preserve other parameters
   if (strlen($status) > 0) {
@@ -72,29 +98,23 @@ function redirect_get($status="") {
 }
 
 function login($username, $password){
-  redirect_get();
-  $db = get_db();
-  $query = "SELECT password FROM users WHERE username=?";
-  if ($stmt = $db->prepare($query)) {
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $stmt->bind_result($hash);
-    if ($stmt->fetch() && password_verify($password, $hash)){
-      $_SESSION['username']=$username ;
-      redirect_get("login-success");
-    } else {
-      unset($_SESSION['username']);
-      redirect_get("login-fail");
-    }
-    $stmt->close();
+  $query = "SELECT auth.user_role(:id, :pass)";
+  $stmt = pdo()->prepare($query);
+  $stmt->execute(array(':id' => $username, ':pass' => $password));
+  $role = $stmt->fetch()[0];
+  if ($role === NULL) {
+    redirect_get("login-fail");
   } else {
-    die($db->error);
+    $_SESSION['user']=$username;
+    $_SESSION['role']=$role;
+    redirect_get();
   }
 }
 
-function fail ($status) {
-  http_response_code ($status);
-  exit();
+function logout() {
+  unset($_SESSION['user']);
+  unset($_SESSION['role']);
+  redirect_get('logout-success');
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -117,7 +137,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
   // TODO: if logged in print_app else
-  print_login ();
+  if (isset($_SESSION['role'])) {
+    print_app ();
+  } else {
+    print_login ();
+  }
 } else {
   fail(405);
 }
