@@ -101,7 +101,7 @@ module Row = struct
     let to_string t = Option.map ~f:string_of_int t |> Option.value ~default:""
 
     let sort_key x =
-      Sort_key.Integer Option.(map ~f:Int63.of_int x |> value ~default:Int63.zero)
+      Sort_key.Integer (Option.value ~default:0 x)
     ;;
   end
 
@@ -176,15 +176,14 @@ module Row = struct
 
   let view (m : Model.t Incr.t) =
     let%map m = m in
-    let attrs =
+    let row_attrs =
       Attr.
         [ on_click Nav.(navigate (Customer (Id m.id)))
-        ; style (Css.create ~field:"cursor" ~value:"pointer") ]
+        ; style (Css_gen.create ~field:"cursor" ~value:"pointer") ]
     in
-    let row_attrs = Rn_spec.Attrs.create ~attrs () in
     let cells =
       List.map Model.columns ~f:(fun col ->
-          { Rn_spec.Cell.attrs = Rn_spec.Attrs.create ()
+        { Rn_spec.Cell.attrs = []
           ; node = Node.span [] [Node.text (Column.get col m)] } )
     in
     {Rn_spec.row_attrs; cells}

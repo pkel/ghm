@@ -607,7 +607,7 @@ let view_booking_list ~selected ~inject (l : Booking.t list) : Vdom.Node.t =
     let e =
       Attr.
         [ on_click (fun _ -> inject (Action.SelectBooking i))
-        ; style (Css.create ~field:"cursor" ~value:"pointer") ]
+        ; style (Css_gen.create ~field:"cursor" ~value:"pointer") ]
     in
     let attr = if i = selected then Attr.class_ "table-active" :: e else e in
     Node.(tr attr [td [] [text f]; td [] [text t]])

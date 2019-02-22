@@ -10,11 +10,15 @@ type t =
   ; attachments : string }
 [@@deriving yojson]
 
-let to_b64 t = to_yojson t |> Yojson.Safe.to_string |> Base64.encode
+let to_b64 t = to_yojson t |> Yojson.Safe.to_string |> Base64.encode |>
+function
+  | Ok str -> str
+  (* TODO: care properly *)
+  | Error _ -> ""
 
 module H = Tyxml.Html
 
-let p' s = H.(p [pcdata s])
+let p' s = H.(p [txt s])
 
 let elts_to_string l =
   List.map ~f:(Caml.Format.asprintf "%a" (H.pp_elt ())) l |> String.concat ~sep:"\n"
@@ -25,11 +29,11 @@ let generic ~subject ~body ~attachments ~sender ~signer ~date (c : Customer.t) =
   { recipient =
       H.
         [ br ()
-        ; pcdata (sprintf "%s %s" c.name.given c.name.family)
+        ; txt (sprintf "%s %s" c.name.given c.name.family)
         ; br ()
-        ; pcdata c.address.street_with_num
+        ; txt c.address.street_with_num
         ; br ()
-        ; pcdata
+        ; txt
             (sprintf
                "%s-%s %s"
                c.address.country_code
@@ -49,7 +53,7 @@ let generic ~subject ~body ~attachments ~sender ~signer ~date (c : Customer.t) =
       then ""
       else
         H.
-          [p [b [pcdata "Anlagen:"]; br (); pcdata (String.concat ~sep:", " attachments)]]
+          [p [b [txt "Anlagen:"]; br (); txt (String.concat ~sep:", " attachments)]]
         |> elts_to_string)
   ; sender }
 ;;
@@ -83,7 +87,7 @@ let confirm ~(booking : Booking.t) =
     let n = List.length booking.allocs in
     let comma i = match n - i with 1 -> "" | 2 -> " und" | _ -> "," in
     List.mapi
-      ~f:(fun i x -> H.li [H.pcdata (Booking.string_of_alloc x ^ comma i)])
+      ~f:(fun i x -> H.li [H.txt (Booking.string_of_alloc x ^ comma i)])
       booking.allocs
   in
   let open Printf in

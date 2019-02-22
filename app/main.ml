@@ -137,7 +137,7 @@ let view_login inject state =
   Bs.Grid.(
     div
       [ Attr.classes ["row"; "justify-content-center"; "align-items-center"]
-      ; Attr.style Css.(height (`Vh (Percent.of_percentage 100.))) ]
+      ; Attr.style Css_gen.(height (`Vh (Percent.of_percentage 100.))) ]
       [col4 [div [A.class_ "card"] [div [A.class_ "card-body"] [form]]]])
 ;;
 

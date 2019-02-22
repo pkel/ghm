@@ -53,7 +53,7 @@ let button_clipboard ?i ?(attr = []) ?(style = "secondary") ~id ~value label =
     ; Node.textarea
         [ Attr.id id
         ; Attr.style
-            Css.(
+            Css_gen.(
               concat
                 [ opacity 0.
                 ; position ~left:(`Px 0) ~top:(`Px 0) `Absolute
