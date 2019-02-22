@@ -34,6 +34,7 @@ services:
       - "9000:9000"
     volumes:
       - ../webroot/:/var/www/html:Z
+      - ../php-lib/:/var/www/lib:Z
     environment:
       DB_HOST: db
       DB_PORT: 5432

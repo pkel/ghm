@@ -1,5 +1,7 @@
 <?php
 
+include('../lib/shared.php');
+
 function print_app() { ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -58,64 +60,6 @@ function print_login() { ?>
   </body>
 </html>
 <?php }
-
-session_start();
-
-function fail ($status) {
-  http_response_code ($status);
-  exit();
-}
-
-function pdo() {
-  global $__pdo;
-  if (isset($__pdo)) {
-    return $__pdo;
-  } else {
-    $host = getenv('DB_HOST');
-    $port = getenv('DB_PORT');
-    $pass = getenv('DB_PASS');
-    $user = getenv('DB_USER');
-    $name = getenv('DB_NAME');
-    $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $name
-      . ';user=' . $user . ';password=' . $pass;
-    $pdo = new PDO($dsn);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $__pdo = $pdo;
-    return $pdo;
-  }
-}
-
-function redirect_get($status="") {
-  // TODO: preserve other parameters
-  if (strlen($status) > 0) {
-    $param = "?status=".$status;
-  } else {
-    $param = "" ;
-  }
-  http_response_code(303);
-  header("Location: " . $_SERVER['REQUEST_URI'] . $param);
-  exit();
-}
-
-function login($username, $password){
-  $query = "SELECT auth.user_role(:id, :pass)";
-  $stmt = pdo()->prepare($query);
-  $stmt->execute(array(':id' => $username, ':pass' => $password));
-  $role = $stmt->fetch()[0];
-  if ($role === NULL) {
-    redirect_get("login-fail");
-  } else {
-    $_SESSION['user']=$username;
-    $_SESSION['role']=$role;
-    redirect_get();
-  }
-}
-
-function logout() {
-  unset($_SESSION['user']);
-  unset($_SESSION['role']);
-  redirect_get('logout-success');
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   // sanitize input
