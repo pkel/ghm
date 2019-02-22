@@ -1,4 +1,4 @@
-server=localhost:2015
+base_uri := $(shell source svc/.env; echo $$base_uri)
 
 .PHONY: all watch format serve svc-up svc-init svc-psql import clean-db clean
 
@@ -12,10 +12,10 @@ format:
 	# do not auto promote test output
 	dune runtest && dune build @fmt --auto-promote
 
-serve:
+serve: svc-up
 	@echo ""
 	@echo "Don't forget to start the containers:"
-	@echo "cd svc; make up"
+	@echo "make svc-up"
 	@echo ""
 	source svc/.env; export base_uri; caddy || true
 
@@ -29,18 +29,18 @@ svc-psql:
 	cd svc; make psql
 
 clean-db:
-	# TODO: cannot work without jwt token
 	curl \
-		-X DELETE "http://${server}/api/customers" \
+		-X DELETE "$(base_uri)/api/customers" \
+		-H "Authorization : Bearer $(shell scripts/get-token.sh)" \
 		-H "accept: application/json"
 
 import: clean-db
-	# TODO: cannot work without jwt token
 	dune exec tools/combit.exe data/combit.csv | \
 		curl \
-		-X POST "http://${server}/api/customers" \
+		"${base_uri}/api/customers" \
 		-H "accept: application/json" -H  "Prefer: return=none" \
 		-H "Content-Type: application/json" \
+		-H "Authorization : Bearer $(shell scripts/get-token.sh)" \
 		-d @-
 
 clean:

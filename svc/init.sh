@@ -53,9 +53,9 @@ grant usage on schema api to ghm_user;
 grant all on api.customers to ghm_user;
 EOF
 
-# generate ghm user for development TODO: remove/replace
+# generate ghm user for development
 $psql << EOF
-insert into auth.users(id, pass, role) values('dummy', 'trivial', 'ghm_user');
+insert into auth.users(id, pass, role) values('$app_user', '$app_pass', 'ghm_user');
 EOF
 
 # generate postgrest config based on generated secrets
