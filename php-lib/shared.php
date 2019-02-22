@@ -65,7 +65,19 @@ function login($username, $password){
 
 function token(){
   if (isset($_SESSION['role'])) {
-    echo ('token');
+    $query = "SELECT auth.token(:id, :role, :secret)";
+    $stmt = pdo()->prepare($query);
+    $stmt->execute(array(
+      ':id' => $_SESSION['username'],
+      ':role' => $_SESSION['role'],
+      ':secret' => getenv('JWT_SECRET')
+    ));
+    $token = $stmt->fetch()[0];
+    if ($token === NULL) {
+      fail(400);
+    } else {
+      echo($token);
+    }
   } else {
     fail(401);
   }

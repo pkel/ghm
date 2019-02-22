@@ -43,7 +43,7 @@ sql jwt # jwt and crypto extensions
 sql auth # user table
 
 $psql << EOF
-grant usage on schema auth, crypto to $db_auth_user;
+grant usage on schema auth, jwt, crypto to $db_auth_user;
 grant select on auth.users to $db_auth_user;
 EOF
 

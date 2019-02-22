@@ -37,8 +37,9 @@ create trigger encrypt_pass
   for each row
   execute procedure encrypt_pass();
 
-/* authentication TODO: This is now done by php. Drop */
+/* authentication */
 
+-- returns role for user of NULL. Called from php with user credentials
 create or replace function user_role(id text, pass text) returns name as $$
 begin
   return (
@@ -49,25 +50,17 @@ begin
 end;
 $$ language plpgsql;
 
--- public login function
-create type jwt_token as (token text);
-
-create or replace function api.login(id text, pass text) returns auth.jwt_token as $$
+-- token for role using jwt_secret. Called from php.
+create or replace function token(user_id text, role text, secret text) returns text as $$
 declare
-  _role name;
-  result auth.jwt_token;
+  result text;
 begin
-  -- check email and password
-  select auth.user_role(id, pass) into _role;
-  if _role is null then
-    raise invalid_password using message = 'invalid user or password';
-  end if;
-
   select jwt.sign(
-      row_to_json(r), current_setting('app.settings.jwt_secret')
+      row_to_json(r), token.secret
     ) as token
     from (
-      select _role as role, login.id as id,
+      select token.role as role, token.user_id as username,
+         60*5 as span,
          extract(epoch from now())::integer + 60*5 as exp -- token valid for 5 minutes
     ) r
     into result;

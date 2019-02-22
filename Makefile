@@ -1,6 +1,6 @@
 server=localhost:2015
 
-.PHONY: all watch format serve import clean-db clean
+.PHONY: all watch format serve svc-up svc-init svc-psql import clean-db clean
 
 all:
 	dune build app/app.bc.js tools/combit.exe
@@ -18,6 +18,15 @@ serve:
 	@echo "cd svc; make up"
 	@echo ""
 	source svc/.env; export base_uri; caddy || true
+
+svc-up:
+	cd svc; make up
+
+svc-init:
+	cd svc; make init
+
+svc-psql:
+	cd svc; make psql
 
 clean-db:
 	# TODO: cannot work without jwt token

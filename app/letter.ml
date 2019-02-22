@@ -10,7 +10,7 @@ type t =
   ; attachments : string }
 [@@deriving yojson]
 
-let to_b64 t = to_yojson t |> Yojson.Safe.to_string |> B64.encode
+let to_b64 t = to_yojson t |> Yojson.Safe.to_string |> Base64.encode
 
 module H = Tyxml.Html
 
