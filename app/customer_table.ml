@@ -99,10 +99,7 @@ module Row = struct
     type t = int option
 
     let to_string t = Option.map ~f:string_of_int t |> Option.value ~default:""
-
-    let sort_key x =
-      Sort_key.Integer (Option.value ~default:0 x)
-    ;;
+    let sort_key x = Sort_key.Integer (Option.value ~default:0 x)
   end
 
   module DateOpt = struct
@@ -183,8 +180,8 @@ module Row = struct
     in
     let cells =
       List.map Model.columns ~f:(fun col ->
-        { Rn_spec.Cell.attrs = []
-          ; node = Node.span [] [Node.text (Column.get col m)] } )
+          {Rn_spec.Cell.attrs = []; node = Node.span [] [Node.text (Column.get col m)]}
+      )
     in
     {Rn_spec.row_attrs; cells}
   ;;

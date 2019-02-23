@@ -10,11 +10,12 @@ type t =
   ; attachments : string }
 [@@deriving yojson]
 
-let to_b64 t = to_yojson t |> Yojson.Safe.to_string |> Base64.encode |>
-function
-  | Ok str -> str
-  (* TODO: care properly *)
-  | Error _ -> ""
+let to_b64 t =
+  to_yojson t
+  |> Yojson.Safe.to_string
+  |> Base64.encode
+  |> function Ok str -> str (* TODO: care properly *) | Error _ -> ""
+;;
 
 module H = Tyxml.Html
 
@@ -52,8 +53,7 @@ let generic ~subject ~body ~attachments ~sender ~signer ~date (c : Customer.t) =
       (if List.is_empty attachments
       then ""
       else
-        H.
-          [p [b [txt "Anlagen:"]; br (); txt (String.concat ~sep:", " attachments)]]
+        H.[p [b [txt "Anlagen:"]; br (); txt (String.concat ~sep:", " attachments)]]
         |> elts_to_string)
   ; sender }
 ;;
