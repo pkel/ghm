@@ -1,6 +1,6 @@
 base_uri := $(shell source svc/.env; echo $$base_uri)
 
-.PHONY: all watch format serve svc-up svc-init svc-psql import clean-db clean
+.PHONY: all watch format serve svc-up svc-init svc-psql import pwd clean-db clean
 
 all:
 	dune build app/app.bc.js tools/combit.exe
@@ -12,7 +12,7 @@ format:
 	# do not auto promote test output
 	dune runtest && dune build @fmt --auto-promote
 
-serve: svc-up
+serve:
 	@echo ""
 	@echo "Don't forget to start the containers:"
 	@echo "make svc-up"
@@ -42,6 +42,9 @@ import: clean-db
 		-H "Content-Type: application/json" \
 		-H "Authorization : Bearer $(shell scripts/get-token.sh)" \
 		-d @-
+
+pwd:
+	@echo $(shell source svc/.env ; echo $$app_pass)
 
 clean:
 	dune clean

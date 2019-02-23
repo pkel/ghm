@@ -1,6 +1,7 @@
 version: '3'
 services:
   server:
+    restart: always
     image: postgrest/postgrest
     ports:
       - "3000:3000"
@@ -9,6 +10,7 @@ services:
     depends_on:
       - db
   db:
+    restart: always
     image: postgres:10
     ports:
       - "5432:5432"
@@ -19,6 +21,7 @@ services:
     volumes:
       - data:/var/lib/postgresql/data
   swagger:
+    restart: always
     image: swaggerapi/swagger-ui
     ports:
       - "3001:8080"
@@ -27,6 +30,7 @@ services:
     environment:
       API_URL: ${base_uri}/api
   php:
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile-for-php
