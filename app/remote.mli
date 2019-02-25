@@ -1,14 +1,9 @@
 open Ghm
 
-module Login : sig
-  type credentials =
-    { user : string
-    ; pass : string }
-  [@@deriving compare]
+module Auth : sig
+  type token = string [@@deriving compare, sexp_of]
 
-  type token = string [@@deriving compare]
-
-  val get_token : (credentials, token) Request.t
+  val get_token : (unit, token) Request.t
 end
 
 type 'a order =

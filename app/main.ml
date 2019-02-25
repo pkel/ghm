@@ -22,7 +22,8 @@ module Model = struct
     ; customer_form : Customer_form.Model.t
     ; view : view
     ; last_search : string
-    ; search : Form.State.t }
+    ; search : Form.State.t
+    ; token : Remote.Auth.token }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
@@ -36,7 +37,8 @@ let init () : Model.t =
   ; customer_form = Customer_form.Model.create ()
   ; view = Model.Overview
   ; last_search = ""
-  ; search = Form.State.create ~init:"" search_form }
+  ; search = Form.State.create ~init:"" search_form
+  ; token = "" (* This is not so nice. TODO fix *) }
 ;;
 
 module Action = struct
@@ -47,6 +49,7 @@ module Action = struct
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
     | GotCustomers of (int * Customer.t) list Or_error.t
+    | GotToken of Remote.Auth.token Or_error.t
   [@@deriving sexp_of, variants]
 end
 
@@ -85,8 +88,15 @@ let view_head inject last_search state =
                   [Bs.button' ~href:Nav.(href_of (Customer New)) "Neuer Kunde"] ] ]) ]
 ;;
 
-let get_customers ~schedule_action ?filter () =
+let get_token ~schedule_action =
   Request.XHR.send'
+    Remote.Auth.get_token
+    ~handler:(Fn.compose schedule_action Action.gottoken)
+;;
+
+let get_customers ~token ~schedule_action ?filter () =
+  Request.XHR.send'
+    ~jwt:token
     Remote.Customers.(get ~limit:250 ?filter ())
     ~handler:(Fn.compose schedule_action Action.gotcustomers)
 ;;
@@ -133,6 +143,16 @@ let create model ~old_model ~inject =
         | Ok m -> m
       in
       {model with customers}
+    | GotToken (Ok token) ->
+      (* schedule renewal, token is valid for 300s. *)
+      Async_kernel.upon (Async_js.sleep 240.) (fun () -> get_token ~schedule_action);
+      {model with token}
+    | GotToken (Error e) ->
+      (* schedule retry *)
+      Async_kernel.upon (Async_js.sleep 1.) (fun () -> get_token ~schedule_action);
+      (* TODO: the gui should react to this *)
+      Log.error e;
+      model
     | CustomerTable a ->
       let schedule_action = Fn.compose schedule_action Action.customertable in
       let customer_table = Component.apply_action ~schedule_action table a () in
@@ -149,17 +169,17 @@ let create model ~old_model ~inject =
       {model with view = Customer}
     | NavChange (Some Overview) ->
       (* TODO: use latest search *)
-      get_customers ~schedule_action ();
+      get_customers ~token:model.token ~schedule_action ();
       {model with view = Overview}
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
       | None -> model
       | Some s ->
-        get_customers ~schedule_action ~filter:(Keyword s) ();
+        get_customers ~token:model.token ~schedule_action ~filter:(Keyword s) ();
         {model with search; last_search = s})
     | ResetSearch ->
-      get_customers ~schedule_action ();
+      get_customers ~token:model.token ~schedule_action ();
       {model with last_search = ""; search = Form.State.create search_form}
   and view =
     let open Vdom in
@@ -181,7 +201,12 @@ let create model ~old_model ~inject =
 ;;
 
 let on_startup ~schedule_action _model =
-  Nav.listen (Fn.compose schedule_action Action.navchange);
-  schedule_action (Action.NavChange (Nav.get ()));
-  Async_kernel.Deferred.unit
+  get_token ~schedule_action;
+  (* TODO: represent missing token in gui, e.g. by showing loading sign *)
+  (* TODO: make this responsive & safe *)
+  Async_kernel.(
+    Async_js.sleep 1.
+    >>| fun () ->
+    Nav.listen (Fn.compose schedule_action Action.navchange);
+    schedule_action (Action.NavChange (Nav.get ())))
 ;;
