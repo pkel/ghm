@@ -22,10 +22,7 @@ module Model = struct
     ; customer_form : Customer_form.Model.t
     ; view : view
     ; last_search : string
-    ; search : Form.State.t
-    ; credentials : Remote.Login.credentials option
-    ; token : Remote.Login.token option
-    ; login_f : Form.State.t }
+    ; search : Form.State.t }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
@@ -33,38 +30,23 @@ end
 
 let search_form = Form.(create ~name:"keyword search" Description.string)
 
-let login_form =
-  let desc =
-    let open Form.Description in
-    let pass = contra_map ~f:fst string
-    and user = contra_map ~f:snd string in
-    both user pass |> contra_map ~f:(fun (a, b) -> a, b)
-  in
-  Form.create ~name:"login" desc
-;;
-
 let init () : Model.t =
   { Model.customers = Int.Map.empty
   ; customer_table = Customer_table.Model.create ()
   ; customer_form = Customer_form.Model.create ()
   ; view = Model.Overview
   ; last_search = ""
-  ; search = Form.State.create ~init:"" search_form
-  ; login_f = Form.State.create ~init:("", "") login_form
-  ; credentials = None
-  ; token = None }
+  ; search = Form.State.create ~init:"" search_form }
 ;;
 
 module Action = struct
   type t =
     | NavChange of Nav.t option sexp_opaque
     | Search
-    | SendLogin
     | ResetSearch
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
     | GotCustomers of (int * Customer.t) list Or_error.t
-    | GotToken of Remote.Login.token sexp_opaque Or_error.t
   [@@deriving sexp_of, variants]
 end
 
@@ -103,42 +85,10 @@ let view_head inject last_search state =
                   [Bs.button' ~href:Nav.(href_of (Customer New)) "Neuer Kunde"] ] ]) ]
 ;;
 
-let get_customers ~jwt ~schedule_action ?filter () =
+let get_customers ~schedule_action ?filter () =
   Request.XHR.send'
-    ?jwt
     Remote.Customers.(get ~limit:250 ?filter ())
     ~handler:(Fn.compose schedule_action Action.gotcustomers)
-;;
-
-let view_login inject state =
-  let user_id, pass_id = Form.State.field_ids state login_form in
-  let open Vdom in
-  let form =
-    Node.(
-      create
-        "form"
-        [Attr.on "submit" (fun _ -> inject Action.SendLogin)]
-        [ div
-            [Attr.class_ "form-group"]
-            [ Form.Input.text
-                state
-                user_id
-                [Attr.class_ "form-control"; Attr.placeholder "Nutzername"] ]
-        ; div
-            [Attr.class_ "form-group"]
-            [ Form.Input.text
-                state
-                pass_id
-                [ Attr.class_ "form-control"
-                ; Attr.type_ "password"
-                ; Attr.placeholder "Passwort" ] ]
-        ; Bs.button_submit "Anmelden" ])
-  in
-  Bs.Grid.(
-    div
-      [ Attr.classes ["row"; "justify-content-center"; "align-items-center"]
-      ; Attr.style Css_gen.(height (`Vh (Percent.of_percentage 100.))) ]
-      [col4 [div [A.class_ "card"] [div [A.class_ "card-body"] [form]]]])
 ;;
 
 let create model ~old_model ~inject =
@@ -164,7 +114,6 @@ let create model ~old_model ~inject =
   and model = model
   and customer = customer
   and search_state = model >>| Model.search
-  and login_state = model >>| Model.login_f
   and last_search = model >>| Model.last_search in
   let apply_action (a : Action.t) _state ~schedule_action =
     match a with
@@ -198,47 +147,28 @@ let create model ~old_model ~inject =
     | NavChange (Some (Customer x)) ->
       schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
       {model with view = Customer}
-    | NavChange (Some Overview) -> {model with view = Overview}
+    | NavChange (Some Overview) ->
+      (* TODO: use latest search *)
+      get_customers ~schedule_action ();
+      {model with view = Overview}
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
       | None -> model
       | Some s ->
-        get_customers ~jwt:model.token ~schedule_action ~filter:(Keyword s) ();
+        get_customers ~schedule_action ~filter:(Keyword s) ();
         {model with search; last_search = s})
-    | SendLogin ->
-      let creds_o, login_f = Form.State.read_value model.login_f login_form in
-      (match creds_o with
-      | None -> {model with credentials = None; login_f}
-      | Some (user, pass) ->
-        let creds : Remote.Login.credentials = {user; pass} in
-        Request.XHR.send
-          ~body:creds
-          Remote.Login.get_token
-          ~handler:(Fn.compose schedule_action Action.gottoken);
-        {model with credentials = Some creds; login_f})
-    | GotToken (Error e) ->
-      (* TODO: Login Error should go to gui *)
-      Log.error e;
-      model
-    | GotToken (Ok token) ->
-      (* TODO: schedule token renewal and data retrieval *)
-      get_customers ~jwt:(Some token) ~schedule_action ();
-      {model with token = Some token}
     | ResetSearch ->
-      get_customers ~jwt:model.token ~schedule_action ();
+      get_customers ~schedule_action ();
       {model with last_search = ""; search = Form.State.create search_form}
   and view =
     let open Vdom in
-    match model.token with
-    | None -> view_login inject login_state
-    | Some _ ->
-      (match model.view with
-      | Overview ->
-        Node.div
-          [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
-          [view_head inject last_search search_state; Component.view table]
-      | Customer -> Component.view customer)
+    match model.view with
+    | Overview ->
+      Node.div
+        [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
+        [view_head inject last_search search_state; Component.view table]
+    | Customer -> Component.view customer
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in
