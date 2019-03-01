@@ -4,6 +4,11 @@ open Incr_dom
 module Incr_map = Incr_map.Make (Incr)
 module Form = Incr_dom_widgets.Form
 
+type 'a delayed =
+  | Waiting
+  | There of 'a
+[@@deriving compare]
+
 module Model = struct
   (* TODO: make this Customer.with_id? *)
   type customer =
@@ -23,7 +28,7 @@ module Model = struct
     ; view : view
     ; last_search : string
     ; search : Form.State.t
-    ; token : Remote.Auth.token }
+    ; token : Remote.Auth.token delayed}
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
@@ -38,7 +43,7 @@ let init () : Model.t =
   ; view = Model.Overview
   ; last_search = ""
   ; search = Form.State.create ~init:"" search_form
-  ; token = "" (* This is not so nice. TODO fix *) }
+  ; token = Waiting }
 ;;
 
 module Action = struct
@@ -143,10 +148,10 @@ let create model ~old_model ~inject =
         | Ok m -> m
       in
       {model with customers}
-    | GotToken (Ok token) ->
+    | GotToken (Ok t) ->
       (* schedule renewal, token is valid for 300s. *)
       Async_kernel.upon (Async_js.sleep 240.) (fun () -> get_token ~schedule_action);
-      {model with token}
+      {model with token = There t}
     | GotToken (Error e) ->
       (* schedule retry *)
       Async_kernel.upon (Async_js.sleep 1.) (fun () -> get_token ~schedule_action);
@@ -167,20 +172,35 @@ let create model ~old_model ~inject =
     | NavChange (Some (Customer x)) ->
       schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
       {model with view = Customer}
-    | NavChange (Some Overview) ->
-      (* TODO: use latest search *)
-      get_customers ~token:model.token ~schedule_action ();
-      {model with view = Overview}
+    | NavChange (Some Overview) as a->
+      begin match model.token with
+        | Waiting ->
+          (* TODO: does this small delay negatively affect the App? *)
+          Async_kernel.upon (Async_js.sleep 0.01) (fun () -> schedule_action a);
+          model
+        | There token ->
+          (* TODO: use latest search *)
+          get_customers ~token ~schedule_action ();
+          {model with view = Overview}
+      end
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
-      | None -> model
-      | Some s ->
-        get_customers ~token:model.token ~schedule_action ~filter:(Keyword s) ();
-        {model with search; last_search = s})
+       | None -> model
+       | Some s ->
+         match model.token with
+         | Waiting -> model (* TODO: what to do here? *)
+         | There token ->
+           get_customers ~token ~schedule_action ~filter:(Keyword s) ();
+           {model with search; last_search = s}
+      )
     | ResetSearch ->
-      get_customers ~token:model.token ~schedule_action ();
-      {model with last_search = ""; search = Form.State.create search_form}
+      begin match model.token with
+        | Waiting -> model (* TODO: what to do here? *)
+        | There token ->
+          get_customers ~token ~schedule_action ();
+          {model with last_search = ""; search = Form.State.create search_form}
+      end
   and view =
     let open Vdom in
     match model.view with
@@ -202,11 +222,7 @@ let create model ~old_model ~inject =
 
 let on_startup ~schedule_action _model =
   get_token ~schedule_action;
-  (* TODO: represent missing token in gui, e.g. by showing loading sign *)
-  (* TODO: make this responsive & safe *)
-  Async_kernel.(
-    Async_js.sleep 1.
-    >>| fun () ->
-    Nav.listen (Fn.compose schedule_action Action.navchange);
-    schedule_action (Action.NavChange (Nav.get ())))
+  Nav.listen (Fn.compose schedule_action Action.navchange);
+  schedule_action (Action.NavChange (Nav.get ()));
+  Async_kernel.Deferred.unit
 ;;
