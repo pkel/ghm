@@ -28,7 +28,7 @@ module Model = struct
     ; view : view
     ; last_search : string
     ; search : Form.State.t
-    ; token : Remote.Auth.token delayed}
+    ; token : Remote.Auth.token delayed }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
@@ -172,35 +172,32 @@ let create model ~old_model ~inject =
     | NavChange (Some (Customer x)) ->
       schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
       {model with view = Customer}
-    | NavChange (Some Overview) as a->
-      begin match model.token with
-        | Waiting ->
-          (* TODO: does this small delay negatively affect the App? *)
-          Async_kernel.upon (Async_js.sleep 0.01) (fun () -> schedule_action a);
-          model
-        | There token ->
-          (* TODO: use latest search *)
-          get_customers ~token ~schedule_action ();
-          {model with view = Overview}
-      end
+    | NavChange (Some Overview) as a ->
+      (match model.token with
+      | Waiting ->
+        (* TODO: does this small delay negatively affect the App? *)
+        Async_kernel.upon (Async_js.sleep 0.01) (fun () -> schedule_action a);
+        model
+      | There token ->
+        (* TODO: use latest search *)
+        get_customers ~token ~schedule_action ();
+        {model with view = Overview})
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
-       | None -> model
-       | Some s ->
-         match model.token with
-         | Waiting -> model (* TODO: what to do here? *)
-         | There token ->
-           get_customers ~token ~schedule_action ~filter:(Keyword s) ();
-           {model with search; last_search = s}
-      )
-    | ResetSearch ->
-      begin match model.token with
+      | None -> model
+      | Some s ->
+        (match model.token with
         | Waiting -> model (* TODO: what to do here? *)
         | There token ->
-          get_customers ~token ~schedule_action ();
-          {model with last_search = ""; search = Form.State.create search_form}
-      end
+          get_customers ~token ~schedule_action ~filter:(Keyword s) ();
+          {model with search; last_search = s}))
+    | ResetSearch ->
+      (match model.token with
+      | Waiting -> model (* TODO: what to do here? *)
+      | There token ->
+        get_customers ~token ~schedule_action ();
+        {model with last_search = ""; search = Form.State.create search_form})
   and view =
     let open Vdom in
     match model.view with
