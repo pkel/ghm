@@ -26,8 +26,8 @@ svc-up:
 svc-init:
 	cd svc; make init
 
-svc-psql:
-	cd svc; make psql
+psql:
+	source svc/.env; PGPASSWORD=$$db_root_pass psql -h localhost -p 5432 -U $$db_root_user ghm
 
 clean-db:
 	curl \
