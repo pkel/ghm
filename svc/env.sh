@@ -6,7 +6,7 @@ jwt_secret="$(tr -dc _A-Z-a-z-0-9 < /dev/urandom | head -c48)"
 app_pass="$(tr -dc _A-Z-a-z-0-9 < /dev/urandom | head -c48)"
 
 cat << EOF
-base_uri=http://localhost:2015
+base_uri=http://localhost
 db_name=ghm
 db_root_user=administrator
 db_root_pass=$db_root_pass

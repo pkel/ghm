@@ -22,7 +22,7 @@ down :
 .PHONY: init
 init :
 	./init.sh # generates postgrest.conf
-	${compose} restart server
+	${compose} restart api
 
 .PHONY: psql
 psql : .env

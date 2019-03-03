@@ -4,6 +4,7 @@ base_uri := $(shell source svc/.env; echo $$base_uri)
 
 all:
 	dune build app/app.bc.js tools/combit.exe
+	cp _build/default/app/app.bc.js webroot/app.js
 
 watch:
 	fd 'ml|dune' | entr -s 'make all'
@@ -31,20 +32,17 @@ svc-psql:
 clean-db:
 	curl \
 		-X DELETE "$(base_uri)/api/customers" \
-		-H "Authorization : Bearer $(shell scripts/get-token.sh)" \
-		-H "accept: application/json"
+		-H "Authorization: Bearer $(shell scripts/get-token.sh)" \
+		-H "Accept: application/json"
 
 import: clean-db
 	dune exec tools/combit.exe data/combit.csv | \
 		curl \
 		"${base_uri}/api/customers" \
-		-H "accept: application/json" -H  "Prefer: return=none" \
+		-H "Accept: application/json" -H  "Prefer: return=none" \
 		-H "Content-Type: application/json" \
-		-H "Authorization : Bearer $(shell scripts/get-token.sh)" \
+		-H "Authorization: Bearer $(shell scripts/get-token.sh)" \
 		-d @-
-
-pwd:
-	@echo $(shell source svc/.env ; echo $$app_pass)
 
 clean:
 	dune clean

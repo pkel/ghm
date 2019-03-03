@@ -1,6 +1,6 @@
 version: '3'
 services:
-  server:
+  api:
     restart: always
     image: postgrest/postgrest
     ports:
@@ -19,14 +19,12 @@ services:
       POSTGRES_USER: ${db_root_user}
       POSTGRES_PASSWORD: ${db_root_pass}
     volumes:
-      - data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
   swagger:
     restart: always
     image: swaggerapi/swagger-ui
     ports:
       - "3001:8080"
-    expose:
-      - "3001"
     environment:
       API_URL: ${base_uri}/api
   php:
@@ -37,7 +35,7 @@ services:
     ports:
       - "9000:9000"
     volumes:
-      - ../webroot/:/var/www/html:Z
+      - ../webroot/:/var/www/html:z
       - ../php-lib/:/var/www/lib:Z
     environment:
       DB_HOST: db
@@ -46,5 +44,17 @@ services:
       DB_USER: ${db_auth_user}
       DB_PASS: ${db_auth_pass}
       JWT_SECRET: ${jwt_secret}
+  nginx:
+    restart: always
+    image: nginx:stable-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+      - php
+    volumes:
+      - ./nginx-site.conf:/etc/nginx/conf.d/default.conf:Z
+      - ../webroot:/var/www/html:z
 volumes:
-  data:
+  db-data:
