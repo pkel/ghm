@@ -3,8 +3,8 @@ module Date = Date_yojson
 
 type t =
   { period : Period.t
-  ; deposit_asked : float option
-  ; deposit_got : float option
+  ; deposit_asked : Monetary.t option
+  ; deposit_got : Monetary.t option
   ; tax_free : bool
   ; note : string
   ; guests : guest list
@@ -17,7 +17,7 @@ and guest =
 
 and alloc =
   { room : string
-  ; price_per_bed : float
+  ; price_per_bed : Monetary.t
   ; beds : int
   ; description : string }
 [@@deriving yojson, fields, compare, sexp]
@@ -54,18 +54,16 @@ let room_descriptions =
   ; "Kurtaxe" ]
 ;;
 
-let pp_money fmt x = Format.fprintf fmt "%.2f €" x
-
 let pp_alloc fmt alloc =
   let a, b = if alloc.beds < 2 then "Bett", "für" else "Betten", "zu je" in
   Format.fprintf
     fmt
-    "%d %s im %s %s %a pro Nacht"
+    "%d %s im %s %s %a € pro Nacht"
     alloc.beds
     a
     alloc.description
     b
-    pp_money
+    Monetary.print
     alloc.price_per_bed
 ;;
 

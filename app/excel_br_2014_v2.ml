@@ -71,6 +71,7 @@ let of_customer_and_booking (c : Customer.t) (b : Booking.t) =
     |> List.sort ~compare
     |> uniq_c_rev ~compare
   in
+  let mon_to_string = Monetary.to_string_dot in
   let lines =
     let open Booking in
     let comp = Fn.compose in
@@ -92,19 +93,19 @@ let of_customer_and_booking (c : Customer.t) (b : Booking.t) =
     ; till
     ; map_nth items 0 (comp Int.to_string fst)
     ; map_nth items 0 (comp description snd)
-    ; map_nth items 0 (comp Float.to_string (comp price_per_bed snd))
+    ; map_nth items 0 (comp mon_to_string (comp price_per_bed snd))
     ; map_nth items 0 (comp Int.to_string (comp (mult 100) (comp beds snd)))
     ; map_nth items 1 (comp Int.to_string fst)
     ; map_nth items 1 (comp description snd)
-    ; map_nth items 1 (comp Float.to_string (comp price_per_bed snd))
+    ; map_nth items 1 (comp mon_to_string (comp price_per_bed snd))
     ; map_nth items 1 (comp Int.to_string (comp (mult 100) (comp beds snd)))
     ; map_nth items 2 (comp Int.to_string fst)
     ; map_nth items 2 (comp description snd)
-    ; map_nth items 2 (comp Float.to_string (comp price_per_bed snd))
+    ; map_nth items 2 (comp mon_to_string (comp price_per_bed snd))
     ; (if b.tax_free then "0" else Int.to_string s.tax_payers)
     ; (if s.tax_payers < 1 || b.tax_free then "" else "Kurtaxe")
     ; (if s.tax_payers < 1 || b.tax_free then "0.00" else "2.00")
-    ; Float.to_string (Option.value ~default:0. b.deposit_got) ]
+    ; mon_to_string (Option.value ~default:Monetary.zero b.deposit_got) ]
   in
   String.concat ~sep:"\n" lines
 ;;

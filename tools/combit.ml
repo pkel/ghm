@@ -3,10 +3,15 @@ open Core_kernel
 module String = Caml.String
 
 let str r f = Csv.Row.find r f |> String.trim
-let flt_opt r f = match str r f with "" -> None | s -> Some (float_of_string s)
 
-let flt_nz_opt r k =
-  match flt_opt r k with Some 0. -> None | Some x -> Some x | None -> None
+let mon_opt r f =
+  match str r f with "" -> None | s -> Monetary.of_float (float_of_string s)
+;;
+
+let mon_nz_opt r k =
+  match mon_opt r k with
+  | Some x when Monetary.(compare x zero) <> 0 -> Some x
+  | _ -> None
 ;;
 
 let dat_opt r k = match str r k with "" -> None | s -> Some (Date.of_string s)
@@ -99,7 +104,7 @@ let guests_of_row r : Booking.guest list =
 ;;
 
 let alloc_of_row_opt r room i : Booking.alloc list =
-  let price = flt_opt r (sprintf "PREIS%i" i)
+  let price = mon_opt r (sprintf "PREIS%i" i)
   and description = str r (sprintf "ART%i" i)
   and amount =
     match str r (sprintf "ANZAHL%i" i) |> int_of_string_opt with
@@ -111,7 +116,7 @@ let alloc_of_row_opt r room i : Booking.alloc list =
   let beds = (percent + 99) / 100 in
   match description, price with
   | "Kurtaxe", _ -> []
-  | _, Some price_per_bed when price_per_bed <> 0. ->
+  | _, Some price_per_bed when Monetary.(compare price_per_bed zero) <> 0 ->
     List.init amount ~f:(fun i ->
         let room = if i = 0 then room else "" in
         {Booking.room; beds; price_per_bed; description} )
@@ -129,8 +134,8 @@ let booking_of_row r : Booking.t option =
   | None -> None
   | Some period ->
     Some
-      { deposit_asked = flt_nz_opt r "AGEF"
-      ; deposit_got = flt_nz_opt r "AEING"
+      { deposit_asked = mon_nz_opt r "AGEF"
+      ; deposit_got = mon_nz_opt r "AEING"
       ; tax_free = false (* TODO: read from dataset *)
       ; note = booking_note_of_row r
       ; guests = guests_of_row r

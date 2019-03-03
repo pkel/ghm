@@ -110,11 +110,12 @@ bitten, uns rechtzeitig abzusagen, falls bei Ihnen etwas dazwischen
 kommen sollte, damit wir das Zimmer noch anderweitig vermieten können.
 Danke schön! |}
           | Some deposit ->
-            sprintf
+            Caml.Format.asprintf
               {|
-Bitte überweisen Sie eine Anzahlung in Höhe von %.2f € auf unten angebenes
+Bitte überweisen Sie eine Anzahlung in Höhe von %a € auf unten angegebenes
 Konto. Wir erbeten eine Zahlung innerhalb von 14 Tagen. Nach Eingang Ihrer
 Anzahlung gilt Ihre Reservierung als endgültig bestätigt. |}
+              Monetary.print
               deposit)
       ; p'
           {|
