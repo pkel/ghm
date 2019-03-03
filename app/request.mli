@@ -26,9 +26,17 @@ val give_json : (unit, 'a) t -> (json, 'a) t
 val want_text : ('a, unit) t -> ('a, string) t
 val want_json : ('a, unit) t -> ('a, json) t
 
-module XHR : sig
-  val send 
-    : ?jwt:string -> body:'a -> handler:('b Or_error.t -> unit) -> ('a, 'b) t -> unit
+(** set Authentication: Bearer <token> header *)
+val bearer : token:string -> ('a, 'b) t -> ('a, 'b) t
 
-  val send' : ?jwt:string -> handler:('b Or_error.t -> unit) -> (unit, 'b) t -> unit
+module XHR : sig
+  val send : body:'a -> handler:('b Or_error.t -> unit) -> ('a, 'b) t -> unit
+  val send' : handler:('b Or_error.t -> unit) -> (unit, 'b) t -> unit
+
+  module Deferred : sig
+    open Async_kernel
+
+    val send : body:'a -> ('a, 'b) t -> 'b Or_error.t Deferred.t
+    val send' : (unit, 'b) t -> 'b Or_error.t Deferred.t
+  end
 end

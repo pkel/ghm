@@ -16,5 +16,6 @@ end
 val create 
   :  back_href:string
   -> inject:(Action.t -> Vdom.Event.t)
+  -> Remote.Auth.token Incr.t
   -> Model.t Incr.t
   -> (Action.t, Model.t, unit) Component.t Incr.t

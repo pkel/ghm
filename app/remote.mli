@@ -1,23 +1,26 @@
 open Ghm
 
 module Auth : sig
-  type token = string [@@deriving compare, sexp_of]
+  type token [@@deriving compare, sexp_of]
 
   val get_token : (unit, token) Request.t
+  val invalid_token : token
 end
 
 type 'a order =
   | Asc of 'a
   | Desc of 'a
 
+type ('a, 'b) authenticated_request = Auth.token -> ('a, 'b) Request.t
+
 module Customer : sig
   type t = Customer.t
   type id = int
 
-  val get : id -> (unit, t) Request.t
-  val post : (t, id * t) Request.t
-  val patch : id -> (t, t) Request.t
-  val delete : id -> (unit, unit) Request.t
+  val get : id -> (unit, t) authenticated_request
+  val post : (t, id * t) authenticated_request
+  val patch : id -> (t, t) authenticated_request
+  val delete : id -> (unit, unit) authenticated_request
 end
 
 module Customers : sig
@@ -34,6 +37,5 @@ module Customers : sig
     -> ?limit:int
     -> ?sort:key order list
     -> ?filter:filter
-    -> unit
-    -> (unit, t) Request.t
+    -> (unit, t) authenticated_request
 end

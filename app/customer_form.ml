@@ -281,7 +281,11 @@ let fresh_booking () =
 ;;
 
 let apply_action
-    (model : Model.t) (action : Action.t) (_state : State.t) ~schedule_action : Model.t =
+    (token : Remote.Auth.token)
+    (model : Model.t)
+    (action : Action.t)
+    (_state : State.t)
+    ~schedule_action : Model.t =
   match action with
   | Update_c customer_f ->
     Log.form customer_f;
@@ -323,9 +327,11 @@ let apply_action
         match model.nav with
         | New ->
           let handler = Fn.compose schedule_action Action.gotcustomer in
-          Request.XHR.send ~body:c ~handler Remote.Customer.post
+          Request.XHR.send ~body:c ~handler (Remote.Customer.post token)
         | Id id ->
-          let rq = Request.map_resp ~f:(fun c -> id, c) (Remote.Customer.patch id) in
+          let rq =
+            Request.map_resp ~f:(fun c -> id, c) (Remote.Customer.patch id token)
+          in
           let handler = Fn.compose schedule_action Action.gotcustomer in
           Request.XHR.send ~body:c ~handler rq
       in
@@ -359,7 +365,7 @@ let apply_action
       | New -> Nav.(set Overview)
       | Id i ->
         let handler = function Error e -> Log.error e | Ok () -> Nav.(set Overview) in
-        Request.XHR.send' ~handler (Remote.Customer.delete i)
+        Request.XHR.send' ~handler (Remote.Customer.delete i token)
     in
     model
   | GotCustomer response ->
@@ -371,7 +377,7 @@ let apply_action
   | NavChange n ->
     (match n with
     | Id i ->
-      let rq = Request.map_resp ~f:(fun c -> i, c) (Remote.Customer.get i) in
+      let rq = Request.map_resp ~f:(fun c -> i, c) (Remote.Customer.get i token) in
       let handler = Fn.compose schedule_action Action.gotcustomer in
       Request.XHR.send' ~handler rq;
       Model.create ()
@@ -726,9 +732,13 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
 ;;
 
 let create
-    ~(back_href : string) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
+    ~(back_href : string)
+    ~(inject : Action.t -> Vdom.Event.t)
+    (token : Remote.Auth.token Incr.t)
+    (model : Model.t Incr.t) =
   let%map model = model
+  and token = token
   and view = view ~inject ~back_href model in
-  let apply_action = apply_action model in
+  let apply_action = apply_action token model in
   Component.create ~apply_action model view
 ;;

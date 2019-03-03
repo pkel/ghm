@@ -4,11 +4,6 @@ open Incr_dom
 module Incr_map = Incr_map.Make (Incr)
 module Form = Incr_dom_widgets.Form
 
-type 'a delayed =
-  | Waiting
-  | There of 'a
-[@@deriving compare]
-
 module Model = struct
   (* TODO: make this Customer.with_id? *)
   type customer =
@@ -28,7 +23,7 @@ module Model = struct
     ; view : view
     ; last_search : string
     ; search : Form.State.t
-    ; token : Remote.Auth.token delayed }
+    ; token : Remote.Auth.token }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
@@ -43,7 +38,7 @@ let init () : Model.t =
   ; view = Model.Overview
   ; last_search = ""
   ; search = Form.State.create ~init:"" search_form
-  ; token = Waiting }
+  ; token = Remote.Auth.invalid_token }
 ;;
 
 module Action = struct
@@ -101,8 +96,7 @@ let get_token ~schedule_action =
 
 let get_customers ~token ~schedule_action ?filter () =
   Request.XHR.send'
-    ~jwt:token
-    Remote.Customers.(get ~limit:250 ?filter ())
+    Remote.Customers.(get ~limit:250 ?filter token)
     ~handler:(Fn.compose schedule_action Action.gotcustomers)
 ;;
 
@@ -122,8 +116,9 @@ let create model ~old_model ~inject =
   let customer =
     let inject = Fn.compose inject Action.customerform
     and back_href = Nav.(href_of Overview)
-    and form_model = model >>| Model.customer_form in
-    Customer_form.create ~inject ~back_href form_model
+    and form_model = model >>| Model.customer_form
+    and token = model >>| Model.token in
+    Customer_form.create ~inject ~back_href token form_model
   in
   let%map table = table
   and model = model
@@ -148,10 +143,10 @@ let create model ~old_model ~inject =
         | Ok m -> m
       in
       {model with customers}
-    | GotToken (Ok t) ->
+    | GotToken (Ok token) ->
       (* schedule renewal, token is valid for 300s. *)
       Async_kernel.upon (Async_js.sleep 240.) (fun () -> get_token ~schedule_action);
-      {model with token = There t}
+      {model with token}
     | GotToken (Error e) ->
       (* schedule retry *)
       Async_kernel.upon (Async_js.sleep 1.) (fun () -> get_token ~schedule_action);
@@ -172,32 +167,23 @@ let create model ~old_model ~inject =
     | NavChange (Some (Customer x)) ->
       schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
       {model with view = Customer}
-    | NavChange (Some Overview) as a ->
-      (match model.token with
-      | Waiting ->
-        (* TODO: does this small delay negatively affect the App? *)
-        Async_kernel.upon (Async_js.sleep 0.01) (fun () -> schedule_action a);
-        model
-      | There token ->
-        (* TODO: use latest search *)
-        get_customers ~token ~schedule_action ();
-        {model with view = Overview})
+    | NavChange (Some Overview) ->
+      (* TODO: use latest search *)
+      let token = model.token in
+      get_customers ~token ~schedule_action ();
+      {model with view = Overview}
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
       | None -> model
       | Some s ->
-        (match model.token with
-        | Waiting -> model (* TODO: what to do here? *)
-        | There token ->
-          get_customers ~token ~schedule_action ~filter:(Keyword s) ();
-          {model with search; last_search = s}))
+        let token = model.token in
+        get_customers ~token ~schedule_action ~filter:(Keyword s) ();
+        {model with search; last_search = s})
     | ResetSearch ->
-      (match model.token with
-      | Waiting -> model (* TODO: what to do here? *)
-      | There token ->
-        get_customers ~token ~schedule_action ();
-        {model with last_search = ""; search = Form.State.create search_form})
+      let token = model.token in
+      get_customers ~token ~schedule_action ();
+      {model with last_search = ""; search = Form.State.create search_form}
   and view =
     let open Vdom in
     match model.view with
@@ -218,8 +204,12 @@ let create model ~old_model ~inject =
 ;;
 
 let on_startup ~schedule_action _model =
-  get_token ~schedule_action;
+  (* Wait for jwt token before doing anything else *)
+  (* TODO: the interface should reflect the loading state *)
+  let open Async_kernel in
+  Request.XHR.Deferred.send' Remote.Auth.get_token
+  >>| fun response ->
+  schedule_action (Action.GotToken response);
   Nav.listen (Fn.compose schedule_action Action.navchange);
-  schedule_action (Action.NavChange (Nav.get ()));
-  Async_kernel.Deferred.unit
+  schedule_action (Action.NavChange (Nav.get ()))
 ;;

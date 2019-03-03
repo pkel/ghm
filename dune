@@ -1,1 +1,1 @@
-(ignored_subdirs (scripts data db letter))
+(ignored_subdirs (webroot repo scripts data db letter))

@@ -65,18 +65,16 @@ let give_text t =
   {t with body = Fn.id}
 ;;
 
+let bearer ~token =
+  let key = "Authorization"
+  and value = "Bearer " ^ token in
+  header ~key ~value
+;;
+
 module XHR = struct
   open Browser.XHR
 
-  let send ?jwt ~body ~handler t =
-    let t =
-      match jwt with
-      | None -> t
-      | Some token ->
-        let key = "Authorization"
-        and value = "Bearer " ^ token in
-        header ~key ~value t
-    in
+  let send ~body ~handler t =
     let xhr = create () in
     let url_with_params =
       String.Map.to_alist t.params
@@ -103,5 +101,17 @@ module XHR = struct
     send xhr (t.body body)
   ;;
 
-  let send' ?jwt ~handler t = send ?jwt ~body:() ~handler t
+  let send' ~handler t = send ~body:() ~handler t
+
+  module Deferred = struct
+    open Async_kernel
+
+    let send ~body t =
+      Deferred.create (fun cell ->
+          let handler = Ivar.fill cell in
+          send ~body ~handler t )
+    ;;
+
+    let send' t = send ~body:() t
+  end
 end
