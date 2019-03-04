@@ -48,8 +48,5 @@ clean:
 	dune clean
 
 deploy:
-	# TODO: cannot work with new project layout
-	cd _build/default/gui && rsync -a --delete index.html assets app.bc.js jhestia:/var/www/html/gui/
-	rsync -a --delete letter jhestia:/var/www/html/
-	rsync -a ./nginx-recipe jhestia:/etc/nginx/sites-available/default
-	ssh jhestia "nginx -t && systemctl restart nginx"
+	ssh jhestia 'mkdir -p ghm'
+	rsync -a --delete --info=progress2 --exclude=vendor --exclude=_* --exclude=repo --delete-excluded ./ jhestia:ghm/
