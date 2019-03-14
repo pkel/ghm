@@ -68,7 +68,7 @@ function token(){
     $query = "SELECT auth.token(:id, :role, :secret)";
     $stmt = pdo()->prepare($query);
     $stmt->execute(array(
-      ':id' => $_SESSION['username'],
+      ':id' => $_SESSION['user'],
       ':role' => $_SESSION['role'],
       ':secret' => getenv('JWT_SECRET')
     ));

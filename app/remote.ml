@@ -8,8 +8,31 @@ let parse f x = match f x with Ok v -> Ok v | Error s -> Or_error.error_string s
 module Auth = struct
   type token = string [@@deriving compare, sexp_of]
 
+  type payload =
+    { role : string
+    ; username : string
+    ; span : int
+    ; exp : int }
+  [@@deriving of_yojson]
+
   let get_token = Request.(create ~url:"/token.php" |> want_text)
-  let invalid_token = "invalid_dummy_token"
+  let invalid_token = "invalid.dummy.token"
+
+  let parse_exn t =
+    String.split ~on:'.' t
+    |> (fun l -> List.nth_exn l 1)
+    |> Base64.decode_exn ~pad:false
+    |> Yojson.Safe.from_string
+    |> parse payload_of_yojson
+  ;;
+
+  let username t =
+    (* Can we make this a bit nicer? *)
+    match parse_exn t with
+    | Ok p -> p.username
+    | Error _ -> "unbekannt"
+    | exception _ -> "unbekannt"
+  ;;
 end
 
 type 'a order =

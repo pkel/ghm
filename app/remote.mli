@@ -5,6 +5,7 @@ module Auth : sig
 
   val get_token : (unit, token) Request.t
   val invalid_token : token
+  val username : token -> string
 end
 
 type 'a order =

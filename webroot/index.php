@@ -10,6 +10,7 @@ function print_app() { ?>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/css/font-awesome-all.min.css">
+    <link rel="stylesheet" href="assets/css/app.css">
     <script type='text/javascript' src='app.js'></script>
   </head>
   <body>

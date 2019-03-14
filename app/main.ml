@@ -186,12 +186,24 @@ let create model ~old_model ~inject =
       {model with last_search = ""; search = Form.State.create search_form}
   and view =
     let open Vdom in
-    match model.view with
-    | Overview ->
-      Node.div
-        [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
-        [view_head inject last_search search_state; Component.view table]
-    | Customer -> Component.view customer
+    let attr, tl =
+      match model.view with
+      | Overview ->
+        ( [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
+        , [view_head inject last_search search_state; Component.view table] )
+      | Customer -> [], [Component.view customer]
+    and top =
+      let open Bs.Grid in
+      row
+        ~c:["justify-content-end"; "headline"]
+        [ col_auto
+            Node.
+              [ text "Angemeldet als "
+              ; create "b" [] [text (Remote.Auth.username model.token)]
+              ; text ". "
+              ; a [Attr.href "logout.php"] [text "Abmelden."] ] ]
+    in
+    Node.div attr (top :: tl)
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in
