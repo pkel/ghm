@@ -223,9 +223,10 @@ module Model = struct
         Form.State.t
         (* TODO: use one form states only, avoid having the copy of customer here
              a list of form states might do for the bookings. *)
-    ; customer : Customer.t
+    ; customer : Customer.t (* last saved state *)
     ; nav : Nav.customer
-    ; selected : int }
+    ; selected : int
+    ; touched_at : int }
   [@@deriving compare, fields]
 
   let load nav (c : Customer.t) =
@@ -234,6 +235,7 @@ module Model = struct
     ; booking_f = Form.State.create ?init:booking booking_form
     ; customer = c
     ; nav
+    ; touched_at = Int.max_value
     ; selected = 0 }
   ;;
 
@@ -247,7 +249,11 @@ module Action = struct
     | SelectBooking of int
     | NavChange of Nav.customer sexp_opaque
     | GotCustomer of (int * Customer.t) Or_error.t
+    | PostedCustomer of (int * Customer.t) Or_error.t
+    | PatchedCustomer of Customer.t Or_error.t
     | Save
+    | Touch
+    | Touched
     | NewBooking
     | DeleteBooking
     | DeleteCustomer
@@ -303,6 +309,22 @@ let apply_action
       in
       let customer = {model.customer with bookings} in
       {model with selected; customer; booking_f})
+  | Touched ->
+    (* We waited some time after a touch *)
+    let () =
+      if Browser.Date.(to_int (now ())) - model.touched_at >= 300
+      then schedule_action Action.Save
+      else ()
+    in
+    model
+  | Touch ->
+    (* Form touched. Wait a bit. Avoid high frequent saving. *)
+    let () =
+      Async_kernel.(
+        don't_wait_for
+          (after (Time_ns.Span.of_sec 0.3) >>| fun () -> schedule_action Action.Touched))
+    in
+    {model with touched_at = Browser.Date.(to_int (now ()))}
   | Save ->
     let c_opt, customer_f = Form.State.read_value model.customer_f customer_form
     and b_opt, booking_f = Form.State.read_value model.booking_f booking_form in
@@ -322,14 +344,11 @@ let apply_action
       let () =
         match model.nav with
         | New ->
-          let handler = Fn.compose schedule_action Action.gotcustomer in
+          let handler = Fn.compose schedule_action Action.postedcustomer in
           Request.XHR.send ~body:c ~handler (Remote.Customer.post token)
         | Id id ->
-          let rq =
-            Request.map_resp ~f:(fun c -> id, c) (Remote.Customer.patch id token)
-          in
-          let handler = Fn.compose schedule_action Action.gotcustomer in
-          Request.XHR.send ~body:c ~handler rq
+          let handler = Fn.compose schedule_action Action.patchedcustomer in
+          Request.XHR.send ~body:c ~handler (Remote.Customer.patch id token)
       in
       model)
   | NewBooking ->
@@ -374,20 +393,18 @@ let apply_action
         Request.XHR.send' ~handler (Remote.Customer.delete i token)
     in
     model
-  | GotCustomer response ->
-    (match response with
-    | Ok (id, c) -> Model.load (Id id) c
-    | Error e ->
-      Log.error e;
-      model (* TODO: display this to user, ideally don't show form without data. *))
-  | NavChange n ->
-    (match n with
-    | Id i ->
-      let rq = Request.map_resp ~f:(fun c -> i, c) (Remote.Customer.get i token) in
-      let handler = Fn.compose schedule_action Action.gotcustomer in
-      Request.XHR.send' ~handler rq;
-      Model.create ()
-    | New -> Model.create ())
+  | PatchedCustomer (Ok customer) -> {model with customer}
+  | PostedCustomer (Ok (id, customer)) -> {model with customer; nav = Nav.Id id}
+  | GotCustomer (Ok (id, customer)) -> Model.load (Id id) customer
+  | PostedCustomer (Error e) | PatchedCustomer (Error e) | GotCustomer (Error e) ->
+    Log.error e;
+    model (* TODO: display this to user, ideally don't show form without data. *)
+  | NavChange (Id i) ->
+    let rq = Request.map_resp ~f:(fun c -> i, c) (Remote.Customer.get i token) in
+    let handler = Fn.compose schedule_action Action.gotcustomer in
+    Request.XHR.send' ~handler rq;
+    Model.create ()
+  | NavChange New -> Model.create ()
 ;;
 
 open Vdom
@@ -711,14 +728,8 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   in
   let rows =
     let open Bs.Grid in
-    let back_btn = Bs.button' ~href:back_href "Zurück"
-    and save_btn = Bs.button_submit "Speichern" in
-    [ [ frow
-          [ col_auto ~c:["mb-2"; "mt-2"] [back_btn]
-          ; col
-              [frow ~c:["justify-content-end"] [col_auto ~c:["mb-2"; "mt-2"] [save_btn]]]
-          ]
-      ; Node.hr [] ]
+    let back_btn = Bs.button' ~href:back_href "Zurück" in
+    [ [Node.h4 [A.class_ "mb-3"] [Node.text "Stammdaten"]; Node.hr []]
     ; view_customer customer_f c_ids
     ; [ Node.hr []
       ; (if List.length bookings > 0
@@ -736,9 +747,10 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
                   [ col_auto ~c:["mb-2"; "mt-2"] [danger_btn delete_b "Buchung löschen"]
                   ; col_auto ~c:["mb-2"; "mt-2"] [danger_btn delete_c "Kunde löschen"]
                   ; col_auto ~c:["mb-2"; "mt-2"] [Bs.button ~action:new_b "Neue Buchung"]
-                  ; col_auto ~c:["mb-2"; "mt-2"] [save_btn] ] ] ] ] ]
+                  ] ] ] ] ]
   in
-  Node.create "form" [Attr.on "submit" save] (List.concat rows)
+  let touch _ _ = inject Action.Touch in
+  Node.create "form" [Attr.on "submit" save; Attr.on_input touch] (List.concat rows)
 ;;
 
 let create

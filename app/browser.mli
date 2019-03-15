@@ -30,6 +30,7 @@ module Date : sig
   val now : unit -> t [@@js.new "Date"]
   val of_int : int -> t [@@js.new "Date"]
   val of_string : string -> t [@@js.new "Date"]
+  val to_int : t -> int [@@js.call "valueOf"]
   val get_date : t -> int [@@js.call]
   val get_day : t -> int [@@js.call]
   val get_full_year : t -> int [@@js.call]
