@@ -178,7 +178,7 @@ let create model ~old_model ~inject =
       | None -> model
       | Some s ->
         let token = model.token in
-        get_customers ~token ~schedule_action ~filter:(Keyword s) ();
+        get_customers ~token ~schedule_action ~filter:(Keyword (String.strip s)) ();
         {model with search; last_search = s})
     | ResetSearch ->
       let token = model.token in
