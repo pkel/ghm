@@ -55,7 +55,7 @@ let room_descriptions =
 ;;
 
 let pp_alloc fmt alloc =
-  let a, b = if alloc.beds < 2 then "Bett", "für" else "Betten", "zu je" in
+  let a, b = if alloc.beds < 2 then "Person", "für" else "Personen", "zu je" in
   Format.fprintf
     fmt
     "%d %s im %s %s %a € pro Nacht"

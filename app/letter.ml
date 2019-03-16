@@ -45,7 +45,7 @@ let generic ~subject ~body ~attachments ~sender ~signer ~date (c : Customer.t) =
       List.concat
         [ [p' (sprintf "%s %s," c.name.letter c.name.family)]
         ; body
-        ; [p' "Mit freundlichen Grüßen,"; p' signer] ]
+        ; [p' "Mit freundlichen Grüßen"; p' signer] ]
       |> elts_to_string
   ; sidebar = [p' date] |> elts_to_string
   ; subject
@@ -92,7 +92,7 @@ let confirm ~(booking : Booking.t) =
   in
   let open Printf in
   generic
-    ~subject:"Anzahlung"
+    ~subject:"Reservierungsbestätigung"
     ~attachments:[]
     ~body:
       [ p'
@@ -100,7 +100,11 @@ let confirm ~(booking : Booking.t) =
 vielen Dank für Ihre Bestellung. Hiermit bestätigen wir Ihre
 Zimmerreservierung über |}
       ; H.ul positions
-      ; p' (sprintf {| für den Zeitraum vom %s. |} period)
+      ; p'
+          (sprintf
+             {| für den Zeitraum vom %s. Unsere Preise
+      beinhalten Frühstück vom Buffet.|}
+             period)
       ; p'
           (match booking.deposit_asked with
           | None ->
