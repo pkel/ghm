@@ -1,9 +1,7 @@
 /**
- * Baseline grid: 7pt
- * Distance from top to content: 12.7mm
- *
  * @author      Kim-Christian Meyer
  * @copyright   2016 Kim-Christian Meyer
+ *              2019 Patrik Keller (rem, drop baseline grid)
  * @license     GPL-3.0+
  */
 
@@ -22,16 +20,16 @@ body {
 
 html {
   font-family: 'Fira Sans', 'Myriad Pro', sans-serif;
-  font-size: 10pt;
-  line-height: 14pt;
+  font-size: 11pt;
+  line-height: 1.4em;
 }
 
 p {
-  margin: 0 0 14pt 0;
+  margin: 0 0 1rem 0;
 }
 
 ul {
-  margin: 0 0 14pt 14pt;
+  margin: 0 0 1rem 1rem;
 }
 
 .page-hd {
@@ -46,8 +44,7 @@ ul {
   right: 0;
   z-index: 10;
   padding: 8px 20px;
-  font-size: 10pt;
-  line-height: 14pt;
+  font-size: 1rem;
   text-align: center;
   background: rgba(0, 0, 0, 0.3);
   color: white;
@@ -86,9 +83,9 @@ ul {
 .address-wrapper {
   position: absolute;
   left: 20mm;
-  top: 126pt;
+  top: 45mm;
   width: 90mm;
-  padding: 14pt 4mm;
+  padding: 1.4rem 4mm;
   z-index: 10;
   box-sizing: border-box;
 }
@@ -104,14 +101,14 @@ ul {
 .sidebar {
   position: absolute;
   right: 24mm;
-  top: 70pt;
+  top: 24mm;
   width: 40mm;
-  height: 182pt;
-  font-size: 8pt;
+  height: 65mm;
+  font-size: 0.8rem;
 }
 
 .sidebar p {
-  margin: 14pt 0 0 0;
+  margin: 1.4rem 0 0 0;
 }
 
 .align-bottom {
@@ -121,45 +118,43 @@ ul {
 }
 
 .sidebar-date {
-  margin-top: 14pt;
+  margin-top: 1.4rem;
 }
 
 .sidebar-email {
-  margin-top: 14pt;
+  margin-top: 1.4rem;
 }
 
 .sidebar-phone {
-  margin-top: 14pt;
+  margin-top: 1.4rem;
 }
 
 .body {
   position: absolute;
   left: 24mm;
-  top: 308pt;
+  top: 110mm;
   right: 24mm;
 }
 
 .body-subject {
   font-weight: bold;
-  margin-bottom: 24pt;
+  margin-bottom: 2.4rem;
 }
 
 .attachments-hd {
   font-style: italic;
-  font-size: 8pt;
-  line-height: 12pt;
+  font-size: 0.8rem;
   margin: 0;
 }
 
 .attachments-bd {
-  font-size: 8pt;
-  line-height: 12pt;
+  font-size: 0.8rem;
 }
 
 .line {
   position: absolute;
   left: 5mm;
-  height: 1pt;
+  height: 0.1rem;
 }
 
 .line-img {
@@ -183,27 +178,13 @@ ul {
   width: 3mm;
 }
 
-.baseline-10pt {
-  padding-top: 4.7pt;
-  margin-bottom: -4.7pt;
-}
-
-.baseline-8pt {
-  padding-top: 5.1pt;
-  margin-bottom: -5.1pt;
-}
-
-.baseline-8pt-bottom {
-  padding-bottom: 1.4pt;
-}
-
 @media screen {
   /* Create a wider border around the element without effecting other elements */
   *[contenteditable] {
     position: relative;
     display: inline-block;
-    margin: -7pt;
-    padding: 7pt;
+    margin: -0.7rem;
+    padding: 0.7rem;
     width: 100%;
     border-radius: 3px;
     background-color: rgba(255, 255, 255, 0);
@@ -218,13 +199,8 @@ ul {
     background-color: rgba(255, 255, 255, 0.95);
   }
 
-  .baseline-8pt:focus {
-    padding-top: 12.1pt;
-    margin-bottom: -12.1pt;
-  }
-
   .body-subject:focus {
-    margin-bottom: 7pt; /* = 14pt - 7pt */
+    margin-bottom: 0.7rem; /* = 1.4rem - 0.7rem */
   }
 
   body {
