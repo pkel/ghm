@@ -11,11 +11,18 @@ function print_app() { ?>
     <link rel="stylesheet" href="assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/css/font-awesome-all.min.css">
     <link rel="stylesheet" href="assets/css/app.css">
-    <script type='text/javascript' src='app.js'></script>
   </head>
   <body>
     <div class="container-fluid">
-      <div id="ghm_main">Lädt ...</div>
+      <div id="ghm_main">
+        <div class="row justify-content-center align-items-center" style="height:100vh">
+          <div class="col-auto">
+            <div class="spinner-border" role="status">
+              <span class="sr-only">Lädt...</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <script type='text/javascript' src='assets/js/jquery-3.3.1.slim.min.js'></script>
     <script type='text/javascript' src='assets/js/bootstrap.bundle.min.js'></script>
@@ -26,6 +33,7 @@ function print_app() { ?>
         console.log(e);
       });
     </script>
+    <script async type='text/javascript' src='app.js'></script>
   </body>
 </html>
 <?php }
