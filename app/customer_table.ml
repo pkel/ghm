@@ -9,7 +9,7 @@ open Incr.Let_syntax
 module RowId = Int
 
 module Table = struct
-  open Incr_dom_widgets
+  open Incr_dom_partial_render
   include Table.Make (RowId) (Core_kernel.Int) (Table.Default_sort_spec)
 end
 
@@ -18,7 +18,7 @@ module Form = Incr_dom_widgets.Form
 module Column = struct
   open Core_kernel
   open Incr_dom
-  module Sort_key = Incr_dom_widgets.Table.Default_sort_spec.Sort_key
+  module Sort_key = Incr_dom_partial_render.Table.Default_sort_spec.Sort_key
 
   module type CONTENTS = sig
     type t
@@ -92,14 +92,14 @@ module Column = struct
 end
 
 module Row = struct
-  module Rn_spec = Incr_dom_widgets.Row_node_spec
-  module Sort_key = Incr_dom_widgets.Table.Default_sort_spec.Sort_key
+  module Rn_spec = Incr_dom_partial_render.Row_node_spec
+  module Sort_key = Incr_dom_partial_render.Table.Default_sort_spec.Sort_key
 
   module IntOpt = struct
     type t = int option
 
     let to_string t = Option.map ~f:string_of_int t |> Option.value ~default:""
-    let sort_key x = Sort_key.Integer (Option.value ~default:0 x)
+    let sort_key x = Option.value ~default:0 x |> Int63.of_int |> Sort_key.Integer
   end
 
   module DateOpt = struct
@@ -193,7 +193,7 @@ module Model = struct
   let create () =
     { table =
         Table.Model.create
-          ~scroll_margin:(Incr_dom_widgets.Table.Margin.uniform 5.)
+          ~scroll_margin:(Incr_dom_partial_render.Table.Margin.uniform 5.)
           ~scroll_region:Window
           ~float_header:None
           ~float_first_col:None

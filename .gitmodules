@@ -1,0 +1,3 @@
+[submodule "vendor/incr_dom_widgets"]
+	path = vendor/incr_dom_widgets
+	url = git@github.com:pkel/incr_dom_widgets.git

@@ -2,4 +2,3 @@
 *.install
 _*
 dune-workspace
-vendor
