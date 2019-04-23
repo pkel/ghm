@@ -3,8 +3,6 @@ services:
   api:
     restart: always
     image: postgrest/postgrest
-    ports:
-      - "3000:3000"
     volumes:
       - ./postgrest.conf:/etc/postgrest.conf:Z
     depends_on:
@@ -12,28 +10,17 @@ services:
   db:
     restart: always
     image: postgres:10
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_DB: ${db_name}
       POSTGRES_USER: ${db_root_user}
       POSTGRES_PASSWORD: ${db_root_pass}
     volumes:
       - db-data:/var/lib/postgresql/data
-  swagger:
-    restart: always
-    image: swaggerapi/swagger-ui
-    ports:
-      - "3001:8080"
-    environment:
-      API_URL: ${base_uri}/api
   php:
     restart: always
     build:
       context: .
       dockerfile: Dockerfile-for-php
-    ports:
-      - "9000:9000"
     volumes:
       - ../webroot/:/var/www/html:z
       - ../php-lib/:/var/www/lib:Z

@@ -70,5 +70,5 @@ server-port = 3000
 jwt-secret = "$jwt_secret"
 secret-is-base64 = false
 
-server-proxy-url = "${base_uri}/api/"
+server-proxy-uri = "${base_uri}/api/"
 EOF
