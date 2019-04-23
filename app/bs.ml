@@ -114,4 +114,15 @@ module Grid = struct
   let col10 ?(c = []) = div [ classes ("col-10" :: c) ]
   let col11 ?(c = []) = div [ classes ("col-11" :: c) ]
   let col_auto ?(c = []) = div [ classes ("col-auto" :: c) ]
+
+  let loading_row =
+    row
+      ~c:[ "justify-content-center"; "align-items-center"; "pt-5" ]
+      [ col_auto
+          [ div
+              [ Attr.class_ "spinner-border"; Attr.create "role" "status" ]
+              [ span [ Attr.class_ "sr-only" ] [ Node.text "Lädt..." ] ]
+          ]
+      ]
+  ;;
 end

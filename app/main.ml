@@ -18,7 +18,7 @@ module Model = struct
   [@@deriving compare]
 
   type t =
-    { customers : customer Int.Map.t
+    { customers : customer Int.Map.t option
     ; customer_table : Customer_table.Model.t
     ; customer_form : Customer_form.Model.t
     ; view : view
@@ -34,7 +34,7 @@ end
 let search_form = Form.(create ~name:"keyword search" Description.string)
 
 let init () : Model.t =
-  { Model.customers = Int.Map.empty
+  { Model.customers = None
   ; customer_table = Customer_table.Model.create ()
   ; customer_form = Customer_form.Model.create ()
   ; view = Model.Overview
@@ -112,7 +112,7 @@ let get_customers ~token ~schedule_action ?filter () =
 
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
-  let customers = model >>| Model.customers in
+  let customers = model >>| Model.customers >>| Option.value ~default:Int.Map.empty in
   let table =
     let model = model >>| Model.customer_table
     and old_model = old_model >>| Model.customer_table
@@ -149,8 +149,8 @@ let create model ~old_model ~inject =
         |> function
         | Error e ->
           Log.error e;
-          Int.Map.empty
-        | Ok m -> m
+          None
+        | Ok m -> Some m
       in
       { model with customers }
     | GotToken (Ok token) ->
@@ -200,7 +200,11 @@ let create model ~old_model ~inject =
       match model.view with
       | Overview ->
         ( [ Attr.on "scroll" (fun _ -> Event.Viewport_changed) ]
-        , [ view_head inject last_search search_state; Component.view table ] )
+        , [ view_head inject last_search search_state
+          ; (if Option.is_some model.customers
+            then Component.view table
+            else Bs.Grid.loading_row)
+          ] )
       | Customer -> [], [ Component.view customer ]
     and top =
       let open Bs.Grid in
