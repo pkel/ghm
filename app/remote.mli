@@ -33,7 +33,7 @@ module Customers : sig
 
   type filter = Keyword of string
 
-  val get 
+  val get
     :  ?offset:int
     -> ?limit:int
     -> ?sort:key order list

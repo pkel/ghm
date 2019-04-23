@@ -8,7 +8,8 @@ module Model = struct
   (* TODO: make this Customer.with_id? *)
   type customer =
     { id : int
-    ; data : Customer.t }
+    ; data : Customer.t
+    }
   [@@deriving compare]
 
   type view =
@@ -23,7 +24,8 @@ module Model = struct
     ; view : view
     ; last_search : string
     ; search : Form.State.t
-    ; token : Remote.Auth.token }
+    ; token : Remote.Auth.token
+    }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
@@ -38,7 +40,8 @@ let init () : Model.t =
   ; view = Model.Overview
   ; last_search = ""
   ; search = Form.State.create ~init:"" search_form
-  ; token = Remote.Auth.invalid_token }
+  ; token = Remote.Auth.invalid_token
+  }
 ;;
 
 module Action = struct
@@ -62,30 +65,37 @@ let view_head inject last_search state =
   let fld_id = Form.State.field_ids state search_form in
   Node.create
     "form"
-    [Attr.on "submit" (fun _ -> inject Action.Search)]
+    [ Attr.on "submit" (fun _ -> inject Action.Search) ]
     [ Bs.Grid.(
         frow
-          ~c:["mb-4"; "mt-2"]
+          ~c:[ "mb-4"; "mt-2" ]
           [ col_auto
               [ div
-                  [A.class_ "input-group"]
+                  [ A.class_ "input-group" ]
                   [ div
-                      [A.class_ "input-group-prepend"]
+                      [ A.class_ "input-group-prepend" ]
                       [ Bs.button
                           ~i:(S "undo")
                           ~action:(fun _ -> inject Action.ResetSearch)
-                          "Zurücksetzen" ]
+                          "Zurücksetzen"
+                      ]
                   ; Form.Input.text
                       state
                       fld_id
                       [ Attr.class_ "form-control"
                       ; Attr.placeholder "Schlüsselwort"
-                      ; Attr.value last_search ]
-                  ; div [A.class_ "input-group-append"] [Bs.button_submit "Suchen"] ] ]
+                      ; Attr.value last_search
+                      ]
+                  ; div [ A.class_ "input-group-append" ] [ Bs.button_submit "Suchen" ]
+                  ]
+              ]
           ; col
               [ frow
-                  ~c:["justify-content-end"]
-                  [Bs.button' ~href:Nav.(href_of (Customer New)) "Neuer Kunde"] ] ]) ]
+                  ~c:[ "justify-content-end" ]
+                  [ Bs.button' ~href:Nav.(href_of (Customer New)) "Neuer Kunde" ]
+              ]
+          ])
+    ]
 ;;
 
 let get_token ~schedule_action =
@@ -109,7 +119,7 @@ let create model ~old_model ~inject =
     and inject = Fn.compose inject Action.customertable
     and rows =
       Incr_map.mapi customers ~f:(fun ~key:_ ~data ->
-          Customer_table.Model.Row.of_customer ~id:data.id data.data )
+          Customer_table.Model.Row.of_customer ~id:data.id data.data)
     in
     Customer_table.create rows ~old_model ~inject ~model
   in
@@ -134,7 +144,7 @@ let create model ~old_model ~inject =
     | GotCustomers (Ok l) ->
       let open Model in
       let customers =
-        List.mapi l ~f:(fun i (id, data) -> i, {id; data})
+        List.mapi l ~f:(fun i (id, data) -> i, { id; data })
         |> Int.Map.of_alist_or_error
         |> function
         | Error e ->
@@ -142,11 +152,11 @@ let create model ~old_model ~inject =
           Int.Map.empty
         | Ok m -> m
       in
-      {model with customers}
+      { model with customers }
     | GotToken (Ok token) ->
       (* schedule renewal, token is valid for 300s. *)
       Async_kernel.upon (Async_js.sleep 240.) (fun () -> get_token ~schedule_action);
-      {model with token}
+      { model with token }
     | GotToken (Error e) ->
       (* schedule retry *)
       Async_kernel.upon (Async_js.sleep 1.) (fun () -> get_token ~schedule_action);
@@ -156,22 +166,22 @@ let create model ~old_model ~inject =
     | CustomerTable a ->
       let schedule_action = Fn.compose schedule_action Action.customertable in
       let customer_table = Component.apply_action ~schedule_action table a () in
-      {model with customer_table}
+      { model with customer_table }
     | CustomerForm a ->
       let schedule_action = Fn.compose schedule_action Action.customerform in
       let customer_form = Component.apply_action ~schedule_action customer a () in
-      {model with customer_form}
+      { model with customer_form }
     | NavChange None ->
       Nav.(set Overview);
       model
     | NavChange (Some (Customer x)) ->
       schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
-      {model with view = Customer}
+      { model with view = Customer }
     | NavChange (Some Overview) ->
       (* TODO: use latest search *)
       let token = model.token in
       get_customers ~token ~schedule_action ();
-      {model with view = Overview}
+      { model with view = Overview }
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
@@ -179,35 +189,37 @@ let create model ~old_model ~inject =
       | Some s ->
         let token = model.token in
         get_customers ~token ~schedule_action ~filter:(Keyword (String.strip s)) ();
-        {model with search; last_search = s})
+        { model with search; last_search = s })
     | ResetSearch ->
       let token = model.token in
       get_customers ~token ~schedule_action ();
-      {model with last_search = ""; search = Form.State.create search_form}
+      { model with last_search = ""; search = Form.State.create search_form }
   and view =
     let open Vdom in
     let attr, tl =
       match model.view with
       | Overview ->
-        ( [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
-        , [view_head inject last_search search_state; Component.view table] )
-      | Customer -> [], [Component.view customer]
+        ( [ Attr.on "scroll" (fun _ -> Event.Viewport_changed) ]
+        , [ view_head inject last_search search_state; Component.view table ] )
+      | Customer -> [], [ Component.view customer ]
     and top =
       let open Bs.Grid in
       row
-        ~c:["justify-content-end"; "headline"]
+        ~c:[ "justify-content-end"; "headline" ]
         [ col_auto
             Node.
               [ text "Angemeldet als "
-              ; create "b" [] [text (Remote.Auth.username model.token)]
+              ; create "b" [] [ text (Remote.Auth.username model.token) ]
               ; text ". "
-              ; a [Attr.href "logout.php"] [text "Abmelden."] ] ]
+              ; a [ Attr.href "logout.php" ] [ text "Abmelden." ]
+              ]
+        ]
     in
     Node.div attr (top :: tl)
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in
-    {model with customer_table}
+    { model with customer_table }
   and on_display _state ~schedule_action =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     Component.on_display table ~schedule_action ()
