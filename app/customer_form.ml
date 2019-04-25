@@ -238,6 +238,7 @@ module Model = struct
     ; nav : Nav.customer
     ; selected : int
     ; touched_at : int
+    ; loading : bool
     }
   [@@deriving compare, fields]
 
@@ -253,10 +254,16 @@ module Model = struct
     ; nav
     ; touched_at = Int.max_value
     ; selected = 0
+    ; loading = false
     }
   ;;
 
   let create () = load New Customer.empty
+
+  let create_loading nav () =
+    let model = load nav Customer.empty in
+    { model with loading = true }
+  ;;
 end
 
 module Action = struct
@@ -430,7 +437,7 @@ let apply_action
     let rq = Request.map_resp ~f:(fun c -> i, c) (Remote.Customer.get i token) in
     let handler = Fn.compose schedule_action Action.gotcustomer in
     Request.XHR.send' ~handler rq;
-    Model.create ()
+    Model.create_loading (Id i) ()
   | NavChange New -> Model.create ()
 ;;
 
@@ -731,7 +738,7 @@ let view_customer state ids =
 let letter_dropdown_id = id ()
 let excel_id = id ()
 
-let view (model : Model.t Incr.t) ~back_href ~inject =
+let view_form (model : Model.t Incr.t) ~back_href ~inject =
   let open Vdom in
   let%map customer_f = model >>| Model.customer_f
   and booking_f = model >>| Model.booking_f
@@ -831,6 +838,11 @@ let view (model : Model.t Incr.t) ~back_href ~inject =
   in
   let touch _ _ = inject Action.Touch in
   Node.create "form" [ Attr.on "submit" save; Attr.on_input touch ] (List.concat rows)
+;;
+
+let view ~inject ~back_href model =
+  let%bind loading = model >>| Model.loading in
+  if loading then Incr.const Bs.Grid.loading_row else view_form ~inject ~back_href model
 ;;
 
 let create
