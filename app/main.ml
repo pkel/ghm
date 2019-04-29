@@ -3,6 +3,7 @@ open Ghm
 open Incr_dom
 module Incr_map = Incr_map.Make (Incr)
 module Form = Incr_dom_widgets.Form
+module State = State
 
 module Model = struct
   (* TODO: make this Customer.with_id? *)
@@ -20,6 +21,7 @@ module Model = struct
     { customers : customer Int.Map.t option
     ; customer_table : Customer_table.Model.t
     ; customer_form : Customer_form.Model.t
+    ; errors : Errors.Model.t
     ; view : view
     ; last_search : string
     ; search : Form.State.t
@@ -35,6 +37,7 @@ let init () : Model.t =
   { Model.customers = None
   ; customer_table = Customer_table.Model.create ()
   ; customer_form = Customer_form.Model.create ()
+  ; errors = Errors.Model.empty
   ; view = Model.Overview
   ; last_search = ""
   ; search = Form.State.create ~init:"" search_form
@@ -48,13 +51,10 @@ module Action = struct
     | ResetSearch
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
+    | Errors of Errors.Action.t
     | GotCustomers of (int * Customer.t) list Or_error.t
     | GotToken of Remote.Auth.token Or_error.t
   [@@deriving sexp_of, variants]
-end
-
-module State = struct
-  type t = unit
 end
 
 let view_head inject last_search state =
@@ -120,16 +120,21 @@ let create model ~old_model ~inject =
     and token = model >>| Model.token in
     Customer_form.create ~inject ~back_href token form_model
   in
+  let errors =
+    let inject = Fn.compose inject Action.errors
+    and model = model >>| Model.errors in
+    Errors.create ~inject model
+  in
   let%map table = table
   and model = model
   and customer = customer
+  and errors = errors
   and search_state = model >>| Model.search
   and last_search = model >>| Model.last_search in
-  let apply_action (a : Action.t) _state ~schedule_action =
+  let apply_action (a : Action.t) state ~schedule_action =
     match a with
-    | GotCustomers (Error e) ->
-      (* TODO: the gui should react to this *)
-      Log.error e;
+    | GotCustomers (Error detail) ->
+      State.log_error state {gist = "Verbindungsfehler (Kunden)"; detail};
       model
     | GotCustomers (Ok l) ->
       let open Model in
@@ -146,12 +151,13 @@ let create model ~old_model ~inject =
     | GotToken (Ok token) ->
       (* schedule renewal, token is valid for 300s. *)
       Async_kernel.upon (Async_js.sleep 240.) (fun () -> get_token ~schedule_action);
+      State.log_error state {gist = "Token success"; detail = Error.of_string "n/a"};
       {model with token}
-    | GotToken (Error e) ->
+    | GotToken (Error detail) ->
       (* schedule retry *)
       Async_kernel.upon (Async_js.sleep 1.) (fun () -> get_token ~schedule_action);
-      (* TODO: the gui should react to this *)
-      Log.error e;
+      State.log_error state {gist = "Verbindungsfehler (Token)"; detail};
+      (* TODO: retry and showing error might confuse user *)
       model
     | CustomerTable a ->
       let schedule_action = Fn.compose schedule_action Action.customertable in
@@ -159,8 +165,12 @@ let create model ~old_model ~inject =
       {model with customer_table}
     | CustomerForm a ->
       let schedule_action = Fn.compose schedule_action Action.customerform in
-      let customer_form = Component.apply_action ~schedule_action customer a () in
+      let customer_form = Component.apply_action ~schedule_action customer a state in
       {model with customer_form}
+    | Errors a ->
+      let schedule_action = Fn.compose schedule_action Action.errors in
+      let errors = Component.apply_action ~schedule_action errors a state in
+      {model with errors}
     | NavChange None ->
       Nav.(set Overview);
       model
@@ -206,7 +216,7 @@ let create model ~old_model ~inject =
               ; text ". "
               ; a [Attr.href "logout.php"] [text "Abmelden."] ] ]
     in
-    Node.div attr (top :: tl)
+    Node.div attr (Component.view errors :: top :: tl)
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in
@@ -220,11 +230,12 @@ let create model ~old_model ~inject =
 
 let on_startup ~schedule_action _model =
   (* Wait for jwt token before doing anything else *)
-  (* TODO: the interface should reflect the loading state *)
   let open Async_kernel in
   Request.XHR.Deferred.send' Remote.Auth.get_token
   >>| fun response ->
   schedule_action (Action.GotToken response);
   Nav.listen (Fn.compose schedule_action Action.navchange);
-  schedule_action (Action.NavChange (Nav.get ()))
+  schedule_action (Action.NavChange (Nav.get ()));
+  let handle_error e = schedule_action (Action.Errors (Errors.Action.log e)) in
+  State.create ~handle_error
 ;;

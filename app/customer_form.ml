@@ -267,10 +267,6 @@ module Action = struct
   [@@deriving sexp, variants]
 end
 
-module State = struct
-  type t = unit
-end
-
 let default_period () =
   let today = Ext_date.today () in
   let from = Date.add_days today 7
@@ -293,7 +289,7 @@ let apply_action
     (token : Remote.Auth.token)
     (model : Model.t)
     (action : Action.t)
-    (_state : State.t)
+    (state : State.t)
     ~schedule_action : Model.t =
   match action with
   | Update_c customer_f ->
@@ -396,16 +392,25 @@ let apply_action
       match model.nav with
       | New -> Nav.(set Overview)
       | Id i ->
-        let handler = function Error e -> Log.error e | Ok () -> Nav.(set Overview) in
+        let handler = function
+          | Error detail ->
+            State.log_error state {gist = "Löschen fehlgeschlagen"; detail}
+          | Ok () -> Nav.(set Overview)
+        in
         Request.XHR.send' ~handler (Remote.Customer.delete i token)
     in
     model
   | PatchedCustomer (Ok customer) -> {model with customer}
   | PostedCustomer (Ok (id, customer)) -> {model with customer; nav = Nav.Id id}
-  | GotCustomer (Ok (id, customer)) -> Model.load (Id id) customer
-  | PostedCustomer (Error e) | PatchedCustomer (Error e) | GotCustomer (Error e) ->
-    Log.error e;
-    model (* TODO: display this to user, ideally don't show form without data. *)
+  | GotCustomer (Ok (id, customer)) ->
+    State.log_error state {gist = "Laden ok"; detail = Error.of_string "n/a"};
+    Model.load (Id id) customer
+  | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
+    State.log_error state {gist = "Speichern fehlgeschlagen"; detail};
+    model
+  | GotCustomer (Error detail) ->
+    State.log_error state {gist = "Laden fehlgeschlagen"; detail};
+    model
   | NavChange (Id i) ->
     let rq = Request.map_resp ~f:(fun c -> i, c) (Remote.Customer.get i token) in
     let handler = Fn.compose schedule_action Action.gotcustomer in
