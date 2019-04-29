@@ -63,15 +63,11 @@ let uniq_c_rev ~compare = function
 let of_customer_and_booking (c : Customer.t) (b : Booking.t) =
   let from = Localize.date (Period.from b.period)
   and till = Localize.date (Period.till b.period) in
-  let map_nth l i f =
-    match List.nth l i with
-    | Some r -> f r
-    | None -> ""
-  in
+  let map_nth l i f = match List.nth l i with Some r -> f r | None -> "" in
   let s = Booking.summarize b in
   let items =
     let compare = Booking.compare_alloc in
-    List.map b.allocs ~f:(fun r -> { r with Booking.room = "" })
+    List.map b.allocs ~f:(fun r -> {r with Booking.room = ""})
     |> List.sort ~compare
     |> uniq_c_rev ~compare
   in
@@ -109,8 +105,7 @@ let of_customer_and_booking (c : Customer.t) (b : Booking.t) =
     ; (if b.tax_free then "0" else Int.to_string s.tax_payers)
     ; (if s.tax_payers < 1 || b.tax_free then "" else "Kurtaxe")
     ; (if s.tax_payers < 1 || b.tax_free then "0.00" else "2.00")
-    ; mon_to_string (Option.value ~default:Monetary.zero b.deposit_got)
-    ]
+    ; mon_to_string (Option.value ~default:Monetary.zero b.deposit_got) ]
   in
   String.concat ~sep:"\n" lines
 ;;

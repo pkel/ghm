@@ -14,9 +14,7 @@ let of_yojson x =
   match remote_of_yojson x with
   | Error e -> Error e
   | Ok f ->
-    (match of_float f with
-    | Some x -> Ok x
-    | None -> Error "could not read float")
+    (match of_float f with Some x -> Ok x | None -> Error "could not read float")
 ;;
 
 let to_yojson x = remote_to_yojson (to_float x)

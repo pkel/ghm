@@ -43,8 +43,7 @@ module Column = struct
       ?group
       ?sort_by
       (module Contents : CONTENTS with type t = contents)
-      ~get
-    =
+      ~get =
     let sort_by =
       match sort_by with
       | Some f -> f
@@ -70,8 +69,7 @@ module Column = struct
       ?name
       ?group
       ?sort_by
-      (module Contents : CONTENTS with type t = contents)
-    =
+      (module Contents : CONTENTS with type t = contents) =
     let name = Option.value ~default:(Field.name field) name in
     create ~name ?group ?sort_by (module Contents) ~get:(Field.get field)
   ;;
@@ -126,8 +124,7 @@ module Row = struct
       ; from : Date.t option
       ; till : Date.t option
       ; rooms : string
-      ; guests : int option
-      }
+      ; guests : int option }
     [@@deriving compare, fields]
 
     let columns =
@@ -170,7 +167,7 @@ module Row = struct
         |> Option.value ~default:""
       and from = period |> Option.map ~f:Period.from
       and till = period |> Option.map ~f:Period.till in
-      { id; given; family; company; keyword; from; till; guests; rooms }
+      {id; given; family; company; keyword; from; till; guests; rooms}
     ;;
   end
 
@@ -179,21 +176,19 @@ module Row = struct
     let row_attrs =
       Attr.
         [ on_click Nav.(navigate (Customer (Id m.id)))
-        ; style (Css_gen.create ~field:"cursor" ~value:"pointer")
-        ]
+        ; style (Css_gen.create ~field:"cursor" ~value:"pointer") ]
     in
     let cells =
       List.map Model.columns ~f:(fun col ->
-          { Rn_spec.Cell.attrs = []
-          ; node = Node.span [] [ Node.text (Column.get col m) ]
-          })
+          {Rn_spec.Cell.attrs = []; node = Node.span [] [Node.text (Column.get col m)]}
+      )
     in
-    { Rn_spec.row_attrs; cells }
+    {Rn_spec.row_attrs; cells}
   ;;
 end
 
 module Model = struct
-  type t = { table : Table.Model.t } [@@deriving compare, fields]
+  type t = {table : Table.Model.t} [@@deriving compare, fields]
 
   let create () =
     { table =
@@ -203,8 +198,7 @@ module Model = struct
           ~float_header:None
           ~float_first_col:None
           ~height_guess:43.
-          ()
-    }
+          () }
   ;;
 
   module Row :
@@ -232,7 +226,7 @@ let create_table rows model ~old_model ~inject =
     ~columns
     ~render_row
     ~inject:(fun a -> inject (Action.Table a))
-    ~attrs:[ Attr.classes [ "table"; "table-hover"; "table-sm" ] ]
+    ~attrs:[Attr.classes ["table"; "table-hover"; "table-sm"]]
 ;;
 
 let create ~model ~old_model ~inject rows =
@@ -244,16 +238,15 @@ let create ~model ~old_model ~inject rows =
   let%map table = table
   and model = model in
   let apply_action (a : Action.t) _state ~schedule_action =
-    match a with
-    | Table a ->
+    match a with Table a ->
       let schedule_action = Fn.compose schedule_action Action.table in
       let table' = Component.apply_action ~schedule_action table a () in
-      Model.{ table = table' }
+      Model.{table = table'}
   and view = Component.view table
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.table in
     let table' = Component.update_visibility table ~schedule_action in
-    Model.{ table = table' }
+    Model.{table = table'}
   and on_display _state ~schedule_action =
     let schedule_action = Fn.compose schedule_action Action.table in
     Component.on_display table ~schedule_action ()

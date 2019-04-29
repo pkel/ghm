@@ -20,7 +20,7 @@ module Action : sig
   type t [@@deriving sexp_of]
 end
 
-val create
+val create 
   :  model:Model.t Incr.t
   -> old_model:Model.t Incr.t
   -> inject:(Action.t -> Vdom.Event.t)

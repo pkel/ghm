@@ -7,22 +7,19 @@ type t =
   ; sidebar : string
   ; subject : string
   ; body : string
-  ; attachments : string
-  }
+  ; attachments : string }
 [@@deriving yojson]
 
 let to_b64 t =
   to_yojson t
   |> Yojson.Safe.to_string
   |> Base64.encode
-  |> function
-  | Ok str -> str (* TODO: care properly *)
-  | Error _ -> ""
+  |> function Ok str -> str (* TODO: care properly *) | Error _ -> ""
 ;;
 
 module H = Tyxml.Html
 
-let p' s = H.(p [ txt s ])
+let p' s = H.(p [txt s])
 
 let elts_to_string l =
   List.map ~f:(Caml.Format.asprintf "%a" (H.pp_elt ())) l |> String.concat ~sep:"\n"
@@ -42,35 +39,31 @@ let generic ~subject ~body ~attachments ~sender ~signer ~date (c : Customer.t) =
                "%s-%s %s"
                c.address.country_code
                c.address.postal_code
-               c.address.city)
-        ]
+               c.address.city) ]
       |> elts_to_string
   ; body =
       List.concat
-        [ [ p' (sprintf "%s %s," c.name.letter c.name.family) ]
+        [ [p' (sprintf "%s %s," c.name.letter c.name.family)]
         ; body
-        ; [ H.br (); p' "Mit freundlichen Grüßen"; p' signer ]
-        ]
+        ; [H.br (); p' "Mit freundlichen Grüßen"; p' signer] ]
       |> elts_to_string
-  ; sidebar = [ p' date ] |> elts_to_string
+  ; sidebar = [p' date] |> elts_to_string
   ; subject
   ; attachments =
       (if List.is_empty attachments
       then ""
       else
-        H.
-          [ p [ b [ txt "Anlagen:" ]; br (); txt (String.concat ~sep:", " attachments) ] ]
+        H.[p [b [txt "Anlagen:"]; br (); txt (String.concat ~sep:", " attachments)]]
         |> elts_to_string)
-  ; sender
-  }
+  ; sender }
 ;;
 
-let blank = generic ~body:[ p' "..." ] ~subject:"Betreff"
+let blank = generic ~body:[p' "..."] ~subject:"Betreff"
 
 let flyer =
   generic
     ~subject:"Hausprospekt"
-    ~attachments:[ "Hausprospekt"; "Preisliste" ]
+    ~attachments:["Hausprospekt"; "Preisliste"]
     ~body:
       [ p'
           {|
@@ -92,14 +85,9 @@ let confirm ~(booking : Booking.t) =
   let period = Period.to_string_hum base_date_to_string booking.period in
   let positions =
     let n = List.length booking.allocs in
-    let comma i =
-      match n - i with
-      | 1 -> ""
-      | 2 -> " und"
-      | _ -> ","
-    in
+    let comma i = match n - i with 1 -> "" | 2 -> " und" | _ -> "," in
     List.mapi
-      ~f:(fun i x -> H.li [ H.txt (Booking.string_of_alloc x ^ comma i) ])
+      ~f:(fun i x -> H.li [H.txt (Booking.string_of_alloc x ^ comma i)])
       booking.allocs
   in
   let open Printf in

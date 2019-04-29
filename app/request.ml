@@ -21,8 +21,7 @@ type ('a, 'b) t =
   ; url : string
   ; verb : verb
   ; params : string option String.Map.t
-  ; headers : string String.Map.t
-  }
+  ; headers : string String.Map.t }
 
 let create ~url =
   { verb = GET
@@ -30,29 +29,22 @@ let create ~url =
   ; body = (fun () -> "")
   ; url
   ; params = String.Map.empty
-  ; headers = String.Map.empty
-  }
+  ; headers = String.Map.empty }
 ;;
 
-let conv_resp ~f t = { t with resp = Fn.compose (Or_error.bind ~f) t.resp }
-let map_resp ~f t = { t with resp = Fn.compose (Or_error.map ~f) t.resp }
-let map_body ~f t = { t with body = Fn.compose t.body f }
-let verb verb t = { t with verb }
-let header ~key ~value t = { t with headers = String.Map.set ~key ~data:value t.headers }
+let conv_resp ~f t = {t with resp = Fn.compose (Or_error.bind ~f) t.resp}
+let map_resp ~f t = {t with resp = Fn.compose (Or_error.map ~f) t.resp}
+let map_body ~f t = {t with body = Fn.compose t.body f}
+let verb verb t = {t with verb}
+let header ~key ~value t = {t with headers = String.Map.set ~key ~data:value t.headers}
 
 let param ~key ?value t =
   let data = Option.map ~f:Browser.Misc.encode_uri_component value in
   let key = Browser.Misc.encode_uri_component key in
-  { t with params = String.Map.set ~key ~data t.params }
+  {t with params = String.Map.set ~key ~data t.params}
 ;;
 
-let want_text t =
-  { t with
-    resp =
-      (function
-      | (lazy s) -> Ok s)
-  }
-;;
+let want_text t = {t with resp = (function (lazy s) -> Ok s)}
 
 let want_json t =
   let t' = header ~key:"accept" ~value:"application/json" t in
@@ -60,19 +52,17 @@ let want_json t =
     resp =
       (function
       | (lazy str) ->
-        (try Ok (Yojson.Safe.from_string str) with
-        | e -> Error (Error.of_exn e)))
-  }
+        (try Ok (Yojson.Safe.from_string str) with e -> Error (Error.of_exn e))) }
 ;;
 
 let give_json t =
   let t = header ~key:"Content-Type" ~value:"application/json" t in
-  { t with body = Yojson.Safe.to_string }
+  {t with body = Yojson.Safe.to_string}
 ;;
 
 let give_text t =
   let t = header ~key:"Content-Type" ~value:"text/plain" t in
-  { t with body = Fn.id }
+  {t with body = Fn.id}
 ;;
 
 let bearer ~token =
@@ -89,9 +79,7 @@ module XHR = struct
     let url_with_params =
       String.Map.to_alist t.params
       |> List.map ~f:(fun (k, v_opt) ->
-             match v_opt with
-             | None -> k
-             | Some v -> sprintf "%s=%s" k v)
+             match v_opt with None -> k | Some v -> sprintf "%s=%s" k v )
       |> function
       | [] -> t.url
       | l ->
@@ -106,10 +94,10 @@ module XHR = struct
           let status = status xhr in
           if 200 <= status && status < 300
           then t.resp (lazy (response_text xhr)) |> handler
-          else (
+          else
             let msg = status_text xhr in
-            Or_error.errorf "XHR failed: %i %s" status msg |> handler)
-        | _ -> ());
+            Or_error.errorf "XHR failed: %i %s" status msg |> handler
+        | _ -> () );
     send xhr (t.body body)
   ;;
 
@@ -121,7 +109,7 @@ module XHR = struct
     let send ~body t =
       Deferred.create (fun cell ->
           let handler = Ivar.fill cell in
-          send ~body ~handler t)
+          send ~body ~handler t )
     ;;
 
     let send' t = send ~body:() t
