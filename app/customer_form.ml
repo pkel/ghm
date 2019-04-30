@@ -402,9 +402,7 @@ let apply_action
     model
   | PatchedCustomer (Ok customer) -> {model with customer}
   | PostedCustomer (Ok (id, customer)) -> {model with customer; nav = Nav.Id id}
-  | GotCustomer (Ok (id, customer)) ->
-    State.log_error state {gist = "Laden ok"; detail = Error.of_string "n/a"};
-    Model.load (Id id) customer
+  | GotCustomer (Ok (id, customer)) -> Model.load (Id id) customer
   | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
     State.log_error state {gist = "Speichern fehlgeschlagen"; detail};
     model

@@ -75,6 +75,7 @@ module Date : sig
   val to_locale_string_ : t -> locale:string -> string [@@js.call]
   val to_string : t -> string [@@js.call]
   val to_time_string : t -> string [@@js.call]
+  val to_locale_time_string : t -> string [@@js.call]
   val to_UTC_string : t -> string [@@js.call]
 end
 

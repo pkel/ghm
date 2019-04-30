@@ -142,8 +142,8 @@ let create model ~old_model ~inject =
         List.mapi l ~f:(fun i (id, data) -> i, {id; data})
         |> Int.Map.of_alist_or_error
         |> function
-        | Error e ->
-          Log.error e;
+        | Error detail ->
+          State.log_error state {gist = "Laden von Kunden fehlgeschlagen"; detail};
           None
         | Ok m -> Some m
       in
@@ -151,7 +151,6 @@ let create model ~old_model ~inject =
     | GotToken (Ok token) ->
       (* schedule renewal, token is valid for 300s. *)
       Async_kernel.upon (Async_js.sleep 240.) (fun () -> get_token ~schedule_action);
-      State.log_error state {gist = "Token success"; detail = Error.of_string "n/a"};
       {model with token}
     | GotToken (Error detail) ->
       (* schedule retry *)
