@@ -6,6 +6,10 @@ all:
 	dune build app/app.bc.js tools/combit.exe
 	cp _build/default/app/app.bc.js webroot/app.js
 
+opt:
+	dune build --profile release app/app.bc.js
+	cp _build/default/app/app.bc.js webroot/app.js
+
 watch:
 	fd 'ml|dune' | entr -s 'make all'
 
