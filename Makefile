@@ -51,6 +51,5 @@ import: clean-db
 clean:
 	dune clean
 
-deploy:
-	ssh jhestia 'mkdir -p ghm'
-	rsync -a --delete --info=progress2 --exclude=vendor --exclude=_* --exclude=repo --delete-excluded ./ jhestia:ghm/
+deploy-webroot: opt
+	rsync -a --delete --info=progress2 webroot/ jhestia:ghm/webroot/
