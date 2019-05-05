@@ -25,6 +25,7 @@ module Model = struct
     ; view : view
     ; last_search : string
     ; search : Form.State.t
+    ; page : int
     ; token : Remote.Auth.token }
   [@@deriving compare, fields]
 
@@ -40,6 +41,7 @@ let init () : Model.t =
   ; errors = Errors.Model.empty
   ; view = Model.Overview
   ; last_search = ""
+  ; page = 0
   ; search = Form.State.create ~init:"" search_form
   ; token = Remote.Auth.invalid_token }
 ;;
@@ -49,10 +51,11 @@ module Action = struct
     | NavChange of Nav.t option sexp_opaque
     | Search
     | ResetSearch
+    | GetMore
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
     | Errors of Errors.Action.t
-    | GotCustomers of (int * Customer.t) list Or_error.t
+    | GotCustomers of int (* page *) * (int * Customer.t) list Or_error.t
     | GotToken of Remote.Auth.token Or_error.t
   [@@deriving sexp_of, variants]
 end
@@ -94,10 +97,13 @@ let get_token ~schedule_action =
     ~handler:(Fn.compose schedule_action Action.gottoken)
 ;;
 
-let get_customers ~token ~schedule_action ?filter () =
+let customer_page_size = 250
+
+let get_customers ~token ~schedule_action ?(page = 0) ?filter () =
+  let offset = if page > 0 then Some ((page * customer_page_size) + 1) else None in
   Request.XHR.send'
-    Remote.Customers.(get ~limit:250 ?filter token)
-    ~handler:(Fn.compose schedule_action Action.gotcustomers)
+    Remote.Customers.(get ?offset ~limit:customer_page_size ?filter token)
+    ~handler:(fun r -> schedule_action (Action.GotCustomers (page, r)))
 ;;
 
 let create model ~old_model ~inject =
@@ -133,21 +139,33 @@ let create model ~old_model ~inject =
   and last_search = model >>| Model.last_search in
   let apply_action (a : Action.t) state ~schedule_action =
     match a with
-    | GotCustomers (Error detail) ->
+    | GotCustomers (_, Error detail) ->
       State.log_error state {gist = "Verbindungsfehler (Kunden)"; detail};
       model
-    | GotCustomers (Ok l) ->
-      let open Model in
+    | GotCustomers (page, Ok l) ->
       let customers =
-        List.mapi l ~f:(fun i (id, data) -> i, {id; data})
+        List.mapi l ~f:(fun i (id, data) ->
+            i + (page * customer_page_size), Model.{id; data} )
         |> Int.Map.of_alist_or_error
         |> function
         | Error detail ->
           State.log_error state {gist = "Laden von Kunden fehlgeschlagen"; detail};
-          None
-        | Ok m -> Some m
+          model.customers
+        | Ok m ->
+          if page > 0
+          then (
+            let old = Option.value ~default:Int.Map.empty model.customers in
+            match Int.Map.append ~lower_part:old ~upper_part:m with
+            | `Ok m -> Some m
+            | `Overlapping_key_ranges ->
+              State.log_error
+                state
+                { gist = "Laden von Kunden fehlgeschlagen"
+                ; detail = Error.of_string "Overlapping key ranges" };
+              model.customers )
+          else Some m
       in
-      {model with customers}
+      {model with customers; page}
     | GotToken (Ok token) ->
       (* schedule renewal, token is valid for 300s. *)
       Async_kernel.upon (Async_js.sleep 240.) (fun () -> get_token ~schedule_action);
@@ -189,6 +207,11 @@ let create model ~old_model ~inject =
         let token = model.token in
         get_customers ~token ~schedule_action ~filter:(Keyword (String.strip s)) ();
         {model with search; last_search = s})
+    | GetMore ->
+      let page = model.page + 1
+      and token = model.token in
+      get_customers ~page ~token ~schedule_action ~filter:(Keyword model.last_search) ();
+      model
     | ResetSearch ->
       let token = model.token in
       get_customers ~token ~schedule_action ();
@@ -202,7 +225,17 @@ let create model ~old_model ~inject =
         , [ view_head inject last_search search_state
           ; (if Option.is_some model.customers
             then Component.view table
-            else Bs.Grid.loading_row) ] )
+            else Bs.Grid.loading_row) ]
+          @
+          (match model.customers with
+          | Some m when Int.Map.length m = (model.page + 1) * customer_page_size ->
+            let open Bs.Grid in
+            [ row
+                ~c:["justify-content-center"]
+                [ col_auto
+                    ~c:["mb-2"]
+                    [Bs.button ~action:(fun _ -> inject Action.GetMore) "Mehr"] ] ]
+          | _ -> []) )
       | Customer -> [], [Component.view customer]
     and top =
       let open Bs.Grid in
