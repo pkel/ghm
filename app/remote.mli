@@ -31,7 +31,7 @@ module Customers : sig
     | Id
     | Modified
 
-  type filter = Keyword of string
+  type filter = Keyword of string [@@deriving compare]
 
   val get 
     :  ?offset:int

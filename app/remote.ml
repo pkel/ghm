@@ -119,9 +119,9 @@ module Customers = struct
 
   let string_of_key = function Id -> "customer_id" | Modified -> "modified"
 
-  type filter = Keyword of string
+  type filter = Keyword of string [@@deriving compare]
 
-  let string_of_filter = function Keyword s -> sprintf "ilike.%%%s%%" s
+  let string_of_filter = function Keyword s -> sprintf "ilike.%s" s
   let string_of_order = string_of_order string_of_key
   let string_of_sort l = List.map ~f:string_of_order l |> String.concat ~sep:","
 

@@ -23,7 +23,7 @@ module Model = struct
     ; customer_form : Customer_form.Model.t
     ; errors : Errors.Model.t
     ; view : view
-    ; last_search : string
+    ; last_search : Remote.Customers.filter option
     ; search : Form.State.t
     ; page : int
     ; token : Remote.Auth.token }
@@ -40,7 +40,7 @@ let init () : Model.t =
   ; customer_form = Customer_form.Model.create ()
   ; errors = Errors.Model.empty
   ; view = Model.Overview
-  ; last_search = ""
+  ; last_search = None
   ; page = 0
   ; search = Form.State.create ~init:"" search_form
   ; token = Remote.Auth.invalid_token }
@@ -81,9 +81,11 @@ let view_head inject last_search state =
                   ; Form.Input.text
                       state
                       fld_id
-                      [ Attr.class_ "form-control"
-                      ; Attr.placeholder "Schlüsselwort"
-                      ; Attr.value last_search ]
+                      ( [Attr.class_ "form-control"; Attr.placeholder "Schlüsselwort"]
+                      @
+                      match last_search with
+                      | None -> []
+                      | Some (Remote.Customers.Keyword s) -> [Attr.value s] )
                   ; div [A.class_ "input-group-append"] [Bs.button_submit "Suchen"] ] ]
           ; col
               [ frow
@@ -195,27 +197,38 @@ let create model ~old_model ~inject =
       schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
       {model with view = Customer}
     | NavChange (Some Overview) ->
-      (* TODO: use latest search *)
-      let token = model.token in
-      get_customers ~token ~schedule_action ();
+      let token = model.token
+      and filter = model.last_search in
+      get_customers ?filter ~token ~schedule_action ();
       {model with view = Overview}
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
       | None -> model
       | Some s ->
-        let token = model.token in
-        get_customers ~token ~schedule_action ~filter:(Keyword (String.strip s)) ();
-        {model with search; last_search = s})
+        let token = model.token
+        and filter =
+          let open String in
+          let s = strip s in
+          let l, r = is_prefix ~prefix:"_" s, is_suffix ~suffix:"_" s in
+          match strip ~drop:(function '_' -> true | _ -> false) s with
+          | "" -> None
+          | s ->
+            let s = (if l then "" else "%") ^ s ^ if r then "" else "%" in
+            Some (Remote.Customers.Keyword s)
+        in
+        get_customers ~token ~schedule_action ?filter ();
+        {model with search; last_search = filter})
     | GetMore ->
       let page = model.page + 1
-      and token = model.token in
-      get_customers ~page ~token ~schedule_action ~filter:(Keyword model.last_search) ();
+      and token = model.token
+      and filter = model.last_search in
+      get_customers ~page ~token ~schedule_action ?filter ();
       model
     | ResetSearch ->
       let token = model.token in
       get_customers ~token ~schedule_action ();
-      {model with last_search = ""; search = Form.State.create search_form}
+      {model with last_search = None; search = Form.State.create search_form}
   and view =
     let open Vdom in
     let attr, tl =
