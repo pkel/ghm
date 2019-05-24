@@ -45,4 +45,4 @@ clean:
 	dune clean
 
 deploy-webroot: opt
-	rsync -a --delete --info=progress2 webroot/ jhestia:ghm/webroot/
+	rsync -a --delete --info=progress2 webroot/ jump_hestia:ghm/webroot/

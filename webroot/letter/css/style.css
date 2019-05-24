@@ -32,6 +32,11 @@ ul {
   margin: 0 0 1rem 1rem;
 }
 
+table {
+  border-spacing: 0.5em 0.1em;
+  border-collapse: collapse;
+}
+
 #background {
   height: 100%;
   width: 100%;
@@ -145,6 +150,10 @@ input[type=checkbox] {
 .body-subject {
   font-weight: bold;
   margin-bottom: 2.4rem;
+}
+
+.body-text {
+  text-align: justify;
 }
 
 .attachments-hd {

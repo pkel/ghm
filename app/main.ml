@@ -31,6 +31,7 @@ end
 let search_form = Form.(create ~name:"keyword search" Description.string)
 
 let init () : Model.t =
+  (* TODO: make form components lazy ? *)
   { Model.customers = None
   ; customer_table = Customer_table.Model.create ()
   ; customer_form = Customer_form.Model.create ()
@@ -154,8 +155,7 @@ let create model ~old_model ~inject =
           Customer_table.Model.Row.of_customer ~id:data.id data.data)
     in
     Customer_table.create rows ~old_model ~inject ~model
-  in
-  let customer =
+  and customer =
     let inject = Fn.compose inject Action.customerform
     and form_model = model >>| Model.customer_form in
     Customer_form.create ~inject form_model

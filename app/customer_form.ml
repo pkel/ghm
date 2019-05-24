@@ -240,12 +240,14 @@ module Model = struct
 
   type view =
     | Main
+    | Invoice of int
     | Booking of int
     | New_booking
   [@@deriving compare, sexp]
 
   type t =
     { form : Form.State.t
+    ; invoice_form : Invoice_form.Model.t
     ; remote : Customer.t
     ; local : Customer.t
     ; view : view
@@ -259,6 +261,7 @@ module Model = struct
 
   let load nav (c : Customer.t) =
     { form = Form.State.create ~init:c customer_form
+    ; invoice_form = Invoice_form.Model.create ()
     ; remote = c
     ; local = c
     ; nav
@@ -286,12 +289,14 @@ module Action = struct
     | GotCustomer of (int * Customer.t) Or_error.t
     | PostedCustomer of (int * Customer.t) Or_error.t
     | PatchedCustomer of Customer.t Or_error.t
+    | InvoiceForm of Invoice_form.Action.t sexp_opaque
     | Save
     | Touch
     | Touched
     | NewBooking
     | DeleteBooking of int
     | DeleteCustomer
+    | LoadInvoice of int
   [@@deriving sexp, variants]
 end
 
@@ -328,10 +333,12 @@ let booking_entry_ids state =
   r
 ;;
 
-let apply_action (model : Model.t)
-                 (action : Action.t)
-                 (state : State.t)
-                 ~schedule_action
+let apply_action
+    ~invoice
+    (model : Model.t)
+    (action : Action.t)
+    (state : State.t)
+    ~schedule_action
     : Model.t
   =
   let conn = state.connection in
@@ -428,6 +435,18 @@ let apply_action (model : Model.t)
   | GotCustomer (Error detail) ->
     state.handle_error { gist = "Laden fehlgeschlagen"; detail };
     model
+  | LoadInvoice i ->
+    let b =
+      match List.nth model.local.bookings i with
+      | None -> fresh_booking ()
+      | Some b -> b
+    in
+    let inv = Invoice.of_customer_and_booking (Ext_date.today ()) model.local b in
+    { model with invoice_form = Invoice_form.Model.load inv; view = Invoice i }
+  | InvoiceForm a ->
+    let schedule_action = Fn.compose schedule_action Action.invoiceform in
+    let invoice_form = Component.apply_action ~schedule_action invoice a state in
+    { model with invoice_form }
   | NavChange (Id i) ->
     let rq =
       Request.map_resp ~f:(fun c -> i, c) Remote.(Customer.get i |> finalize conn)
@@ -650,10 +669,8 @@ let save_btn ~sync ~inject =
 let excel_id = id ()
 
 let uri_of_letter customer t =
-  let date = Browser.Date.(now () |> to_locale_date_string)
-  and sender = "Pension Keller, Am Vögelisberg 13, D-78479 Reichenau"
-  and signer = "Christine Keller" in
-  "/letter/#" ^ Letter.(t ~sender ~signer ~date customer |> to_b64)
+  let date = Browser.Date.(now () |> to_locale_date_string) in
+  Letter.(t ~date customer |> href)
 ;;
 
 let view_booking ~inject ~sync (customer : Customer.t) selected state ids =
@@ -714,7 +731,13 @@ let view_booking ~inject ~sync (customer : Customer.t) selected state ids =
     match List.nth customer.bookings selected with
     | None -> ""
     | Some booking -> uri_of_letter customer (Letter.confirm ~booking)
-  and delete_b _evt = inject (Action.DeleteBooking selected) in
+  and delete_b _evt = inject (Action.DeleteBooking selected)
+  and invoice_btn =
+    Bs.button
+      ~style:"info"
+      ~action:(fun _ -> inject (Action.LoadInvoice selected))
+      "Test: Rechnung"
+  in
   Bs.Grid.
     [ row [ col main; col allocs; col guests ]
     ; frow
@@ -724,6 +747,7 @@ let view_booking ~inject ~sync (customer : Customer.t) selected state ids =
         ; col_auto
             ~c:[ "mb-2"; "mt-2" ]
             [ Bs.button_clipboard ~value:excel ~id:excel_id "Excel" ]
+        ; col_auto ~c:[ "mb-2"; "mt-2" ] [ invoice_btn ]
         ; col
             [ frow
                 ~c:[ "justify-content-end" ]
@@ -808,17 +832,13 @@ let view_main ~sync ~inject customer state ids =
     ]
 ;;
 
-let view_form (model : Model.t Incr.t) ~inject =
+let view_form ~invoice (model : Model.t Incr.t) ~inject =
   let open Vdom in
   let%map form = model >>| Model.form
   and local = model >>| Model.local
   and sync = model >>| Model.sync
+  and invoice = invoice
   and view = model >>| Model.view in
-  let selected =
-    match view with
-    | Booking i -> i
-    | _ -> -1
-  in
   let ids = Form.State.field_ids form customer_form in
   let save _evt = inject Action.Save in
   let show visible =
@@ -827,18 +847,20 @@ let view_form (model : Model.t Incr.t) ~inject =
   in
   let rows =
     (view_main ~inject ~sync local form ids |> show (view = Main))
-    :: List.mapi
+    :: List.concat_mapi
          ~f:(fun i b_ids ->
-           view_booking ~inject ~sync local selected form b_ids |> show (selected = i))
+           [ view_booking ~inject ~sync local i form b_ids |> show (view = Booking i)
+           ; [ Component.view invoice ] |> show (view = Invoice i)
+           ])
          (booking_entry_ids form)
   in
   let touch _ _ = inject Action.Touch in
   Node.create "form" [ Attr.on "submit" save; Attr.on_input touch ] rows
 ;;
 
-let view ~inject model =
+let view ~invoice ~inject model =
   let%bind loading = model >>| Model.loading in
-  if loading then Incr.const Bs.Grid.loading_row else view_form ~inject model
+  if loading then Incr.const Bs.Grid.loading_row else view_form ~invoice ~inject model
 ;;
 
 let menu ~inject (m : Model.t) : Menu.t =
@@ -871,9 +893,16 @@ let menu ~inject (m : Model.t) : Menu.t =
 
 let create ~(inject : Action.t -> Vdom.Event.t)
            (model : Model.t Incr.t) =
+  let invoice =
+    let inject = Fn.compose inject Action.invoiceform
+    and back_href = Nav.(href_of Overview)
+    and form_model = model >>| Model.invoice_form in
+    Invoice_form.create ~inject ~back_href form_model
+  in
   let%map model = model
-  and view = view ~inject model in
-  let apply_action = apply_action model
+  and invoice = invoice
+  and view = view ~invoice ~inject model in
+  let apply_action = apply_action ~invoice model
   and extra : Menu.t = menu ~inject model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;
