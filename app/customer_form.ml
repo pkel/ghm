@@ -384,7 +384,6 @@ let apply_action
     and bookings = Model.Fresh :: model.bookings
     and selected_booking = 0 in
     schedule_action Action.Touch;
-    (* TODO: use fresh_booking or copy currently selected booking *)
     { model with form; bookings; selected_booking }
   | DeleteBooking ->
     let form =
