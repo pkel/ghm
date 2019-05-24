@@ -352,8 +352,16 @@ let apply_action
     schedule_action Action.Touch;
     {model with form}
   | NewBooking ->
+    let init =
+      match List.nth model.local.bookings model.selected_booking with
+      | Some b -> { b with period = default_period ()
+                         ; deposit_asked = None
+                         ; deposit_got = None
+                         ; note = "" }
+      | None -> fresh_booking ()
+    in
     let form =
-      Form.List.cons ~init:(fresh_booking ()) model.form (booking_list_id model.form)
+      Form.List.cons ~init model.form (booking_list_id model.form)
     and bookings = Model.Fresh :: model.bookings
     and selected_booking = 0 in
     schedule_action Action.Touch;
