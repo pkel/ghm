@@ -6,15 +6,17 @@ module Model = struct
   type entry =
     { seen : bool
     ; error : State.error
-    ; time : string }
+    ; time : string
+    }
   [@@deriving compare]
 
   type t =
     { lst : entry list
-    ; visible : bool }
+    ; visible : bool
+    }
   [@@deriving compare]
 
-  let empty = {visible = false; lst = []}
+  let empty = { visible = false; lst = [] }
 end
 
 module Action = struct
@@ -42,21 +44,20 @@ let eval_js id expr =
 let show_modal () = eval_js "launch_modal" "$('#errorModal').modal('show')"
 let hide_modal () = eval_js "hide_modal" "$('#errorModal').modal('hide')"
 
-let apply_action (model : Model.t) (action : Action.t) _state ~schedule_action : Model.t
-    =
+let apply_action (model : Model.t) (action : Action.t) _state ~schedule_action : Model.t =
   match action with
   | Log error ->
     Log.error error.detail;
     schedule_action Action.Open;
     let time = Browser.Date.(now () |> to_locale_time_string) in
-    {model with lst = {seen = false; error; time} :: model.lst}
+    { model with lst = { seen = false; error; time } :: model.lst }
   | Open ->
     show_modal ();
-    {model with visible = true}
+    { model with visible = true }
   | Close ->
     hide_modal ();
-    let lst = List.map model.lst ~f:(fun e -> {e with seen = true}) in
-    {visible = false; lst}
+    let lst = List.map model.lst ~f:(fun e -> { e with seen = true }) in
+    { visible = false; lst }
 ;;
 
 let modal ~inject contents =
@@ -70,30 +71,38 @@ let modal ~inject contents =
       ; create "role" "modal"
       ; create "data-backdrop" "static"
       ; create "aria-labelledby" "errorModalLabel"
-      ; create "aria-hidden" "true" ]
+      ; create "aria-hidden" "true"
+      ]
     [ div
-        Attr.[class_ "modal-dialog"; create "role" "document"]
+        Attr.[ class_ "modal-dialog"; create "role" "document" ]
         [ div
-            Attr.[class_ "modal-content"]
+            Attr.[ class_ "modal-content" ]
             [ div
-                Attr.[class_ "modal-header"]
-                [ h5 Attr.[class_ "modal-title"; id "errorModalLabel"] [text "Fehler"]
+                Attr.[ class_ "modal-header" ]
+                [ h5 Attr.[ class_ "modal-title"; id "errorModalLabel" ] [ text "Fehler" ]
                 ; button
                     Attr.
                       [ type_ "button"
                       ; class_ "close"
                       ; on_click (fun _ -> inject Action.Close)
-                      ; create "aria-label" "Close" ]
-                    [span Attr.[create "aria-hidden" "true"] [text "×"]] ]
-            ; div Attr.[class_ "modal-body"] contents
+                      ; create "aria-label" "Close"
+                      ]
+                    [ span Attr.[ create "aria-hidden" "true" ] [ text "×" ] ]
+                ]
+            ; div Attr.[ class_ "modal-body" ] contents
             ; div
-                Attr.[class_ "modal-footer"]
+                Attr.[ class_ "modal-footer" ]
                 [ button
                     Attr.
                       [ type_ "button"
-                      ; classes ["btn"; "btn-secondary"]
-                      ; on_click (fun _ -> inject Action.Close) ]
-                    [text "Schließen"] ] ] ] ]
+                      ; classes [ "btn"; "btn-secondary" ]
+                      ; on_click (fun _ -> inject Action.Close)
+                      ]
+                    [ text "Schließen" ]
+                ]
+            ]
+        ]
+    ]
 ;;
 
 let view ~inject model =
@@ -104,18 +113,19 @@ let view ~inject model =
     if not e.seen
     then
       [ p
-          [Attr.class_ "text-monospace"]
-          [text e.time; text ": "; text (Error.to_string_hum e.error.detail)]
-      ; p [Attr.class_ "font-weight-bold"] [text e.error.gist] ]
+          [ Attr.class_ "text-monospace" ]
+          [ text e.time; text ": "; text (Error.to_string_hum e.error.detail) ]
+      ; p [ Attr.class_ "font-weight-bold" ] [ text e.error.gist ]
+      ]
     else []
   in
   modal ~inject List.(concat_map ~f model.lst |> rev)
 ;;
 
-let create 
-    :  inject:(Action.t -> Vdom.Event.t)
-    -> Model.t Incr.t
-    -> (Action.t, Model.t, State.t) Component.t Incr.t =
+let create
+    :  inject:(Action.t -> Vdom.Event.t) -> Model.t Incr.t
+    -> (Action.t, Model.t, State.t) Component.t Incr.t
+  =
  fun ~inject model ->
   let%map model = model
   and view = view ~inject model in

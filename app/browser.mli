@@ -160,6 +160,7 @@ module Event : sig
 
   (* message *)
   val origin : t -> string
+
   (* message *)
 end
 
@@ -305,7 +306,7 @@ module History : sig
   val length : t -> int
   val back : t -> unit
   val forward : t -> unit
-  val go : t -> ([`Offset of int | `Url of string][@js.union]) -> unit
+  val go : t -> ([ `Offset of int | `Url of string ][@js.union]) -> unit
   val replace_state : t -> Ojs.t -> string -> string -> unit
   val push_state : t -> Ojs.t -> string -> string -> unit
 end
@@ -354,7 +355,7 @@ module Window : sig
   val clear_timeout : t -> timeout_id -> unit
   val request_animation_frame : t -> (float -> unit) -> unit
 
-  val open_ 
+  val open_
     :  t
     -> ?url:string
     -> ?name:string
@@ -478,23 +479,30 @@ module Canvas : sig
   val gradient_to_js : gradient -> Ojs.t
 
   type css_color = string
-  type context_attribute = {alpha : bool}
+  type context_attribute = { alpha : bool }
 
   val get_context : ?alpha:bool -> (*<canvas>*) Element.t -> context option
     [@@js.custom
-      val get_context_internal 
-        : Element.t -> string -> context_attribute -> context option
+      val get_context_internal
+        :  Element.t
+        -> string
+        -> context_attribute
+        -> context option
         [@@js.call "getContext"]
 
-      let get_context ?(alpha = true) canvas = get_context_internal canvas "2d" {alpha}]
+      let get_context ?(alpha = true) canvas = get_context_internal canvas "2d" { alpha }]
 
   val to_data_URL : (*<canvas>*) Element.t -> string [@@js.call]
 
-  val set_fill_style 
-    : context -> ([`Color of css_color | `Gradient of gradient][@js.union]) -> unit
+  val set_fill_style
+    :  context
+    -> ([ `Color of css_color | `Gradient of gradient ][@js.union])
+    -> unit
 
-  val set_stroke_style 
-    : context -> ([`Color of css_color | `Gradient of gradient][@js.union]) -> unit
+  val set_stroke_style
+    :  context
+    -> ([ `Color of css_color | `Gradient of gradient ][@js.union])
+    -> unit
 
   val set_line_width : context -> float -> unit
   val create_linear_gradient : context -> float -> float -> float -> float -> gradient

@@ -7,7 +7,8 @@ module Name = struct
     { title : string
     ; letter : string
     ; given : string
-    ; family : string }
+    ; family : string
+    }
   [@@deriving fields, compare, sexp, yojson]
 end
 
@@ -17,7 +18,8 @@ module Address = struct
     ; postal_code : string
     ; city : string
     ; country : string
-    ; country_code : string }
+    ; country_code : string
+    }
   [@@deriving fields, compare, sexp, yojson]
 end
 
@@ -30,14 +32,16 @@ module Contact = struct
     ; fax2 : string
     ; mail : string
     ; mail2 : string
-    ; web : string }
+    ; web : string
+    }
   [@@deriving fields, compare, sexp, yojson]
 end
 
 module Company = struct
   type t =
     { name : string
-    ; address : string }
+    ; address : string
+    }
   [@@deriving fields, compare, sexp, yojson]
 end
 
@@ -48,18 +52,26 @@ type t =
   ; contact : Contact.t
   ; keyword : string
   ; note : string
-  ; bookings : Booking.t list }
+  ; bookings : Booking.t list
+  }
 [@@deriving fields, compare, sexp, yojson]
 
 let first_booking t : Booking.t option =
-  match t.bookings with [] -> None | hd :: _ -> Some hd
+  match t.bookings with
+  | [] -> None
+  | hd :: _ -> Some hd
 ;;
 
 let empty =
-  { name = {title = ""; letter = ""; given = ""; family = ""}
-  ; company = {name = ""; address = ""}
+  { name = { title = ""; letter = ""; given = ""; family = "" }
+  ; company = { name = ""; address = "" }
   ; address =
-      {street_with_num = ""; postal_code = ""; city = ""; country = ""; country_code = ""}
+      { street_with_num = ""
+      ; postal_code = ""
+      ; city = ""
+      ; country = ""
+      ; country_code = ""
+      }
   ; contact =
       { phone = ""
       ; phone2 = ""
@@ -68,10 +80,12 @@ let empty =
       ; fax2 = ""
       ; mail = ""
       ; mail2 = ""
-      ; web = "" }
+      ; web = ""
+      }
   ; keyword = ""
   ; note = ""
-  ; bookings = [] }
+  ; bookings = []
+  }
 ;;
 
 let letter_by_title =
@@ -80,5 +94,6 @@ let letter_by_title =
   ; "Frau", "Sehr geehrte Frau"
   ; "Herrn Dr.", "Sehr geehrter Herr Dr."
   ; "Frau Dr.", "Sehr geehrte Frau Dr."
-  ; "Familie", "Liebe Familie" ]
+  ; "Familie", "Liebe Familie"
+  ]
 ;;

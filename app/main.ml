@@ -9,7 +9,8 @@ module Model = struct
   (* TODO: make this Customer.with_id? *)
   type customer =
     { id : int
-    ; data : Customer.t }
+    ; data : Customer.t
+    }
   [@@deriving compare]
 
   type view =
@@ -26,7 +27,8 @@ module Model = struct
     ; last_search : Remote.Customers.filter option
     ; search : Form.State.t
     ; page : int
-    ; token : Remote.Auth.token }
+    ; token : Remote.Auth.token
+    }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
@@ -43,7 +45,8 @@ let init () : Model.t =
   ; last_search = None
   ; page = 0
   ; search = Form.State.create ~init:"" search_form
-  ; token = Remote.Auth.invalid_token }
+  ; token = Remote.Auth.invalid_token
+  }
 ;;
 
 module Action = struct
@@ -65,32 +68,38 @@ let view_head inject last_search state =
   let fld_id = Form.State.field_ids state search_form in
   Node.create
     "form"
-    [Attr.on "submit" (fun _ -> inject Action.Search)]
+    [ Attr.on "submit" (fun _ -> inject Action.Search) ]
     [ Bs.Grid.(
         frow
-          ~c:["mb-4"; "mt-2"]
+          ~c:[ "mb-4"; "mt-2" ]
           [ col_auto
               [ div
-                  [A.class_ "input-group"]
+                  [ A.class_ "input-group" ]
                   [ div
-                      [A.class_ "input-group-prepend"]
+                      [ A.class_ "input-group-prepend" ]
                       [ Bs.button
                           ~i:(S "undo")
                           ~action:(fun _ -> inject Action.ResetSearch)
-                          "Zurücksetzen" ]
+                          "Zurücksetzen"
+                      ]
                   ; Form.Input.text
                       state
                       fld_id
-                      ( [Attr.class_ "form-control"; Attr.placeholder "Schlüsselwort"]
+                      ([ Attr.class_ "form-control"; Attr.placeholder "Schlüsselwort" ]
                       @
                       match last_search with
                       | None -> []
-                      | Some (Remote.Customers.Keyword s) -> [Attr.value s] )
-                  ; div [A.class_ "input-group-append"] [Bs.button_submit "Suchen"] ] ]
+                      | Some (Remote.Customers.Keyword s) -> [ Attr.value s ])
+                  ; div [ A.class_ "input-group-append" ] [ Bs.button_submit "Suchen" ]
+                  ]
+              ]
           ; col
               [ frow
-                  ~c:["justify-content-end"]
-                  [Bs.button' ~href:Nav.(href_of (Customer New)) "Neuer Kunde"] ] ]) ]
+                  ~c:[ "justify-content-end" ]
+                  [ Bs.button' ~href:Nav.(href_of (Customer New)) "Neuer Kunde" ]
+              ]
+          ])
+    ]
 ;;
 
 let get_token ~schedule_action =
@@ -117,7 +126,7 @@ let create model ~old_model ~inject =
     and inject = Fn.compose inject Action.customertable
     and rows =
       Incr_map.mapi customers ~f:(fun ~key:_ ~data ->
-          Customer_table.Model.Row.of_customer ~id:data.id data.data )
+          Customer_table.Model.Row.of_customer ~id:data.id data.data)
     in
     Customer_table.create rows ~old_model ~inject ~model
   in
@@ -142,16 +151,16 @@ let create model ~old_model ~inject =
   let apply_action (a : Action.t) state ~schedule_action =
     match a with
     | GotCustomers (_, Error detail) ->
-      State.log_error state {gist = "Verbindungsfehler (Kunden)"; detail};
+      State.log_error state { gist = "Verbindungsfehler (Kunden)"; detail };
       model
     | GotCustomers (page, Ok l) ->
       let customers =
         List.mapi l ~f:(fun i (id, data) ->
-            i + (page * customer_page_size), Model.{id; data} )
+            i + (page * customer_page_size), Model.{ id; data })
         |> Int.Map.of_alist_or_error
         |> function
         | Error detail ->
-          State.log_error state {gist = "Laden von Kunden fehlgeschlagen"; detail};
+          State.log_error state { gist = "Laden von Kunden fehlgeschlagen"; detail };
           model.customers
         | Ok m ->
           if page > 0
@@ -163,44 +172,45 @@ let create model ~old_model ~inject =
               State.log_error
                 state
                 { gist = "Laden von Kunden fehlgeschlagen"
-                ; detail = Error.of_string "Overlapping key ranges" };
-              model.customers )
+                ; detail = Error.of_string "Overlapping key ranges"
+                };
+              model.customers)
           else Some m
       in
-      {model with customers; page}
+      { model with customers; page }
     | GotToken (Ok token) ->
       (* schedule renewal, token is valid for 300s. *)
       Async_kernel.upon (Async_js.sleep 240.) (fun () -> get_token ~schedule_action);
-      {model with token}
+      { model with token }
     | GotToken (Error detail) ->
       (* schedule retry *)
       Async_kernel.upon (Async_js.sleep 1.) (fun () -> get_token ~schedule_action);
-      State.log_error state {gist = "Verbindungsfehler (Token)"; detail};
+      State.log_error state { gist = "Verbindungsfehler (Token)"; detail };
       (* TODO: retry and showing error might confuse user *)
       model
     | CustomerTable a ->
       let schedule_action = Fn.compose schedule_action Action.customertable in
       let customer_table = Component.apply_action ~schedule_action table a () in
-      {model with customer_table}
+      { model with customer_table }
     | CustomerForm a ->
       let schedule_action = Fn.compose schedule_action Action.customerform in
       let customer_form = Component.apply_action ~schedule_action customer a state in
-      {model with customer_form}
+      { model with customer_form }
     | Errors a ->
       let schedule_action = Fn.compose schedule_action Action.errors in
       let errors = Component.apply_action ~schedule_action errors a state in
-      {model with errors}
+      { model with errors }
     | NavChange None ->
       Nav.(set Overview);
       model
     | NavChange (Some (Customer x)) ->
       schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
-      {model with view = Customer}
+      { model with view = Customer }
     | NavChange (Some Overview) ->
       let token = model.token
       and filter = model.last_search in
       get_customers ?filter ~token ~schedule_action ();
-      {model with view = Overview}
+      { model with view = Overview }
     | Search ->
       let pattern_o, search = Form.State.read_value model.search search_form in
       (match pattern_o with
@@ -211,14 +221,20 @@ let create model ~old_model ~inject =
           let open String in
           let s = strip s in
           let l, r = is_prefix ~prefix:"_" s, is_suffix ~suffix:"_" s in
-          match strip ~drop:(function '_' -> true | _ -> false) s with
+          match
+            strip
+              ~drop:(function
+                | '_' -> true
+                | _ -> false)
+              s
+          with
           | "" -> None
           | s ->
             let s = (if l then "" else "%") ^ s ^ if r then "" else "%" in
             Some (Remote.Customers.Keyword s)
         in
         get_customers ~token ~schedule_action ?filter ();
-        {model with search; last_search = filter})
+        { model with search; last_search = filter })
     | GetMore ->
       let page = model.page + 1
       and token = model.token
@@ -228,44 +244,49 @@ let create model ~old_model ~inject =
     | ResetSearch ->
       let token = model.token in
       get_customers ~token ~schedule_action ();
-      {model with last_search = None; search = Form.State.create search_form}
+      { model with last_search = None; search = Form.State.create search_form }
   and view =
     let open Vdom in
     let attr, tl =
       match model.view with
       | Overview ->
-        ( [Attr.on "scroll" (fun _ -> Event.Viewport_changed)]
+        ( [ Attr.on "scroll" (fun _ -> Event.Viewport_changed) ]
         , [ view_head inject last_search search_state
           ; (if Option.is_some model.customers
             then Component.view table
-            else Bs.Grid.loading_row) ]
+            else Bs.Grid.loading_row)
+          ]
           @
           (match model.customers with
           | Some m when Int.Map.length m = (model.page + 1) * customer_page_size ->
             let open Bs.Grid in
             [ row
-                ~c:["justify-content-center"]
+                ~c:[ "justify-content-center" ]
                 [ col_auto
-                    ~c:["mb-2"]
-                    [Bs.button ~action:(fun _ -> inject Action.GetMore) "Mehr"] ] ]
+                    ~c:[ "mb-2" ]
+                    [ Bs.button ~action:(fun _ -> inject Action.GetMore) "Mehr" ]
+                ]
+            ]
           | _ -> []) )
-      | Customer -> [], [Component.view customer]
+      | Customer -> [], [ Component.view customer ]
     and top =
       let open Bs.Grid in
       row
-        ~c:["justify-content-end"; "headline"]
+        ~c:[ "justify-content-end"; "headline" ]
         [ col_auto
             Node.
               [ text "Angemeldet als "
-              ; create "b" [] [text (Remote.Auth.username model.token)]
+              ; create "b" [] [ text (Remote.Auth.username model.token) ]
               ; text ". "
-              ; a [Attr.href "logout.php"] [text "Abmelden."] ] ]
+              ; a [ Attr.href "logout.php" ] [ text "Abmelden." ]
+              ]
+        ]
     in
     Node.div attr (Component.view errors :: top :: tl)
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in
-    {model with customer_table}
+    { model with customer_table }
   and on_display _state ~schedule_action =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     Component.on_display table ~schedule_action ()

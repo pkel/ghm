@@ -13,7 +13,7 @@ module Action : sig
   val log : State.error -> t
 end
 
-val create 
+val create
   :  inject:(Action.t -> Vdom.Event.t)
   -> Model.t Incr.t
   -> (Action.t, Model.t, State.t) Component.t Incr.t

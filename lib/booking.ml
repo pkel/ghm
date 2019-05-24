@@ -8,25 +8,29 @@ type t =
   ; tax_free : bool
   ; note : string
   ; guests : guest list
-  ; allocs : alloc list }
+  ; allocs : alloc list
+  }
 
 and guest =
   { given : string
   ; family : string
-  ; born : Date.t option }
+  ; born : Date.t option
+  }
 
 and alloc =
   { room : string
   ; price_per_bed : Monetary.t
   ; beds : int
-  ; description : string }
+  ; description : string
+  }
 [@@deriving yojson, fields, compare, sexp]
 
 module Summary = struct
   type t =
     { rooms : string list
     ; guests : int
-    ; tax_payers : int }
+    ; tax_payers : int
+    }
   [@@deriving fields]
 end
 
@@ -36,13 +40,15 @@ let summarize (t : t) : Summary.t =
   let guests = List.length t.guests
   and tax_payers =
     List.count t.guests ~f:(fun g ->
-        match g.born with None -> true | Some d -> Date.compare tax_cutoff d > 0 )
+        match g.born with
+        | None -> true
+        | Some d -> Date.compare tax_cutoff d > 0)
   and rooms =
     List.map t.allocs ~f:room
     |> List.filter ~f:(Fn.compose not String.is_empty)
     |> String.(List.dedup_and_sort ~compare)
   in
-  {rooms; guests; tax_payers}
+  { rooms; guests; tax_payers }
 ;;
 
 let room_descriptions =
@@ -51,7 +57,8 @@ let room_descriptions =
   ; "Dreibettzimmer"
   ; "Vierbettzimmer"
   ; "Doppel- als Einzelzimmer"
-  ; "Kurtaxe" ]
+  ; "Kurtaxe"
+  ]
 ;;
 
 let pp_alloc fmt alloc =

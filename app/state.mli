@@ -4,7 +4,8 @@ type t
 
 type error =
   { gist : string
-  ; detail : Error.t }
+  ; detail : Error.t
+  }
 [@@deriving sexp_of, compare]
 
 val log_error : t -> error -> unit

@@ -21,5 +21,5 @@ let error e =
 let form state =
   List.iter (Form.State.errors state) ~f:(fun e ->
       let msg = "FORM: " ^ Error.to_string_hum e in
-      error_str msg )
+      error_str msg)
 ;;

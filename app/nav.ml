@@ -10,26 +10,29 @@ and t =
 [@@deriving compare]
 
 let customer_of_path = function
-  | ["new"] -> Some New
-  | [s] -> Option.map ~f:(fun i -> Id i) (Caml.int_of_string_opt s)
+  | [ "new" ] -> Some New
+  | [ s ] -> Option.map ~f:(fun i -> Id i) (Caml.int_of_string_opt s)
   | _ -> None
 ;;
 
-let customer_to_path = function New -> ["new"] | Id i -> [Int.to_string i]
+let customer_to_path = function
+  | New -> [ "new" ]
+  | Id i -> [ Int.to_string i ]
+;;
 
 let of_path = function
-  | ["overview"] -> Some Overview
+  | [ "overview" ] -> Some Overview
   | "customer" :: tl -> Option.map ~f:(fun x -> Customer x) (customer_of_path tl)
   | _ -> None
 ;;
 
 let path_of = function
-  | Overview -> ["overview"]
+  | Overview -> [ "overview" ]
   | Customer x -> "customer" :: customer_to_path x
 ;;
 
 let path_of_string s =
-  let drop c = Caml.List.mem c ['/'; '#'] in
+  let drop c = Caml.List.mem c [ '/'; '#' ] in
   String.split ~on:'/' (String.strip ~drop s)
 ;;
 

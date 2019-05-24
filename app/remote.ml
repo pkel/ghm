@@ -2,8 +2,13 @@ open Core_kernel
 open Ghm
 
 let base_url = sprintf "/api/%s"
-let data_only json = `Assoc ["data", json]
-let parse f x = match f x with Ok v -> Ok v | Error s -> Or_error.error_string s
+let data_only json = `Assoc [ "data", json ]
+
+let parse f x =
+  match f x with
+  | Ok v -> Ok v
+  | Error s -> Or_error.error_string s
+;;
 
 module Auth = struct
   type token = string [@@deriving compare, sexp_of]
@@ -12,7 +17,8 @@ module Auth = struct
     { role : string
     ; username : string
     ; span : int
-    ; exp : int }
+    ; exp : int
+    }
   [@@deriving of_yojson]
 
   let get_token = Request.(create ~url:"/token.php" |> want_text)
@@ -54,8 +60,9 @@ module Customer = struct
 
   type foreign =
     { id : int [@key "customer_id"]
-    ; data : Customer.t }
-  [@@deriving of_yojson {strict = false}]
+    ; data : Customer.t
+    }
+  [@@deriving of_yojson { strict = false }]
 
   let get_single_customer =
     Request.(
@@ -117,11 +124,17 @@ module Customers = struct
 
   type foreign = Customer.foreign list [@@deriving of_yojson]
 
-  let string_of_key = function Id -> "customer_id" | Modified -> "modified"
+  let string_of_key = function
+    | Id -> "customer_id"
+    | Modified -> "modified"
+  ;;
 
   type filter = Keyword of string [@@deriving compare]
 
-  let string_of_filter = function Keyword s -> sprintf "ilike.%s" s
+  let string_of_filter = function
+    | Keyword s -> sprintf "ilike.%s" s
+  ;;
+
   let string_of_order = string_of_order string_of_key
   let string_of_sort l = List.map ~f:string_of_order l |> String.concat ~sep:","
 
@@ -132,7 +145,7 @@ module Customers = struct
       |> conv_resp ~f:(parse foreign_of_yojson))
   ;;
 
-  let get ?offset ?limit ?(sort = [Desc Modified; Desc Id]) ?filter =
+  let get ?offset ?limit ?(sort = [ Desc Modified; Desc Id ]) ?filter =
     let opt_param to_string key = function
       | Some i -> Request.param ~key ~value:(to_string i)
       | None -> Fn.id
