@@ -1,4 +1,5 @@
 open Core_kernel
+open Async_kernel
 open Ghm
 
 let base_url = sprintf "/api/%s"
@@ -10,36 +11,35 @@ let parse f x =
   | Error s -> Or_error.error_string s
 ;;
 
-module Auth = struct
-  type token = string [@@deriving compare, sexp_of]
+type connection = { mutable token : string }
+type ('a, 'b) request = ('a, 'b) Request.t
 
-  type payload =
-    { role : string
-    ; username : string
-    ; span : int
-    ; exp : int
-    }
-  [@@deriving of_yojson]
+let finalize c = Request.bearer ~token:c.token
+let get_token = Request.(create ~url:"/token.php" |> want_text)
 
-  let get_token = Request.(create ~url:"/token.php" |> want_text)
-  let invalid_token = "invalid.dummy.token"
+let refresh c () =
+  Request.XHR.Deferred.send' get_token
+  >>| function
+  | Ok t -> c.token <- t
+  | Error _ -> ()
+;;
 
-  let parse_exn t =
-    String.split ~on:'.' t
-    |> (fun l -> List.nth_exn l 1)
-    |> Base64.decode_exn ~pad:false
-    |> Yojson.Safe.from_string
-    |> parse payload_of_yojson
-  ;;
+(* TODO think about this case *)
 
-  let username t =
-    (* Can we make this a bit nicer? *)
-    match parse_exn t with
-    | Ok p -> p.username
-    | Error _ -> "unbekannt"
-    | exception _ -> "unbekannt"
-  ;;
-end
+let keep_fresh c =
+  (* Token valid for 300s *)
+  every (Time_ns.Span.of_sec 240.) (fun () -> don't_wait_for (refresh c ()))
+;;
+
+let connect () =
+  Request.XHR.Deferred.send' get_token
+  >>| function
+  | Ok token ->
+    let c = { token } in
+    keep_fresh c;
+    Some c
+  | Error _ -> None
+;;
 
 type 'a order =
   | Asc of 'a
@@ -49,10 +49,6 @@ let string_of_order f = function
   | Asc key -> sprintf "%s.asc" (f key)
   | Desc key -> sprintf "%s.desc" (f key)
 ;;
-
-type ('a, 'b) authenticated_request = Auth.token -> ('a, 'b) Request.t
-
-let authenticated_request r token = Request.bearer ~token r
 
 module Customer = struct
   type t = Customer.t
@@ -77,7 +73,6 @@ module Customer = struct
       create ~url:(base_url "customers")
       |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
       |> verb DELETE)
-    |> authenticated_request
   ;;
 
   let get id =
@@ -85,7 +80,6 @@ module Customer = struct
       get_single_customer
       |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
       |> map_resp ~f:(fun x -> x.data))
-    |> authenticated_request
   ;;
 
   let give_single =
@@ -100,7 +94,6 @@ module Customer = struct
       verb POST give_single
       |> header ~key:"Prefer" ~value:"return=representation"
       |> map_resp ~f:(fun x -> x.id, x.data))
-    |> authenticated_request
   ;;
 
   let patch id =
@@ -109,7 +102,6 @@ module Customer = struct
       |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
       |> header ~key:"Prefer" ~value:"return=representation"
       |> map_resp ~f:(fun x -> x.data))
-    |> authenticated_request
   ;;
 end
 
@@ -145,7 +137,7 @@ module Customers = struct
       |> conv_resp ~f:(parse foreign_of_yojson))
   ;;
 
-  let get ?offset ?limit ?(sort = [ Desc Modified; Desc Id ]) ?filter =
+  let get ?offset ?limit ?(sort = [ Desc Modified; Desc Id ]) ?filter () =
     let opt_param to_string key = function
       | Some i -> Request.param ~key ~value:(to_string i)
       | None -> Fn.id
@@ -157,6 +149,5 @@ module Customers = struct
       |> param ~key:"order" ~value:(string_of_sort sort)
       |> opt_param string_of_filter "keyword" filter
       |> map_resp ~f:(List.map ~f:(fun r -> r.id, r.data)))
-    |> authenticated_request
   ;;
 end

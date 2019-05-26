@@ -1,27 +1,30 @@
 open Ghm
+open Async_kernel
 
-module Auth : sig
-  type token [@@deriving compare, sexp_of]
+type connection
+type ('a, 'b) request
 
-  val get_token : (unit, token) Request.t
-  val invalid_token : token
-  val username : token -> string
-end
+(** Connection takes care of authentication and token renewal. Create once and
+    store in global state. Fails if token cannot be retrieved. *)
+val connect : unit -> connection option Deferred.t
+
+(** Lift an unauthenticated request to a complete request with JWT token.
+    Since JWT tokens expiry, this should happen right before sending the
+    request. *)
+val finalize : connection -> ('a, 'b) request -> ('a, 'b) Request.t
 
 type 'a order =
   | Asc of 'a
   | Desc of 'a
 
-type ('a, 'b) authenticated_request = Auth.token -> ('a, 'b) Request.t
-
 module Customer : sig
   type t = Customer.t
   type id = int
 
-  val get : id -> (unit, t) authenticated_request
-  val post : (t, id * t) authenticated_request
-  val patch : id -> (t, t) authenticated_request
-  val delete : id -> (unit, unit) authenticated_request
+  val get : id -> (unit, t) request
+  val post : (t, id * t) request
+  val patch : id -> (t, t) request
+  val delete : id -> (unit, unit) request
 end
 
 module Customers : sig
@@ -38,5 +41,6 @@ module Customers : sig
     -> ?limit:int
     -> ?sort:key order list
     -> ?filter:filter
-    -> (unit, t) authenticated_request
+    -> unit
+    -> (unit, t) request
 end

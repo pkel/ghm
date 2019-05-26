@@ -322,14 +322,13 @@ let booking_entry_ids state =
   r
 ;;
 
-let apply_action
-    (token : Remote.Auth.token)
-    (model : Model.t)
-    (action : Action.t)
-    (state : State.t)
-    ~schedule_action
+let apply_action (model : Model.t)
+                 (action : Action.t)
+                 (state : State.t)
+                 ~schedule_action
     : Model.t
   =
+  let conn = state.connection in
   match action with
   | SelectBooking selected_booking -> { model with selected_booking }
   | Touched ->
@@ -359,10 +358,13 @@ let apply_action
         match model.nav with
         | New ->
           let handler = Fn.compose schedule_action Action.postedcustomer in
-          Request.XHR.send ~body:local ~handler (Remote.Customer.post token)
+          Request.XHR.send ~body:local ~handler Remote.(Customer.post |> finalize conn)
         | Id id ->
           let handler = Fn.compose schedule_action Action.patchedcustomer in
-          Request.XHR.send ~body:local ~handler (Remote.Customer.patch id token)
+          Request.XHR.send
+            ~body:local
+            ~handler
+            Remote.(Customer.patch id |> finalize conn)
       in
       { model with local })
   | FormUpdate form ->
@@ -401,10 +403,10 @@ let apply_action
       | Id i ->
         let handler = function
           | Error detail ->
-            State.log_error state { gist = "Löschen fehlgeschlagen"; detail }
+            state.handle_error { gist = "Löschen fehlgeschlagen"; detail }
           | Ok () -> Nav.(set Overview)
         in
-        Request.XHR.send' ~handler (Remote.Customer.delete i token)
+        Request.XHR.send' ~handler Remote.(Customer.delete i |> finalize conn)
     in
     schedule_action Action.Touch;
     model
@@ -413,13 +415,15 @@ let apply_action
     { model with remote; nav = Nav.Id id; sync = model.local = remote }
   | GotCustomer (Ok (id, remote)) -> Model.load (Id id) remote
   | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
-    State.log_error state { gist = "Speichern fehlgeschlagen"; detail };
+    state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
     model
   | GotCustomer (Error detail) ->
-    State.log_error state { gist = "Laden fehlgeschlagen"; detail };
+    state.handle_error { gist = "Laden fehlgeschlagen"; detail };
     model
   | NavChange (Id i) ->
-    let rq = Request.map_resp ~f:(fun c -> i, c) (Remote.Customer.get i token) in
+    let rq =
+      Request.map_resp ~f:(fun c -> i, c) Remote.(Customer.get i |> finalize conn)
+    in
     let handler = Fn.compose schedule_action Action.gotcustomer in
     Request.XHR.send' ~handler rq;
     Model.create_loading (Id i) ()
@@ -463,13 +467,7 @@ let input_bool state label id =
 ;;
 
 let input_str
-    ?(attr = [])
-    ?(input = Form.Input.text)
-    ?(type_ = "text")
-    ?datalist
-    state
-    label
-    id
+    ?(attr = []) ?(input = Form.Input.text) ?(type_ = "text") ?datalist state label id
   =
   let classes, error =
     match err_of_block state id with
@@ -840,12 +838,10 @@ let view ~inject ~back_href model =
 let create
     ~(back_href : string)
     ~(inject : Action.t -> Vdom.Event.t)
-    (token : Remote.Auth.token Incr.t)
     (model : Model.t Incr.t)
   =
   let%map model = model
-  and token = token
   and view = view ~inject ~back_href model in
-  let apply_action = apply_action token model in
+  let apply_action = apply_action model in
   Component.create ~apply_action model view
 ;;
