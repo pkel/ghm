@@ -245,20 +245,8 @@ let create model ~old_model ~inject =
             ]
           | _ -> []) )
       | Customer -> [], [ Component.view customer ]
-    and top =
-      let open Bs.Grid in
-      row
-        ~c:[ "justify-content-end"; "headline" ]
-        [ col_auto
-            Node.
-              [ text "Angemeldet als "
-              ; create "b" [] [ text "to be fixed" ]
-              ; text ". "
-              ; a [ Attr.href "logout.php" ] [ text "Abmelden." ]
-              ]
-        ]
     in
-    Node.div attr (Component.view errors :: top :: tl)
+    Node.div attr (Component.view errors :: tl)
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in
     let customer_table = Component.update_visibility table ~schedule_action in

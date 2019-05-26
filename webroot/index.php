@@ -2,7 +2,7 @@
 
 include('../lib/shared.php');
 
-function print_app() { ?>
+function print_app($user) { ?>
 <!DOCTYPE html>
 <html lang="de">
   <head>
@@ -14,6 +14,11 @@ function print_app() { ?>
   </head>
   <body>
     <div class="container-fluid">
+      <div class="headline justify-content-end row">
+        <div class="col-auto">Angemeldet als <b><?php print ($user)?></b>.
+          <a href="logout.php">Abmelden.</a>
+        </div>
+      </div>
       <div id="ghm_main">
         <div class="row justify-content-center align-items-center" style="height:100vh">
           <div class="col-auto">
@@ -113,9 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 } elseif ($_SERVER['REQUEST_METHOD'] === 'GET') {
   $filter_def = array( 'status' => FILTER_SANITIZE_STRING);
   $get = filter_var_array($_GET, $filter_def);
-  // TODO: if logged in print_app else
   if (isset($_SESSION['role'])) {
-    print_app ();
+    print_app ($_SESSION['user']);
   } else {
     print_login ($get['status']);
   }
