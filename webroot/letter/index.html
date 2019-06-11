@@ -23,9 +23,16 @@
 </head>
 <body>
 
-  <a href="javascript:window.print()" class="top-btn no-print">Drucken</a>
+  <form id="menu" class="no-print" action="javascript:window.print()">
+    <label for="bg-checkbox">Briefpapier</label>
+    <input id="bg-checkbox" type="checkbox" />
+    <label for="marks-checkbox">Faltmarken</label>
+    <input id="marks-checkbox" type="checkbox" />
+    <input name="print" type="submit" value="Drucken" />
+  </form>
 
   <section class="preview">
+    <img src="img/background.svg" id="background">
     <div class="address-overlay"></div>
     <div class="address-wrapper box">
       <div class="address-overline">
@@ -84,9 +91,9 @@
         </div>
       </div>
     </div>
-    <div class="line line-1"><img src="img/1x1-semiblack.png" class="line-img" alt="-" /></div>
-    <div class="line line-2"><img src="img/1x1-semiblack.png" class="line-img" alt="-" /></div>
-    <div class="line line-3"><img src="img/1x1-semiblack.png" class="line-img" alt="-" /></div>
+    <div class="mark line line-1"><img src="img/1x1-semiblack.png" class="line-img" alt="-" /></div>
+    <div class="mark line line-2"><img src="img/1x1-semiblack.png" class="line-img" alt="-" /></div>
+    <div class="mark line line-3"><img src="img/1x1-semiblack.png" class="line-img" alt="-" /></div>
   </section>
 
   <script src="js/script.js"></script>

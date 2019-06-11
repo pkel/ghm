@@ -32,35 +32,40 @@ ul {
   margin: 0 0 1rem 1rem;
 }
 
-.page-hd {
-
+#background {
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  top:0px;
+  left:0px;
 }
 
-.top-btn {
-  /* display: none; */
+#menu {
   position: fixed;
   left: 0;
   top: 0;
   right: 0;
-  z-index: 10;
+  z-index: 100;
   padding: 8px 20px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
   font-size: 1rem;
   text-align: center;
-  background: rgba(0, 0, 0, 0.3);
-  color: white;
   text-decoration: none;
 }
 
-.top-btn:hover {
-  background: rgba(0, 0, 0, 0.5);
+#menu input {
+  margin-right: 1rem;
 }
 
-.top-btn:active {
-  background: rgba(0, 0, 0, 0.7);
+#menu label {
+  padding-right: 0.2rem;
 }
 
-.top-btn.is-visible {
-  display: block;
+input[type=checkbox] {
+  vertical-align: middle;
+  position: relative;
+  bottom: 1px;
 }
 
 .editors {
@@ -209,7 +214,7 @@ ul {
 
   .preview {
     margin: 50px auto;
-    background: white url("../img/background.svg") no-repeat right top;
+    background: white;
     height: 297mm;
     box-shadow: 0 5px 50px rgba(0, 0, 0, 0.3);
   }
@@ -241,9 +246,11 @@ ul {
 
 @media print {
   @page {
-    size:   A4;     /* auto is the current printer page size */
+    size:   A4;   /* auto is the current printer page size */
     margin: 0mm;  /* This affects the margin in the printer settings */
   }
+
+  html, body { height: 100% }
 
   .page-break {
     page-break-before: always;
@@ -254,10 +261,8 @@ ul {
     display: none !important;
   }
 
-  .preview {
-		height: 297mm;
-    background-image: url("../img/background.svg");
-    background-repeat: no-repeat;
-		background-position: right top;
+  .background {
+    height: 296mm;
+    width: 210mm;
   }
 }

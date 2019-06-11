@@ -76,4 +76,36 @@ function main () {
   safe ();
 }
 
+function setBackground () {
+  var cb = document.getElementById("bg-checkbox");
+  var bg = document.getElementById("background");
+  function update () {
+    var visibility = 'hidden';
+    if (cb.checked) {
+      visibility = 'visible';
+    }
+    bg.style.visibility=visibility
+  }
+  cb.onchange = update;
+  update ();
+}
+
+function setMarks () {
+  var cb = document.getElementById("marks-checkbox");
+  var marks = document.querySelectorAll('.mark');
+  function update () {
+    var visibility = 'hidden';
+    if (cb.checked) {
+      visibility = 'visible';
+    }
+    marks.forEach(function (element) {
+      element.style.visibility=visibility;
+    })
+  }
+  cb.onchange = update;
+  update ();
+}
+
 main ();
+setBackground ();
+setMarks ();
