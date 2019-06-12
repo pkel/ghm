@@ -104,6 +104,7 @@ input[type=checkbox] {
 }
 
 .sidebar {
+  text-align: right;
   position: absolute;
   right: 24mm;
   top: 24mm;
