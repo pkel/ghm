@@ -261,7 +261,7 @@ input[type=checkbox] {
     display: none !important;
   }
 
-  .background {
+  #background {
     height: 296mm;
     width: 210mm;
   }
