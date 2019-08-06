@@ -17,13 +17,6 @@ format:
 	# do not auto promote test output
 	dune runtest && dune build @fmt --auto-promote
 
-serve:
-	@echo ""
-	@echo "Don't forget to start the containers:"
-	@echo "make svc-up"
-	@echo ""
-	source svc/.env; export base_uri; caddy || true
-
 svc-up:
 	cd svc; make up
 
