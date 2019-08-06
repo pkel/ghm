@@ -24,7 +24,7 @@ module Model = struct
     ; customer_form : Customer_form.Model.t
     ; errors : Errors.Model.t
     ; view : view
-    ; last_search : Remote.Customers.filter option
+    ; last_search : string option
     ; search : Form.State.t
     ; page : int
     }
@@ -86,7 +86,7 @@ let view_head inject last_search state =
                       @
                       match last_search with
                       | None -> []
-                      | Some (Remote.Customers.Keyword s) -> [ Attr.value s ])
+                      | Some s -> [ Attr.value s ])
                   ; div [ A.class_ "input-group-append" ] [ Bs.button_submit "Suchen" ]
                   ]
               ]
@@ -106,6 +106,23 @@ let get_customers ~conn ~schedule_action ?(page = 0) ?filter () =
   Request.XHR.send'
     Remote.(Customers.get ?offset ~limit:customer_page_size ?filter () |> finalize conn)
     ~handler:(fun r -> schedule_action (Action.GotCustomers (page, r)))
+;;
+
+let search_filter_of_input s =
+  let open String in
+  let s = strip s in
+  let l, r = is_prefix ~prefix:"_" s, is_suffix ~suffix:"_" s in
+  match
+    strip
+      ~drop:(function
+        | '_' -> true
+        | _ -> false)
+      s
+  with
+  | "" -> None
+  | s ->
+    let s = (if l then "" else "%") ^ s ^ if r then "" else "%" in
+    Some (Remote.Customers.Keyword s)
 ;;
 
 let create model ~old_model ~inject =
@@ -187,7 +204,7 @@ let create model ~old_model ~inject =
       schedule_action (Action.CustomerForm (Customer_form.Action.navchange x));
       { model with view = Customer }
     | NavChange (Some Overview) ->
-      let filter = model.last_search in
+      let filter = Option.bind ~f:search_filter_of_input model.last_search in
       get_customers ~conn ?filter ~schedule_action ();
       { model with view = Overview }
     | Search ->
@@ -195,27 +212,12 @@ let create model ~old_model ~inject =
       (match pattern_o with
       | None -> model
       | Some s ->
-        let filter =
-          let open String in
-          let s = strip s in
-          let l, r = is_prefix ~prefix:"_" s, is_suffix ~suffix:"_" s in
-          match
-            strip
-              ~drop:(function
-                | '_' -> true
-                | _ -> false)
-              s
-          with
-          | "" -> None
-          | s ->
-            let s = (if l then "" else "%") ^ s ^ if r then "" else "%" in
-            Some (Remote.Customers.Keyword s)
-        in
+        let filter = search_filter_of_input s in
         get_customers ~conn ~schedule_action ?filter ();
-        { model with search; last_search = filter })
+        { model with search; last_search = Some s })
     | GetMore ->
       let page = model.page + 1
-      and filter = model.last_search in
+      and filter = Option.bind ~f:search_filter_of_input model.last_search in
       get_customers ~page ~conn ~schedule_action ?filter ();
       model
     | ResetSearch ->
