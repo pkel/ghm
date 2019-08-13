@@ -24,6 +24,12 @@ init :
 	./init.sh # generates postgrest.conf
 	${compose} restart api
 
+.PHONY: dump.sql
+dump.sql:
+	touch $@
+	chmod 600 $@
+	source .env ; ${compose} exec -T -e PGPASSWORD=$$db_root_pass db pg_dump -U $$db_root_user $$db_name > $@
+
 .PHONY: psql
 psql : .env
 	source .env ; ${compose} exec -e PGPASSWORD=$$db_root_pass db psql -U $$db_root_user $$db_name
