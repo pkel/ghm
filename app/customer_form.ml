@@ -238,11 +238,17 @@ module Model = struct
     | Saved of Period.t
   [@@deriving compare]
 
+  type view =
+    | Main
+    | Booking of int
+    | New_booking
+  [@@deriving compare, sexp]
+
   type t =
     { form : Form.State.t
     ; remote : Customer.t
     ; local : Customer.t
-    ; selected_booking : int
+    ; view : view
     ; bookings : visit list
     ; nav : Nav.customer
     ; touched_at : int
@@ -257,7 +263,7 @@ module Model = struct
     ; local = c
     ; nav
     ; touched_at = Int.max_value
-    ; selected_booking = 0
+    ; view = Main
     ; bookings = List.map ~f:(fun b -> Saved (Booking.period b)) c.bookings
     ; loading = false
     ; sync = true
@@ -275,7 +281,7 @@ end
 module Action = struct
   type t =
     | FormUpdate of Form.State.t sexp_opaque
-    | SelectBooking of int
+    | ChangeView of Model.view
     | NavChange of Nav.customer sexp_opaque
     | GotCustomer of (int * Customer.t) Or_error.t
     | PostedCustomer of (int * Customer.t) Or_error.t
@@ -284,7 +290,7 @@ module Action = struct
     | Touch
     | Touched
     | NewBooking
-    | DeleteBooking
+    | DeleteBooking of int
     | DeleteCustomer
   [@@deriving sexp, variants]
 end
@@ -330,7 +336,7 @@ let apply_action (model : Model.t)
   =
   let conn = state.connection in
   match action with
-  | SelectBooking selected_booking -> { model with selected_booking }
+  | ChangeView view -> { model with view }
   | Touched ->
     (* We waited some time after a touch *)
     let () =
@@ -372,7 +378,12 @@ let apply_action (model : Model.t)
     { model with form }
   | NewBooking ->
     let init =
-      match List.nth model.local.bookings model.selected_booking with
+      let i =
+        match model.view with
+        | Booking i -> i
+        | _ -> 0
+      in
+      match List.nth model.local.bookings i with
       | Some b ->
         { b with
           period = default_period ()
@@ -384,18 +395,15 @@ let apply_action (model : Model.t)
     in
     let form = Form.List.cons ~init model.form (booking_list_id model.form)
     and bookings = Model.Fresh :: model.bookings
-    and selected_booking = 0 in
+    and view = Model.Booking 0 in
     schedule_action Action.Touch;
-    { model with form; bookings; selected_booking }
-  | DeleteBooking ->
-    let form =
-      Form.List.remove_nth model.form (booking_list_id model.form) model.selected_booking
-    and bookings =
-      List.filteri ~f:(fun i _ -> i <> model.selected_booking) model.bookings
-    in
-    let selected_booking = min model.selected_booking (List.length bookings - 1) in
+    { model with form; bookings; view }
+  | DeleteBooking i ->
+    let form = Form.List.remove_nth model.form (booking_list_id model.form) i
+    and bookings = List.filteri ~f:(fun j _ -> i <> j) model.bookings in
+    let view = Model.Booking (min i (List.length bookings - 1)) in
     schedule_action Action.Touch;
-    { model with form; bookings; selected_booking }
+    { model with form; bookings; view }
   | DeleteCustomer ->
     let () =
       match model.nav with
@@ -628,7 +636,27 @@ let textarea n state id attr =
   Form.Input.textarea state id (Attr.create "rows" (string_of_int n) :: attr)
 ;;
 
-let view_booking ~inject ~visible ~selection state ids =
+let danger_btn action title =
+  Bs.button ~attr:[ Bs.tab_skip ] ~style:"outline-danger" ~action title
+;;
+
+let save_btn ~sync ~inject =
+  let action _ = inject Action.Save in
+  if sync
+  then Bs.button ~action ~i:(S "check") ~style:"outline-success" "Gespeichert"
+  else Bs.button ~action ~i:(S "save") ~style:"outline-warning" "Speichern"
+;;
+
+let excel_id = id ()
+
+let uri_of_letter customer t =
+  let date = Browser.Date.(now () |> to_locale_date_string)
+  and sender = "Pension Keller, Am Vögelisberg 13, D-78479 Reichenau"
+  and signer = "Christine Keller" in
+  "/letter/#" ^ Letter.(t ~sender ~signer ~date customer |> to_b64)
+;;
+
+let view_booking ~inject ~sync (customer : Customer.t) selected state ids =
   let ( block
       , ( period
         , ( deposit_asked
@@ -647,6 +675,7 @@ let view_booking ~inject ~visible ~selection state ids =
   in
   let new_g = new_ g_lst
   and new_p = new_ p_lst
+  and new_b _evt = inject Action.NewBooking
   and delete_g = delete g_lst
   and delete_p = delete p_lst in
   let guests =
@@ -665,8 +694,8 @@ let view_booking ~inject ~visible ~selection state ids =
       ]
   and main =
     Bs.Grid.
-      [ Node.h4 [ A.class_ "mb-3" ] [ Node.text "Aufenthalte" ]
-      ; selection
+      [ Node.h4 [] [ Node.text "Aufenthalt" ]
+      ; Node.hr []
       ; div [] (prepend_err_div state block [])
       ; view_period state period
       ; frow
@@ -676,85 +705,57 @@ let view_booking ~inject ~visible ~selection state ids =
       ; frow [ col ~c:[ "mb-2" ] [ input_bool state "befreit von Kurtaxe" tax_free ] ]
       ; frow [ col [ input_str ~input:(textarea 8) state "Notiz" note ] ]
       ]
-  and c = if visible then [] else [ "d-none" ] in
-  Bs.Grid.(row ~c [ col main; col allocs; col guests ])
-;;
-
-let view_booking_list ~selected ~inject (l : Model.visit list) : Vdom.Node.t =
-  let f i v =
-    let f, t =
-      match v with
-      | Model.Fresh -> "neu", "neu"
-      | Saved p ->
-        let open Period in
-        Localize.date (from p), Localize.date (till p)
-    in
-    let e =
-      Attr.
-        [ on_click (fun _ -> inject (Action.SelectBooking i))
-        ; style (Css_gen.create ~field:"cursor" ~value:"pointer")
-        ]
-    in
-    let attr = if i = selected then Attr.class_ "table-active" :: e else e in
-    Node.(tr attr [ td [] [ text f ]; td [] [ text t ] ])
   in
-  Node.(
-    table
-      [ Attr.classes [ "table"; "table-sm"; "table-hover" ] ]
-      [ thead [] [ tr [] [ th [] [ text "von" ]; th [] [ text "bis" ] ] ]
-      ; tbody [] (List.mapi ~f l)
-      ])
+  let excel =
+    match List.nth customer.bookings selected with
+    | None -> ""
+    | Some b -> Excel_br_2014_v2.of_customer_and_booking customer b
+  and confirmation =
+    match List.nth customer.bookings selected with
+    | None -> ""
+    | Some booking -> uri_of_letter customer (Letter.confirm ~booking)
+  and delete_b _evt = inject (Action.DeleteBooking selected) in
+  Bs.Grid.
+    [ row [ col main; col allocs; col guests ]
+    ; frow
+        [ col_auto
+            ~c:[ "mb-2"; "mt-2" ]
+            [ Bs.button' ~href:confirmation ~blank:true "Bestätigung" ]
+        ; col_auto
+            ~c:[ "mb-2"; "mt-2" ]
+            [ Bs.button_clipboard ~value:excel ~id:excel_id "Excel" ]
+        ; col
+            [ frow
+                ~c:[ "justify-content-end" ]
+                [ col_auto
+                    ~c:[ "mb-2"; "mt-2" ]
+                    [ danger_btn delete_b "Buchung löschen" ]
+                ; col_auto
+                    ~c:[ "mb-2"; "mt-2" ]
+                    [ Bs.button ~action:new_b "Neue Buchung" ]
+                ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~inject ~sync ]
+                ]
+            ]
+        ]
+    ]
 ;;
 
-let view_main state ids =
-  let block, (name, (company, (address, (contact, (keyword, (note, (_, ()))))))) = ids in
+let letter_dropdown_id = id ()
+
+let view_main ~sync ~inject customer state ids =
+  let block, (name, (company, (address, (contact, (keyword, (note, (_, ()))))))) = ids
+  and delete_c _evt = inject Action.DeleteCustomer
+  and new_b _evt = inject Action.NewBooking in
   let left =
     Bs.Grid.(
       (frow [ col [ input_str state "Schlüsselwort" keyword ] ] :: view_name state name)
       @ [ frow [ col [ input_str ~input:(textarea 8) state "Notiz" note ] ] ])
   and middle = view_address state address @ view_company state company
-  and right = view_contact state contact in
-  Bs.Grid.
-    [ row (prepend_err_div state block []); row [ col left; col middle; col right ] ]
-;;
-
-let letter_dropdown_id = id ()
-let excel_id = id ()
-
-let view_form (model : Model.t Incr.t) ~back_href ~inject =
-  let open Vdom in
-  let%map form = model >>| Model.form
-  and local = model >>| Model.local
-  and bookings = model >>| Model.bookings
-  and sync = model >>| Model.sync
-  and selected = model >>| Model.selected_booking in
-  let excel =
-    match List.nth local.bookings selected with
-    | None -> ""
-    | Some b -> Excel_br_2014_v2.of_customer_and_booking local b
-  in
-  let ids = Form.State.field_ids form customer_form in
-  let save _evt = inject Action.Save
-  and new_b _evt = inject Action.NewBooking
-  and delete_b _evt = inject Action.DeleteBooking
-  and delete_c _evt = inject Action.DeleteCustomer
-  and selection = view_booking_list ~inject bookings ~selected
-  and danger_btn action title =
-    Bs.button ~attr:[ Bs.tab_skip ] ~style:"outline-danger" ~action title
-  and save_btn =
-    let action _ = inject Action.Save in
-    if sync
-    then Bs.button ~action ~i:(S "check") ~style:"outline-success" "Gespeichert"
-    else Bs.button ~action ~i:(S "save") ~style:"outline-warning" "Speichern"
+  and right = view_contact state contact
   and letter_dropdown =
     let items =
       let f x =
-        let uri t =
-          let date = Browser.Date.(now () |> to_locale_date_string)
-          and sender = "Pension Keller, Am Vögelisberg 13, D-78479 Reichenau"
-          and signer = "Christine Keller" in
-          "/letter/#" ^ Letter.(t ~sender ~signer ~date local |> to_b64)
-        in
+        let uri = uri_of_letter customer in
         Node.a
           Attr.[ class_ "dropdown-item"; href (uri (snd x)); create "target" "_blank" ]
           [ Node.text (fst x) ]
@@ -764,10 +765,6 @@ let view_form (model : Model.t Incr.t) ~back_href ~inject =
         ; "Leere Vorlage (mit Anhang)", blank ~attachments:[ "Anhang 1"; "Anhang 2" ]
         ; "Hausprospekt", flyer
         ]
-        @
-        match List.nth local.bookings selected with
-        | None -> []
-        | Some booking -> [ "Bestätigung", confirm ~booking ]
       in
       List.map ~f letters
     in
@@ -790,58 +787,93 @@ let view_form (model : Model.t Incr.t) ~back_href ~inject =
             items
         ])
   in
-  let rows =
-    let open Bs.Grid in
-    let back_btn = Bs.button' ~href:back_href "Zurück" in
-    [ [ Node.h4 [ A.class_ "mb-3" ] [ Node.text "Stammdaten" ]; Node.hr [] ]
-    ; view_main form ids
-    ; [ Node.hr [] ]
-    ; List.mapi
-        ~f:(fun i b_ids ->
-          let visible = selected = i in
-          view_booking ~inject ~visible ~selection form b_ids)
-        (booking_entry_ids form)
-    ; [ frow
-          [ col_auto ~c:[ "mb-2"; "mt-2" ] [ back_btn ]
-          ; col_auto
-              ~c:[ "mb-2"; "mt-2" ]
-              [ Bs.button_clipboard ~value:excel ~id:excel_id "Excel" ]
-          ; col_auto ~c:[ "mb-2"; "mt-2" ] [ letter_dropdown ]
-          ; col
-              [ frow
-                  ~c:[ "justify-content-end" ]
-                  [ col_auto
-                      ~c:[ "mb-2"; "mt-2" ]
-                      [ danger_btn delete_b "Buchung löschen" ]
-                  ; col_auto
-                      ~c:[ "mb-2"; "mt-2" ]
-                      [ danger_btn delete_c "Kunde löschen" ]
-                  ; col_auto
-                      ~c:[ "mb-2"; "mt-2" ]
-                      [ Bs.button ~action:new_b "Neue Buchung" ]
-                  ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ]
-                  ]
-              ]
-          ]
-      ]
+  Bs.Grid.
+    [ Node.h4 [ A.class_ "mb-3" ] [ Node.text "Stammdaten" ]
+    ; Node.hr []
+    ; row (prepend_err_div state block [])
+    ; row [ col left; col middle; col right ]
+    ; frow
+        [ col_auto ~c:[ "mb-2"; "mt-2" ] [ letter_dropdown ]
+        ; col
+            [ frow
+                ~c:[ "justify-content-end" ]
+                [ col_auto ~c:[ "mb-2"; "mt-2" ] [ danger_btn delete_c "Kunde löschen" ]
+                ; col_auto
+                    ~c:[ "mb-2"; "mt-2" ]
+                    [ Bs.button ~action:new_b "Neue Buchung" ]
+                ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
+                ]
+            ]
+        ]
     ]
+;;
+
+let view_form (model : Model.t Incr.t) ~inject =
+  let open Vdom in
+  let%map form = model >>| Model.form
+  and local = model >>| Model.local
+  and sync = model >>| Model.sync
+  and view = model >>| Model.view in
+  let selected =
+    match view with
+    | Booking i -> i
+    | _ -> -1
+  in
+  let ids = Form.State.field_ids form customer_form in
+  let save _evt = inject Action.Save in
+  let show visible =
+    let c = if visible then [] else [ Attr.class_ "d-none" ] in
+    Node.div c
+  in
+  let rows =
+    (view_main ~inject ~sync local form ids |> show (view = Main))
+    :: List.mapi
+         ~f:(fun i b_ids ->
+           view_booking ~inject ~sync local selected form b_ids |> show (selected = i))
+         (booking_entry_ids form)
   in
   let touch _ _ = inject Action.Touch in
-  Node.create "form" [ Attr.on "submit" save; Attr.on_input touch ] (List.concat rows)
+  Node.create "form" [ Attr.on "submit" save; Attr.on_input touch ] rows
 ;;
 
-let view ~inject ~back_href model =
+let view ~inject model =
   let%bind loading = model >>| Model.loading in
-  if loading then Incr.const Bs.Grid.loading_row else view_form ~inject ~back_href model
+  if loading then Incr.const Bs.Grid.loading_row else view_form ~inject model
 ;;
 
-let create
-    ~(back_href : string)
-    ~(inject : Action.t -> Vdom.Event.t)
-    (model : Model.t Incr.t)
-  =
+let menu ~inject (m : Model.t) : Menu.t =
+  let open Menu in
+  let goto_main = On_click (fun () -> inject (Action.ChangeView Main)) in
+  let children =
+    let f i v =
+      let title =
+        match v with
+        | Model.Fresh -> "Neue Buchung"
+        | Saved p ->
+          let open Period in
+          let f, t = Localize.date (from p), Localize.date (till p) in
+          sprintf "%s bis %s" f t
+      and action = Menu.On_click (fun () -> inject (Action.ChangeView (Booking i))) in
+      entry title action (m.view = Model.Booking i)
+    in
+    entry "Stammdaten" goto_main (m.view = Main) :: List.mapi ~f m.bookings
+  in
+  let title =
+    if m.loading
+    then "Kunde lädt ..."
+    else (
+      match String.strip m.local.keyword with
+      | "" -> "Kunde: n/a"
+      | s -> "Kunde: " ^ s)
+  in
+  [ entry ~children title goto_main true ]
+;;
+
+let create ~(inject : Action.t -> Vdom.Event.t)
+           (model : Model.t Incr.t) =
   let%map model = model
-  and view = view ~inject ~back_href model in
-  let apply_action = apply_action model in
-  Component.create ~apply_action model view
+  and view = view ~inject model in
+  let apply_action = apply_action model
+  and extra : Menu.t = menu ~inject model in
+  Component.create_with_extra ~apply_action ~extra model view
 ;;

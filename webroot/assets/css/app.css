@@ -4,3 +4,41 @@
   margin-bottom: 0.75rem;
   background-color: lightgrey;
 }
+
+#main {
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+}
+
+#sidebar {
+  width: 20rem;
+}
+
+#sidebar ul {
+  list-style: none;
+  padding-left: 0px;
+}
+
+#sidebar a {
+  font-size: 110%;
+  border-top: 1px solid lightgrey;
+  border-bottom: 1px solid lightgrey;
+  cursor:pointer;
+  display:block;
+  text-decoration: inherit;
+  color: inherit;
+  width:100%;
+  margin-top: -1px;
+  margin-bottom: -1px;
+  padding-bottom: 0.3rem;
+  padding-top: 0.3rem;
+}
+
+#sidebar a:hover {
+  background:lightgrey;
+}
+
+#sidebar .active > a {
+  text-decoration: underline;
+}
