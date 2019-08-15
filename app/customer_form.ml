@@ -788,7 +788,7 @@ let view_main ~sync ~inject customer state ids =
         ])
   in
   Bs.Grid.
-    [ Node.h4 [ A.class_ "mb-3" ] [ Node.text "Stammdaten" ]
+    [ Node.h4 [] [ Node.text "Stammdaten" ]
     ; Node.hr []
     ; row (prepend_err_div state block [])
     ; row [ col left; col middle; col right ]
@@ -866,7 +866,7 @@ let menu ~inject (m : Model.t) : Menu.t =
       | "" -> "Kunde: n/a"
       | s -> "Kunde: " ^ s)
   in
-  [ entry ~children title goto_main true ]
+  [ entry ~children title goto_main false ]
 ;;
 
 let create ~(inject : Action.t -> Vdom.Event.t)

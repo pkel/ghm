@@ -118,7 +118,9 @@ let search_filter_of_input s =
 let rec view_menu depth entries =
   let open Vdom in
   let open Menu in
-  let padding = Attr.style Css_gen.(padding_left (`Rem (0.3 +. float_of_int depth))) in
+  let padding =
+    Attr.style Css_gen.(padding_left (`Rem (0.3 +. (1.2 *. float_of_int depth))))
+  in
   let node e =
     (match e.action with
     | Href s -> Node.a [ padding; Attr.href s ]
@@ -274,13 +276,17 @@ let create model ~old_model ~inject =
       |> view_menu
     in
     Node.div
-      (Attr.id "main" :: attr)
+      (Attr.id "main" :: Attr.class_ "row" :: attr)
       [ Component.view errors
       ; Node.create
           "nav"
-          [ Attr.id "sidebar" ]
-          [ Node.h2 [] [ Node.text "Pension Keller" ]; sidemenu ]
-      ; Node.div [ Attr.id "page"; Attr.class_ "container-fluid" ] page
+          [ Attr.id "sidebar"; Attr.class_ "col-auto" ]
+          [ Node.h4 [] [ Node.text "Menü" ]
+          ; Node.hr [ Attr.class_ "mb-0" ]
+          ; sidemenu
+          ; Node.hr [ Attr.class_ "mt-0" ]
+          ]
+      ; Node.div [ Attr.id "page"; Attr.classes [ "col"; "pr-0" ] ] page
       ]
   and update_visibility ~schedule_action : Model.t =
     let schedule_action = Fn.compose schedule_action Action.customertable in

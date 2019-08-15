@@ -2,7 +2,7 @@
   padding-top: 0.25rem;
   padding-bottom: 0.25rem;
   margin-bottom: 0.75rem;
-  background-color: lightgrey;
+  background-color: var(--light);
 }
 
 #main {
@@ -13,32 +13,35 @@
 
 #sidebar {
   width: 20rem;
+  margin-left: 15px;
 }
 
 #sidebar ul {
   list-style: none;
   padding-left: 0px;
+  margin-bottom:0px;
+}
+
+#sidebar li + li ,
+#sidebar li > ul {
+  border-top: 1px solid rgba(0,0,0,.1);
 }
 
 #sidebar a {
-  font-size: 110%;
-  border-top: 1px solid lightgrey;
-  border-bottom: 1px solid lightgrey;
+  font-size: 1.1rem;
+  font-weight: 500;
   cursor:pointer;
   display:block;
-  text-decoration: inherit;
   color: inherit;
   width:100%;
-  margin-top: -1px;
-  margin-bottom: -1px;
-  padding-bottom: 0.3rem;
-  padding-top: 0.3rem;
+  padding-bottom: 0.4rem;
+  padding-top: 0.4rem;
 }
 
 #sidebar a:hover {
-  background:lightgrey;
+  text-decoration: underline;
 }
 
 #sidebar .active > a {
-  text-decoration: underline;
+  background:var(--light);
 }
