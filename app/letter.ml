@@ -94,7 +94,7 @@ let base_date_to_string d =
 ;;
 
 let confirm ~(booking : Booking.t) =
-  let period = Period.to_string_hum base_date_to_string booking.period in
+  let period = Period.to_string_hum booking.period in
   let positions =
     let n = List.length booking.allocs in
     let comma i =

@@ -59,24 +59,16 @@ let summary : t -> summary =
 ;;
 
 let of_customer_and_booking date (c : Customer.t) (b : Booking.t) =
-  let from = Period.from b.period
-  and till = Period.till b.period
-  and nights = Period.nights b.period
+  let nights = Period.nights b.period
   and s = Booking.summarize b
   and describe (a : Booking.alloc) =
     Printf.sprintf "Übernachtung im %s" a.description
   in
   let title = "Rechnung"
   and intro =
-    let open Date in
     Printf.sprintf
-      "Für Ihren Aufenthalt vom %i.%i. bis zum %i.%i.%i stellen wir die folgenden \
-       Positionen in Rechnung."
-      (day from)
-      (month from |> Month.to_int)
-      (day till)
-      (month till |> Month.to_int)
-      (year till)
+      "Für Ihren Aufenthalt vom %s stellen wir die folgenden Positionen in Rechnung."
+      (Period.to_string_hum b.period)
   and recipient =
     Printf.sprintf
       "%s %s\n%s\n%s-%s %s"

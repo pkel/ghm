@@ -871,10 +871,7 @@ let menu ~inject (m : Model.t) : Menu.t =
       let title =
         match v with
         | Model.Fresh -> "Neue Buchung"
-        | Saved p ->
-          let open Period in
-          let f, t = Localize.date (from p), Localize.date (till p) in
-          sprintf "%s bis %s" f t
+        | Saved p -> Period.to_string_hum ~sep:"-" p
       and action = Menu.On_click (fun () -> inject (Action.ChangeView (Booking i))) in
       entry title action (m.view = Model.Booking i)
     in
