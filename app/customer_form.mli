@@ -10,7 +10,7 @@ end
 module Action : sig
   type t [@@deriving sexp_of]
 
-  val navchange : Nav.customer -> t
+  val navchange : Nav.noi * Nav.customer -> t
 end
 
 val create

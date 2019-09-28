@@ -178,7 +178,7 @@ module Row = struct
     let%map m = m in
     let row_attrs =
       Attr.
-        [ on_click Nav.(navigate (Customer (Id m.id)))
+        [ on_click Nav.(nav (Customer (Id m.id, CData)))
         ; style (Css_gen.create ~field:"cursor" ~value:"pointer")
         ]
     in

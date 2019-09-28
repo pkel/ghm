@@ -238,21 +238,13 @@ module Model = struct
     | Saved of Period.t
   [@@deriving compare]
 
-  type view =
-    | Main
-    | Invoice of int
-    | Booking of int
-    | New_booking
-  [@@deriving compare, sexp]
-
   type t =
     { form : Form.State.t
     ; invoice_form : Invoice_form.Model.t
     ; remote : Customer.t
     ; local : Customer.t
-    ; view : view
     ; bookings : visit list
-    ; nav : Nav.customer
+    ; nav : Nav.noi * Nav.customer
     ; touched_at : int
     ; sync : bool
     ; loading : bool
@@ -266,26 +258,24 @@ module Model = struct
     ; local = c
     ; nav
     ; touched_at = Int.max_value
-    ; view = Main
     ; bookings = List.map ~f:(fun b -> Saved (Booking.period b)) c.bookings
     ; loading = false
     ; sync = true
     }
   ;;
 
-  let create () = load New Customer.empty
-
-  let create_loading nav () =
-    let model = load nav Customer.empty in
-    { model with loading = true }
+  let create' ?(loading = false) ?(nav = Nav.(New, CData)) () =
+    let m = load nav Customer.empty in
+    { m with loading }
   ;;
+
+  let create () = create' ()
 end
 
 module Action = struct
   type t =
     | FormUpdate of Form.State.t sexp_opaque
-    | ChangeView of Model.view
-    | NavChange of Nav.customer sexp_opaque
+    | NavChange of (Nav.noi * Nav.customer) sexp_opaque
     | GotCustomer of (int * Customer.t) Or_error.t
     | PostedCustomer of (int * Customer.t) Or_error.t
     | PatchedCustomer of Customer.t Or_error.t
@@ -343,7 +333,6 @@ let apply_action
   =
   let conn = state.connection in
   match action with
-  | ChangeView view -> { model with view }
   | Touched ->
     (* We waited some time after a touch *)
     let () =
@@ -369,10 +358,10 @@ let apply_action
     | Some local ->
       let () =
         match model.nav with
-        | New ->
+        | New, _ ->
           let handler = Fn.compose schedule_action Action.postedcustomer in
           Request.XHR.send ~body:local ~handler Remote.(Customer.post |> finalize conn)
-        | Id id ->
+        | Id id, _ ->
           let handler = Fn.compose schedule_action Action.patchedcustomer in
           Request.XHR.send
             ~body:local
@@ -386,8 +375,8 @@ let apply_action
   | NewBooking ->
     let init =
       let i =
-        match model.view with
-        | Booking i -> i
+        match snd model.nav with
+        | Booking (i, _) -> i
         | _ -> 0
       in
       match List.nth model.local.bookings i with
@@ -402,20 +391,20 @@ let apply_action
     in
     let form = Form.List.cons ~init model.form (booking_list_id model.form)
     and bookings = Model.Fresh :: model.bookings
-    and view = Model.Booking 0 in
+    and nav = fst model.nav, Nav.(Booking (0, BData)) in
     schedule_action Action.Touch;
-    { model with form; bookings; view }
+    { model with form; bookings; nav }
   | DeleteBooking i ->
     let form = Form.List.remove_nth model.form (booking_list_id model.form) i
     and bookings = List.filteri ~f:(fun j _ -> i <> j) model.bookings in
-    let view = Model.Booking (min i (List.length bookings - 1)) in
+    let nav = fst model.nav, Nav.(Booking (min i (List.length bookings - 1), BData)) in
     schedule_action Action.Touch;
-    { model with form; bookings; view }
+    { model with form; bookings; nav }
   | DeleteCustomer ->
     let () =
       match model.nav with
-      | New -> Nav.(set Overview)
-      | Id i ->
+      | New, _ -> Nav.(set Overview)
+      | Id i, _ ->
         let handler = function
           | Error detail ->
             state.handle_error { gist = "Löschen fehlgeschlagen"; detail }
@@ -427,8 +416,8 @@ let apply_action
     model
   | PatchedCustomer (Ok remote) -> { model with remote; sync = model.local = remote }
   | PostedCustomer (Ok (id, remote)) ->
-    { model with remote; nav = Nav.Id id; sync = model.local = remote }
-  | GotCustomer (Ok (id, remote)) -> Model.load (Id id) remote
+    { model with remote; nav = Nav.(Id id, CData); sync = model.local = remote }
+  | GotCustomer (Ok (id, remote)) -> Model.load Nav.(Id id, CData) remote
   | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
     model
@@ -442,19 +431,22 @@ let apply_action
       | Some b -> b
     in
     let inv = Invoice.of_customer_and_booking (Ext_date.today ()) model.local b in
-    { model with invoice_form = Invoice_form.Model.load inv; view = Invoice i }
+    { model with
+      invoice_form = Invoice_form.Model.load inv
+    ; nav = fst model.nav, Booking (i, Invoice)
+    }
   | InvoiceForm a ->
     let schedule_action = Fn.compose schedule_action Action.invoiceform in
     let invoice_form = Component.apply_action ~schedule_action invoice a state in
     { model with invoice_form }
-  | NavChange (Id i) ->
+  | NavChange ((Id i, _) as nav) ->
     let rq =
       Request.map_resp ~f:(fun c -> i, c) Remote.(Customer.get i |> finalize conn)
     in
     let handler = Fn.compose schedule_action Action.gotcustomer in
     Request.XHR.send' ~handler rq;
-    Model.create_loading (Id i) ()
-  | NavChange New -> Model.create ()
+    Model.create' ~loading:true ~nav ()
+  | NavChange ((New, _) as nav) -> Model.create' ~nav ()
 ;;
 
 open Vdom
@@ -838,7 +830,7 @@ let view_form ~invoice (model : Model.t Incr.t) ~inject =
   and local = model >>| Model.local
   and sync = model >>| Model.sync
   and invoice = invoice
-  and view = model >>| Model.view in
+  and nav = model >>| Model.nav >>| snd in
   let ids = Form.State.field_ids form customer_form in
   let save _evt = inject Action.Save in
   let show visible =
@@ -846,11 +838,12 @@ let view_form ~invoice (model : Model.t Incr.t) ~inject =
     Node.div c
   in
   let rows =
-    (view_main ~inject ~sync local form ids |> show (view = Main))
+    (view_main ~inject ~sync local form ids |> show (nav = CData))
     :: List.concat_mapi
          ~f:(fun i b_ids ->
-           [ view_booking ~inject ~sync local i form b_ids |> show (view = Booking i)
-           ; [ Component.view invoice ] |> show (view = Invoice i)
+           [ view_booking ~inject ~sync local i form b_ids
+             |> show (nav = Booking (i, BData))
+           ; [ Component.view invoice ] |> show (nav = Booking (i, Invoice))
            ])
          (booking_entry_ids form)
   in
@@ -863,19 +856,25 @@ let view ~invoice ~inject model =
   if loading then Incr.const Bs.Grid.loading_row else view_form ~invoice ~inject model
 ;;
 
-let menu ~inject (m : Model.t) : Menu.t =
+let menu (m : Model.t) : Menu.t =
   let open Menu in
-  let goto_main = On_click (fun () -> inject (Action.ChangeView Main)) in
+  let href nav = Href (Nav.href (Customer (fst m.nav, nav))) in
+  let goto_main = href CData in
   let children =
     let f i v =
       let title =
         match v with
         | Model.Fresh -> "Neue Buchung"
         | Saved p -> Period.to_string_hum ~sep:"-" p
-      and action = Menu.On_click (fun () -> inject (Action.ChangeView (Booking i))) in
-      entry title action (m.view = Model.Booking i)
+      and action = href (Booking (i, BData)) in
+      entry
+        title
+        action
+        (match snd m.nav with
+        | Booking (j, _) when j = i -> true
+        | _ -> false)
     in
-    entry "Stammdaten" goto_main (m.view = Main) :: List.mapi ~f m.bookings
+    entry "Stammdaten" goto_main (snd m.nav = CData) :: List.mapi ~f m.bookings
   in
   let title =
     if m.loading
@@ -892,7 +891,7 @@ let create ~(inject : Action.t -> Vdom.Event.t)
            (model : Model.t Incr.t) =
   let invoice =
     let inject = Fn.compose inject Action.invoiceform
-    and back_href = Nav.(href_of Overview)
+    and back_href = Nav.(href Overview)
     and form_model = model >>| Model.invoice_form in
     Invoice_form.create ~inject ~back_href form_model
   in
@@ -900,6 +899,6 @@ let create ~(inject : Action.t -> Vdom.Event.t)
   and invoice = invoice
   and view = view ~invoice ~inject model in
   let apply_action = apply_action ~invoice model
-  and extra : Menu.t = menu ~inject model in
+  and extra : Menu.t = menu model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

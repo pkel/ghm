@@ -18,7 +18,7 @@ module Model = struct
     ; customer_table : Customer_table.Model.t
     ; customer_form : Customer_form.Model.t
     ; errors : Errors.Model.t
-    ; nav : Nav.t
+    ; nav : Nav.main
     ; last_search : string option
     ; search : Form.State.t
     ; page : int
@@ -45,7 +45,7 @@ let init () : Model.t =
 
 module Action = struct
   type t =
-    | NavChange of Nav.t option sexp_opaque
+    | NavChange of Nav.main sexp_opaque
     | Search
     | ResetSearch
     | GetMore
@@ -173,81 +173,84 @@ let create model ~old_model ~inject =
   and last_search = model >>| Model.last_search in
   let apply_action (a : Action.t) (s : State.t) ~schedule_action =
     let conn = s.connection in
-    match a with
-    | GotCustomers (_, Error detail) ->
-      s.handle_error { gist = "Verbindungsfehler (Kunden)"; detail };
-      model
-    | GotCustomers (page, Ok l) ->
-      let customers =
-        List.mapi l ~f:(fun i (id, data) ->
-            i + (page * customer_page_size), Model.{ id; data })
-        |> Int.Map.of_alist_or_error
-        |> function
-        | Error detail ->
-          s.handle_error { gist = "Laden von Kunden fehlgeschlagen"; detail };
-          model.customers
-        | Ok m ->
-          if page > 0
-          then (
-            let old = Option.value ~default:Int.Map.empty model.customers in
-            match Int.Map.append ~lower_part:old ~upper_part:m with
-            | `Ok m -> Some m
-            | `Overlapping_key_ranges ->
-              s.handle_error
-                { gist = "Laden von Kunden fehlgeschlagen"
-                ; detail = Error.of_string "Overlapping key ranges"
-                };
-              model.customers)
-          else Some m
-      in
-      { model with customers; page }
-    | CustomerTable a ->
-      let schedule_action = Fn.compose schedule_action Action.customertable in
-      let customer_table = Component.apply_action ~schedule_action table a () in
-      { model with customer_table }
-    | CustomerForm a ->
-      let schedule_action = Fn.compose schedule_action Action.customerform in
-      let customer_form = Component.apply_action ~schedule_action customer a s in
-      { model with customer_form }
-    | Errors a ->
-      let schedule_action = Fn.compose schedule_action Action.errors in
-      let errors = Component.apply_action ~schedule_action errors a s in
-      { model with errors }
-    | NavChange None ->
-      let nav = Nav.Overview in
-      Nav.(set Overview);
-      { model with nav }
-    | NavChange (Some nav) ->
-      let () =
-        match nav with
-        | Customer x ->
-          schedule_action (Action.CustomerForm (Customer_form.Action.navchange x))
-        | Overview ->
-          let filter = Option.bind ~f:search_filter_of_input model.last_search in
-          get_customers ~conn ?filter ~schedule_action ()
-      in
-      { model with nav }
-    | Search ->
-      let pattern_o, search = Form.State.read_value model.search search_form in
-      (match pattern_o with
-      | None -> model
-      | Some s ->
-        let filter = search_filter_of_input s in
-        get_customers ~conn ~schedule_action ?filter ();
-        { model with search; last_search = Some s })
-    | GetMore ->
-      let page = model.page + 1
-      and filter = Option.bind ~f:search_filter_of_input model.last_search in
-      get_customers ~page ~conn ~schedule_action ?filter ();
-      model
-    | ResetSearch ->
-      get_customers ~conn ~schedule_action ();
-      { model with last_search = None; search = Form.State.create search_form }
+    let old_nav = model.nav in
+    let model =
+      match a with
+      | GotCustomers (_, Error detail) ->
+        s.handle_error { gist = "Verbindungsfehler (Kunden)"; detail };
+        model
+      | GotCustomers (page, Ok l) ->
+        let customers =
+          List.mapi l ~f:(fun i (id, data) ->
+              i + (page * customer_page_size), Model.{ id; data })
+          |> Int.Map.of_alist_or_error
+          |> function
+          | Error detail ->
+            s.handle_error { gist = "Laden von Kunden fehlgeschlagen"; detail };
+            model.customers
+          | Ok m ->
+            if page > 0
+            then (
+              let old = Option.value ~default:Int.Map.empty model.customers in
+              match Int.Map.append ~lower_part:old ~upper_part:m with
+              | `Ok m -> Some m
+              | `Overlapping_key_ranges ->
+                s.handle_error
+                  { gist = "Laden von Kunden fehlgeschlagen"
+                  ; detail = Error.of_string "Overlapping key ranges"
+                  };
+                model.customers)
+            else Some m
+        in
+        { model with customers; page }
+      | CustomerTable a ->
+        let schedule_action = Fn.compose schedule_action Action.customertable in
+        let customer_table = Component.apply_action ~schedule_action table a () in
+        { model with customer_table }
+      | CustomerForm a ->
+        let schedule_action = Fn.compose schedule_action Action.customerform in
+        let customer_form = Component.apply_action ~schedule_action customer a s in
+        { model with customer_form }
+      | Errors a ->
+        let schedule_action = Fn.compose schedule_action Action.errors in
+        let errors = Component.apply_action ~schedule_action errors a s in
+        { model with errors }
+      | NavChange nav ->
+        let () =
+          match nav with
+          | Customer x ->
+            schedule_action (Action.CustomerForm (Customer_form.Action.navchange x))
+          | Overview -> Nav.set Search
+          | Search ->
+            let filter = Option.bind ~f:search_filter_of_input model.last_search in
+            get_customers ~conn ?filter ~schedule_action ()
+        in
+        { model with nav }
+      | Search ->
+        let pattern_o, search = Form.State.read_value model.search search_form in
+        (match pattern_o with
+        | None -> model
+        | Some s ->
+          let filter = search_filter_of_input s in
+          get_customers ~conn ~schedule_action ?filter ();
+          { model with search; last_search = Some s })
+      | GetMore ->
+        let page = model.page + 1
+        and filter = Option.bind ~f:search_filter_of_input model.last_search in
+        get_customers ~page ~conn ~schedule_action ?filter ();
+        model
+      | ResetSearch ->
+        get_customers ~conn ~schedule_action ();
+        { model with last_search = None; search = Form.State.create search_form }
+    in
+    let () = if old_nav <> model.nav then Nav.set model.nav in
+    model
   and view =
     let open Vdom in
     let attr, page, submenu =
       match model.nav with
-      | Overview ->
+      | Overview -> [], [], []
+      | Search ->
         ( [ Attr.on "scroll" (fun _ -> Event.Viewport_changed) ]
         , ([ view_head inject last_search search_state
            ; (if Option.is_some model.customers
@@ -270,9 +273,9 @@ let create model ~old_model ~inject =
       | Customer _ -> [], [ Component.view customer ], Component.extra customer
     in
     let sidemenu =
-      [ Menu.entry "Suchen" (Menu.Href Nav.(href_of Overview)) (model.nav = Overview) ]
+      [ Menu.entry "Suchen" (Menu.Href Nav.(href Overview)) (model.nav = Overview) ]
       @ submenu
-      @ [ Menu.entry "Neuer Kunde" (Menu.Href Nav.(href_of (Customer New))) false ]
+      @ [ Menu.entry "Neuer Kunde" (Menu.Href Nav.(href (Customer (New, CData)))) false ]
       |> view_menu
     in
     Node.div
@@ -302,7 +305,7 @@ let create model ~old_model ~inject =
 let on_startup ~schedule_action _model =
   (* Wait for jwt token before doing anything else *)
   let open Async_kernel in
-  Nav.listen (Fn.compose schedule_action Action.navchange);
+  Nav.listen ~handler:(Fn.compose schedule_action Action.navchange);
   schedule_action (Action.NavChange (Nav.get ()));
   Remote.connect ()
   >>| function
