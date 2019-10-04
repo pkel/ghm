@@ -273,5 +273,5 @@ let create ~(inject : Action.t -> Vdom.Event.t)
   let%map model = model
   and view = view ~inject model in
   let apply_action = apply_action model in
-  Component.create ~apply_action model view
+  Component.create_with_extra ~apply_action ~extra:model.local model view
 ;;

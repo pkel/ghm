@@ -272,6 +272,17 @@ module Model = struct
   let create () = create' ()
 end
 
+(* TODO:
+   - database interaction should NOT be handled here
+   - nav should not be part of the model
+   - nav should be an incremental argument to the component
+   - local customer is exposed via extra, upper level should observe
+     changes and handle database interaction
+   - there should be one invoice form per booking
+   - the exposed extra customer should integrate the exposed incremental
+     invoices of the sub component
+*)
+
 module Action = struct
   type t =
     | FormUpdate of Form.State.t sexp_opaque
@@ -899,6 +910,6 @@ let create ~(inject : Action.t -> Vdom.Event.t)
   and invoice = invoice
   and view = view ~invoice ~inject model in
   let apply_action = apply_action ~invoice model
-  and extra : Menu.t = menu model in
+  and extra : Menu.t * Customer.t = menu model, model.local in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

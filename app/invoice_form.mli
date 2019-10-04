@@ -16,4 +16,4 @@ end
 val create
   :  inject:(Action.t -> Vdom.Event.t)
   -> Model.t Incr.t
-  -> (Action.t, Model.t, State.t) Component.t Incr.t
+  -> (Action.t, Model.t, State.t, Invoice.t) Component.with_extra Incr.t

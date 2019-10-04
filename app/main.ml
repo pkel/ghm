@@ -270,7 +270,7 @@ let create model ~old_model ~inject =
             ]
           | _ -> [])
         , [] )
-      | Customer _ -> [], [ Component.view customer ], Component.extra customer
+      | Customer _ -> [], [ Component.view customer ], fst (Component.extra customer)
     in
     let sidemenu =
       [ Menu.entry "Suchen" (Menu.Href Nav.(href Overview)) (model.nav = Overview) ]
