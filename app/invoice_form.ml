@@ -26,7 +26,6 @@ module Model = struct
   ;;
 
   let load inv = { local = inv; dummy = () } |> ensure_empty_last
-  let create () = load empty
 end
 
 module Action = struct

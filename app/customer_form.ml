@@ -254,7 +254,7 @@ module Model = struct
 
   let load nav (c : Customer.t) =
     { form = Form.State.create ~init:c customer_form
-    ; invoice_form = Invoice_form.Model.create ()
+    ; invoice_form = Invoice_form.Model.load Invoice.empty
     ; remote = c
     ; local = c
     ; nav
