@@ -26,7 +26,7 @@ module Model = struct
   ;;
 
   let load inv = { local = inv; dummy = () } |> ensure_empty_last
-  let create () = load (empty (Ext_date.today ()))
+  let create () = load empty
 end
 
 module Action = struct
@@ -79,7 +79,7 @@ let apply_action (model : Model.t)
       | id -> form (fun i -> { i with id = Some id }))
     | Date date ->
       (match Date.of_string date with
-      | date -> form (fun i -> { i with date })
+      | date -> form (fun i -> { i with date = Some date })
       | exception _ -> model (* TODO: handle *))
     | Position (i, Description s) -> form_p i (fun p -> { p with description = strip s })
     | Position (i, Quantity quantity) ->
@@ -209,7 +209,10 @@ let view (model : Model.t Incr.t) ~inject =
         ; col4 []
         ; col4
             [ input id_f (Option.value ~default:"" data.id) Action.id
-            ; input date_f (Date.to_string data.date) Action.date
+            ; input
+                date_f
+                (Option.value ~default:(Ext_date.today ()) data.date |> Date.to_string)
+                Action.date
             ]
         ]
     ; frow [ col [ input title_f data.title Action.title ] ]

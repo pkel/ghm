@@ -225,9 +225,10 @@ let invoice (inv : Invoice.t) =
   { sender = ""
   ; recipient = String.substr_replace_all inv.recipient ~pattern:"\n" ~with_:"<br>"
   ; sidebar =
-      (match inv.id with
-      | Some id -> sprintf "%s<br>%s" id (Localize.date inv.date)
-      | None -> Localize.date inv.date)
+      (let d = Option.(map ~f:Localize.date inv.date |> value ~default:"") in
+       match inv.id with
+       | Some id -> sprintf "%s<br>%s" id d
+       | None -> d)
   ; attachments
   ; body
   ; subject = inv.title

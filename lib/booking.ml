@@ -9,6 +9,7 @@ type t =
   ; note : string
   ; guests : guest list
   ; allocs : alloc list
+  ; invoice : Invoice.t option [@default None]
   }
 
 and guest =

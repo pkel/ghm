@@ -205,6 +205,7 @@ module Form_description = struct
              ~deposit_got:(field monetary_opt)
              ~tax_free:(field bool)
              ~note:(field string)
+             ~invoice:(field (not_editable ~default:None))
              ~guests:(field (list guest))
              ~allocs:(field (list alloc))
              ~period:(field period)))
@@ -317,6 +318,7 @@ let fresh_booking () =
     ; period = default_period ()
     ; guests = []
     ; allocs = []
+    ; invoice = None
     }
 ;;
 
@@ -441,7 +443,7 @@ let apply_action
       | None -> fresh_booking ()
       | Some b -> b
     in
-    let inv = Invoice.of_customer_and_booking (Ext_date.today ()) model.local b in
+    let inv = Invoice_gen.gen ~date:(Ext_date.today ()) model.local b in
     { model with
       invoice_form = Invoice_form.Model.load inv
     ; nav = fst model.nav, Booking (i, Invoice)
@@ -681,8 +683,9 @@ let view_booking ~inject ~sync (customer : Customer.t) selected state ids =
   let ( block
       , ( period
         , ( deposit_asked
-          , (deposit_got, (tax_free, (note, ((guests, g_lst), ((positions, p_lst), ())))))
-          ) ) )
+          , ( deposit_got
+            , (tax_free, (note, ((guests, g_lst), ((positions, p_lst), (_invoice, ())))))
+            ) ) ) )
     =
     ids
   in

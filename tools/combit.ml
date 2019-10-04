@@ -166,6 +166,7 @@ let booking_of_row r : Booking.t option =
       ; guests = guests_of_row r
       ; period
       ; allocs = allocs_of_row r
+      ; invoice = None
       }
 ;;
 
