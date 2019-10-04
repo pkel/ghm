@@ -416,8 +416,8 @@ let apply_action
     model
   | PatchedCustomer (Ok remote) -> { model with remote; sync = model.local = remote }
   | PostedCustomer (Ok (id, remote)) ->
-    { model with remote; nav = Nav.(Id id, CData); sync = model.local = remote }
-  | GotCustomer (Ok (id, remote)) -> Model.load Nav.(Id id, CData) remote
+    { model with remote; nav = Nav.(Id id, snd model.nav); sync = model.local = remote }
+  | GotCustomer (Ok (id, remote)) -> Model.load Nav.(Id id, snd model.nav) remote
   | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
     model
@@ -439,14 +439,15 @@ let apply_action
     let schedule_action = Fn.compose schedule_action Action.invoiceform in
     let invoice_form = Component.apply_action ~schedule_action invoice a state in
     { model with invoice_form }
-  | NavChange ((Id i, _) as nav) ->
+  | NavChange ((New, _) as nav) -> Model.create' ~nav ()
+  | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
     let rq =
       Request.map_resp ~f:(fun c -> i, c) Remote.(Customer.get i |> finalize conn)
     in
     let handler = Fn.compose schedule_action Action.gotcustomer in
     Request.XHR.send' ~handler rq;
     Model.create' ~loading:true ~nav ()
-  | NavChange ((New, _) as nav) -> Model.create' ~nav ()
+  | NavChange nav -> { model with nav }
 ;;
 
 open Vdom

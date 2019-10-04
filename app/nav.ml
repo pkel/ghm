@@ -58,22 +58,22 @@ end = struct
   ;;
 end
 
-let compare_int = Base.compare_int
+open Base
 
 type noi =
   | New
   | Id of int
-[@@deriving compare]
+[@@deriving compare, sexp_of]
 
 let noi_to_string = function
   | New -> "new"
-  | Id i -> string_of_int i
+  | Id i -> Int.to_string i
 ;;
 
 let noi_of_string_opt = function
   | "new" -> Some New
   | s ->
-    (match int_of_string_opt s with
+    (match Caml.int_of_string_opt s with
     | Some i -> Some (Id i)
     | None -> None)
 ;;
@@ -81,7 +81,7 @@ let noi_of_string_opt = function
 type booking =
   | BData
   | Invoice
-[@@deriving compare]
+[@@deriving compare, sexp_of]
 
 let booking_of_path = function
   | [ "invoice" ] -> Invoice
@@ -96,11 +96,11 @@ let booking_to_path = function
 type customer =
   | CData
   | Booking of (int * booking)
-[@@deriving compare]
+[@@deriving compare, sexp_of]
 
 let customer_of_path = function
   | "booking" :: i :: tl ->
-    (match int_of_string_opt i with
+    (match Caml.int_of_string_opt i with
     | Some i -> Booking (i, booking_of_path tl)
     | None -> CData)
   | _ -> CData
@@ -108,14 +108,14 @@ let customer_of_path = function
 
 let customer_to_path = function
   | CData -> []
-  | Booking (i, b) -> "booking" :: string_of_int i :: booking_to_path b
+  | Booking (i, b) -> "booking" :: Int.to_string i :: booking_to_path b
 ;;
 
 type main =
   | Overview
   | Search
   | Customer of (noi * customer)
-[@@deriving compare]
+[@@deriving compare, sexp_of]
 
 let default = Overview
 

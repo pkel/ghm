@@ -45,7 +45,7 @@ let init () : Model.t =
 
 module Action = struct
   type t =
-    | NavChange of Nav.main sexp_opaque
+    | NavChange of Nav.main
     | Search
     | ResetSearch
     | GetMore
