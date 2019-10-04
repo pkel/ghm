@@ -159,7 +159,7 @@ end
 
 include Generic
 
-let view (model : Model.t Incr.t) ~back_href:_ ~inject =
+let view (model : Model.t Incr.t) ~inject =
   let title_f = labelled_input "Titel"
   and recipient_f = labelled_textfield ~rows:4 "Empfänger"
   and intro_f = labelled_textfield ~rows:1 "Freitext"
@@ -268,13 +268,10 @@ let view (model : Model.t Incr.t) ~back_href:_ ~inject =
   Node.create "form" [] rows
 ;;
 
-let create
-    ~(back_href : string)
-    ~(inject : Action.t -> Vdom.Event.t)
-    (model : Model.t Incr.t)
-  =
+let create ~(inject : Action.t -> Vdom.Event.t)
+           (model : Model.t Incr.t) =
   let%map model = model
-  and view = view ~inject ~back_href model in
+  and view = view ~inject model in
   let apply_action = apply_action model in
   Component.create ~apply_action model view
 ;;

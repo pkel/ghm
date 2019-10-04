@@ -892,9 +892,8 @@ let create ~(inject : Action.t -> Vdom.Event.t)
            (model : Model.t Incr.t) =
   let invoice =
     let inject = Fn.compose inject Action.invoiceform
-    and back_href = Nav.(href Overview)
     and form_model = model >>| Model.invoice_form in
-    Invoice_form.create ~inject ~back_href form_model
+    Invoice_form.create ~inject form_model
   in
   let%map model = model
   and invoice = invoice

@@ -14,7 +14,6 @@ module Action : sig
 end
 
 val create
-  :  back_href:string
-  -> inject:(Action.t -> Vdom.Event.t)
+  :  inject:(Action.t -> Vdom.Event.t)
   -> Model.t Incr.t
   -> (Action.t, Model.t, State.t) Component.t Incr.t
