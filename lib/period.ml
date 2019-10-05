@@ -8,15 +8,26 @@ end
 
 include M
 
-let of_dates t1 t2 = Date.min t1 t2, Date.max t1 t2
-let cover (f1, t1) (f2, t2) = Date.min f1 f2, Date.max t1 t2
-let nights (f, t) = Date.diff t f
-let from (x, _) = x
-let till (_, x) = x
-let compare_by_from (a, _) (b, _) = Date.compare a b
-let compare_by_till (_, a) (_, b) = Date.compare a b
+let a (x, _) = x
+let b (_, x) = x
+let from (x, y) = Date.min x y
+let till (x, y) = Date.max x y
+let of_dates x y = x, y
+let cover d1 d2 = Date.min (from d1) (from d2), Date.max (from d1) (from d2)
+let nights d = Date.diff (till d) (from d)
+let compare_by_from d1 d2 = Date.compare (from d1) (from d2)
+let compare_by_till d1 d2 = Date.compare (from d1) (from d2)
 
-let to_string_hum ?(sep = "bis") (f, t) =
+let update ?a ?b (x, y) =
+  match a, b with
+  | None, None -> x, y
+  | Some x, Some y -> x, y
+  | Some x, _ -> x, y
+  | _, Some y -> x, y
+;;
+
+let to_string_hum ?(sep = "bis") d =
+  let f, t = from d, till d in
   let open Date in
   let open Format in
   let df = day f

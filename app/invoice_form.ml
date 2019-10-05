@@ -104,75 +104,23 @@ let apply_action (model : Model.t)
 ;;
 
 open Vdom
-
-module Generic = struct
-  let group = Node.div [ Attr.class_ "form-group" ]
-
-  let labelled_input =
-    let cnt = ref 0 in
-    fun ?(type_ = "text") label ->
-      let id =
-        incr cnt;
-        !cnt
-      in
-      fun ~nth ?on_input value ->
-        let id = Printf.sprintf "labelled_input_%i_%i" id nth in
-        group
-          [ Node.label [ Attr.for_ id ] [ Node.text label ]
-          ; Node.input
-              [ Attr.id id
-              ; Attr.class_ "form-control"
-              ; Attr.value value
-              ; Attr.type_ type_
-              ; (match on_input with
-                | Some on_input -> Attr.on_input (fun _ -> on_input)
-                | None -> Attr.disabled)
-              ]
-              []
-          ]
-  ;;
-
-  let labelled_textfield =
-    let cnt = ref 0 in
-    fun ~rows label ->
-      let id =
-        incr cnt;
-        !cnt
-      in
-      fun ~nth ?on_input value ->
-        let id = Printf.sprintf "labelled_input_%i_%i" id nth in
-        group
-          [ Node.label [ Attr.for_ id ] [ Node.text label ]
-          ; Node.textarea
-              [ Attr.id id
-              ; Attr.class_ "form-control"
-              ; Attr.create "rows" (string_of_int rows)
-              ; (match on_input with
-                | Some on_input -> Attr.on_input (fun _ -> on_input)
-                | None -> Attr.disabled)
-              ]
-              [ Node.text value ]
-          ]
-  ;;
-end
-
-include Generic
+open Vdom_form
 
 let view (model : Model.t Incr.t) ~inject =
   let title_f = labelled_input "Titel"
   and recipient_f = labelled_textfield ~rows:4 "Empfänger"
   and intro_f = labelled_textfield ~rows:1 "Freitext"
   and closing_f = labelled_textfield ~rows:1 "Freitext"
-  and date_f = labelled_input ~type_:"date" "Datum"
+  and date_f = labelled_input ~type_:Date "Datum"
   and id_f = labelled_input "Rechnungsnummer"
-  and quantity_f = labelled_input "Anzahl"
+  and quantity_f = labelled_input ~type_:Int "Anzahl"
   and description_f = labelled_input "Beschreibung"
-  and price_f = labelled_input "Einzelpreis"
-  and tax_f = labelled_input "Steuer"
-  and sum_f = labelled_input "Summe"
-  and sum_row_f = labelled_input "Preis"
-  and deposit_f = labelled_input "Anzahlung"
-  and sum'_f = labelled_input "Nach Anzahlung" in
+  and price_f = labelled_input ~type_:Monetary "Einzelpreis"
+  and tax_f = labelled_input ~type_:Int "Steuer"
+  and sum_f = labelled_input ~type_:Monetary "Summe"
+  and sum_row_f = labelled_input ~type_:Monetary "Preis"
+  and deposit_f = labelled_input ~type_:Monetary "Anzahlung"
+  and sum'_f = labelled_input ~type_:Monetary "Nach Anzahlung" in
   let%map data = model >>| Model.local
   and s = model >>| Fn.compose Invoice.summary Model.local in
   let input ?(nth = 0) lbl value action =
@@ -258,9 +206,9 @@ let view (model : Model.t Incr.t) ~inject =
           [ col4 [ tax_table ]
           ; col6 []
           ; col2
-              [ no_input sum_f (Monetary.to_string s.sum)
+              [ no_input sum_f (Monetary.to_string_dot s.sum)
               ; input deposit_f (Monetary.to_string_dot data.deposit) Action.deposit
-              ; no_input sum'_f Monetary.(s.sum - data.deposit |> to_string)
+              ; no_input sum'_f Monetary.(s.sum - data.deposit |> to_string_dot)
               ]
           ]
       ; frow [ col [ input closing_f data.closing Action.closing ] ]
@@ -270,7 +218,8 @@ let view (model : Model.t Incr.t) ~inject =
   Node.create "form" [] rows
 ;;
 
-let create ~(inject : Action.t -> Vdom.Event.t)
+let create ~env:()
+           ~(inject : Action.t -> Vdom.Event.t)
            (model : Model.t Incr.t) =
   let%map model = model
   and view = view ~inject model in

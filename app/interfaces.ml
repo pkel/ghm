@@ -1,6 +1,9 @@
 open Incr_dom
 
+type 'a inject = 'a -> Vdom.Event.t
+
 module type FORM_COMPONENT = sig
+  type env
   type edit
 
   module Model : sig
@@ -14,7 +17,8 @@ module type FORM_COMPONENT = sig
   end
 
   val create
-    :  inject:(Action.t -> Vdom.Event.t)
+    :  env:env
+    -> inject:Action.t inject
     -> Model.t Incr.t
     -> (Action.t, Model.t, State.t, edit) Component.with_extra Incr.t
 end

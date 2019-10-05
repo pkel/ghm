@@ -51,8 +51,9 @@ let button' ?i ?(attr = []) ?(style = "secondary") ?(blank = false) ~href label 
     ]
 ;;
 
-let button_clipboard ?i ?(attr = []) ?(style = "secondary") ~id ~value label =
+let button_clipboard ?i ?(attr = []) ?(style = "secondary") ~value label =
   let style = sprintf "btn-%s" style in
+  let id = Base.(sprintf "clipboard-%i" (Hash.Builtin.hash_string value)) in
   Node.div
     []
     [ Node.button

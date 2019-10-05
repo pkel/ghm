@@ -26,6 +26,16 @@ and alloc =
   }
 [@@deriving yojson, fields, compare, sexp]
 
+let empty_guest = { given = ""; family = ""; born = None }
+
+let empty_alloc =
+  { room = ""
+  ; price_per_bed = Monetary.of_float 44. |> Option.value ~default:Monetary.zero
+  ; beds = 2
+  ; description = "Doppelzimmer"
+  }
+;;
+
 module Summary = struct
   type t =
     { rooms : string list

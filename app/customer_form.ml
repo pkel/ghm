@@ -11,6 +11,9 @@ let id () =
   sprintf "customer_form_%i" !last_id
 ;;
 
+(* Trigger compalation *)
+open Booking_form [@@warning "-33"]
+
 module Form_description = struct
   let name =
     let open Form.Description in
@@ -672,8 +675,6 @@ let save_btn ~sync ~inject =
   else Bs.button ~action ~i:(S "save") ~style:"outline-warning" "Speichern"
 ;;
 
-let excel_id = id ()
-
 let uri_of_letter customer t =
   let date = Browser.Date.(now () |> to_locale_date_string) in
   Letter.(t ~date customer |> href)
@@ -751,9 +752,7 @@ let view_booking ~inject ~sync (customer : Customer.t) selected state ids =
         [ col_auto
             ~c:[ "mb-2"; "mt-2" ]
             [ Bs.button' ~href:confirmation ~blank:true "Bestätigung" ]
-        ; col_auto
-            ~c:[ "mb-2"; "mt-2" ]
-            [ Bs.button_clipboard ~value:excel ~id:excel_id "Excel" ]
+        ; col_auto ~c:[ "mb-2"; "mt-2" ] [ Bs.button_clipboard ~value:excel "Excel" ]
         ; col_auto ~c:[ "mb-2"; "mt-2" ] [ invoice_btn ]
         ; col
             [ frow
@@ -907,7 +906,7 @@ let create ~(inject : Action.t -> Vdom.Event.t)
   let invoice =
     let inject = Fn.compose inject Action.invoiceform
     and form_model = model >>| Model.invoice_form in
-    Invoice_form.create ~inject form_model
+    Invoice_form.create ~env:() ~inject form_model
   in
   let%map model = model
   and invoice = invoice
