@@ -247,7 +247,7 @@ module Model = struct
     ; invoice_form : Invoice_form.Model.t
     ; remote : Customer.t
     ; local : Customer.t
-    ; bookings : visit list
+    ; bookings : (visit * Booking_form.Model.t) list
     ; nav : Nav.noi * Nav.customer
     ; touched_at : int
     ; sync : bool
@@ -262,7 +262,8 @@ module Model = struct
     ; local = c
     ; nav
     ; touched_at = Int.max_value
-    ; bookings = List.map ~f:(fun b -> Saved (Booking.period b)) c.bookings
+    ; bookings = List.map ~f:(fun b -> Saved (Booking.period b),
+                                       Booking_form.Model.load b) c.bookings
     ; loading = false
     ; sync = true
     }
@@ -294,7 +295,7 @@ module Action = struct
     | GotCustomer of (int * Customer.t) Or_error.t
     | PostedCustomer of (int * Customer.t) Or_error.t
     | PatchedCustomer of Customer.t Or_error.t
-    | InvoiceForm of Invoice_form.Action.t sexp_opaque
+    | InvoiceForm of Invoice_form.Action.t
     | Save
     | Touch
     | Touched
@@ -302,7 +303,8 @@ module Action = struct
     | DeleteBooking of int
     | DeleteCustomer
     | LoadInvoice of int
-  [@@deriving sexp, variants]
+    | Booking of int * Booking_form.Action.t
+  [@@deriving sexp_of, variants]
 end
 
 let default_period () =
@@ -340,6 +342,7 @@ let booking_entry_ids state =
 ;;
 
 let apply_action
+    ~bookings
     ~invoice
     (model : Model.t)
     (action : Action.t)
@@ -406,7 +409,7 @@ let apply_action
       | None -> fresh_booking ()
     in
     let form = Form.List.cons ~init model.form (booking_list_id model.form)
-    and bookings = Model.Fresh :: model.bookings
+    and bookings = (Model.Fresh, Booking_form.Model.load init) :: model.bookings
     and nav = fst model.nav, Nav.(Booking (0, BData)) in
     schedule_action Action.Touch;
     { model with form; bookings; nav }
@@ -464,6 +467,18 @@ let apply_action
     Request.XHR.send' ~handler rq;
     Model.create' ~loading:true ~nav ()
   | NavChange nav -> { model with nav }
+  | Booking (i, a) ->
+    let schedule_action = Fn.compose schedule_action (Action.booking i) in
+    let bookings = List.mapi model.bookings ~f:(fun j (v, m) ->
+        if i <> j then (v, m)
+        else
+          match List.nth bookings i with
+          | Some c ->
+            v, Component.apply_action ~schedule_action c a state
+          | None -> v, m
+      )
+    in
+    { model with bookings }
 ;;
 
 open Vdom
@@ -838,36 +853,33 @@ let view_main ~sync ~inject customer state ids =
     ]
 ;;
 
-let view_form ~invoice (model : Model.t Incr.t) ~inject =
+let _ = booking_entry_ids, view_booking (* TODO: get rid of redundant booking code *)
+
+let view_form ~bookings (model : Model.t Incr.t) ~inject =
   let open Vdom in
   let%map form = model >>| Model.form
   and local = model >>| Model.local
   and sync = model >>| Model.sync
-  and invoice = invoice
+  and bookings = bookings
   and nav = model >>| Model.nav >>| snd in
   let ids = Form.State.field_ids form customer_form in
   let save _evt = inject Action.Save in
-  let show visible =
-    let c = if visible then [] else [ Attr.class_ "d-none" ] in
-    Node.div c
-  in
   let rows =
-    (view_main ~inject ~sync local form ids |> show (nav = CData))
-    :: List.concat_mapi
-         ~f:(fun i b_ids ->
-           [ view_booking ~inject ~sync local i form b_ids
-             |> show (nav = Booking (i, BData))
-           ; [ Component.view invoice ] |> show (nav = Booking (i, Invoice))
-           ])
-         (booking_entry_ids form)
+    match nav with
+    | CData ->
+      view_main ~inject ~sync local form ids
+    | Booking (i, _) ->
+      match List.nth bookings i with
+      | Some b -> [ Component.view b ]
+      | None -> []
   in
   let touch _ _ = inject Action.Touch in
   Node.create "form" [ Attr.on "submit" save; Attr.on_input touch ] rows
 ;;
 
-let view ~invoice ~inject model =
+let view ~bookings ~inject model =
   let%bind loading = model >>| Model.loading in
-  if loading then Incr.const Bs.Grid.loading_row else view_form ~invoice ~inject model
+  if loading then Incr.const Bs.Grid.loading_row else view_form ~bookings ~inject model
 ;;
 
 let menu (m : Model.t) : Menu.t =
@@ -877,7 +889,7 @@ let menu (m : Model.t) : Menu.t =
   let children =
     let f i v =
       let title =
-        match v with
+        match fst v with
         | Model.Fresh -> "Neue Buchung"
         | Saved p -> Period.to_string_hum ~sep:"-" p
       and action = href (Booking (i, BData)) in
@@ -908,10 +920,36 @@ let create ~(inject : Action.t -> Vdom.Event.t)
     and form_model = model >>| Model.invoice_form in
     Invoice_form.create ~env:() ~inject form_model
   in
+  let bookings =
+    (* This cannot be efficient. Fix? TODO *)
+    let%bind bookings = model >>| Model.bookings
+    and nav = model >>| Model.nav >>| function
+      | (_, Booking (_, bnav)) -> bnav
+      | _ -> Nav.BData
+    in
+    List.mapi bookings ~f:(fun i (_, b) ->
+        let inject = Fn.compose inject (Action.booking i)
+        and env =
+          { nav = Incr.const nav
+          ; customer = model >>| Model.local
+          ; new_booking = Fn.compose inject (fun _b -> Action.newbooking)
+                (* TODO: use _b booking proposed by child component *)
+          ; delete_booking = Fn.compose inject
+                (fun () -> Action.deletebooking i)
+          }
+        in
+        Booking_form.create ~env ~inject (Incr.const b))
+    |> Incr.all
+  in
   let%map model = model
   and invoice = invoice
-  and view = view ~invoice ~inject model in
-  let apply_action = apply_action ~invoice model
-  and extra : Menu.t * Customer.t = menu model, model.local in
+  and bookings = bookings
+  and view = view ~bookings ~inject model in
+  let apply_action = apply_action ~bookings ~invoice model
+  and extra : Menu.t * Customer.t =
+    let c = model.local in
+    let bookings = List.map ~f:Component.extra bookings in
+    menu model, { c with bookings }
+  in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

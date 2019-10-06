@@ -181,15 +181,15 @@ open Vdom_form
 
 (* TODO: use Incr_dom_widgets.Interactive *)
 module F = struct
-  let from = labelled_input "Von"
-  let till = labelled_input "Bis"
+  let from = labelled_input ~type_:Date "Von"
+  let till = labelled_input ~type_:Date "Bis"
   let deposit_asked = labelled_input ~type_:Monetary "Anzahlung gefordert"
   let deposit_got = labelled_input "Anzahlung erhalten"
 
   (* let tax_free =  *)
   let note = labelled_textfield ~rows:8 "Notiz"
   let room = labelled_input "Nr."
-  let price_per_bed = labelled_input "Preis"
+  let price_per_bed = labelled_input ~type_:Monetary "Preis"
   let beds = labelled_input ~type_:Int "Betten"
   let decription = labelled_input "Beschreibung"
   let given = labelled_input "Vorname"
