@@ -1,11 +1,18 @@
 (* TODO:
    - database interaction should NOT be handled here
-   - nav should not be part of the model
-   - nav should be an incremental argument to the component
    - local customer is exposed via extra, upper level should observe
      changes and handle database interaction
-   - customer form is broken (switch to booking then back to CData)
-   - saving of booking is broken
+   - save booking
+
+   - fix form (switch to booking then back to CData)
+   - better: replace form with interactive
+
+   - nav should not be part of the model
+   - nav should be an incremental argument to the component
+   - nav menu should be rendered externally
+
+   - investigate effective use of Incremental for list of bookings
+
    - (done) there should be one invoice form per booking
    - (done) the exposed extra customer should integrate the exposed incremental
      invoices/bookings of the sub component
