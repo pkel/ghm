@@ -1,3 +1,16 @@
+(* TODO:
+   - database interaction should NOT be handled here
+   - nav should not be part of the model
+   - nav should be an incremental argument to the component
+   - local customer is exposed via extra, upper level should observe
+     changes and handle database interaction
+   - customer form is broken (switch to booking then back to CData)
+   - saving of booking is broken
+   - (done) there should be one invoice form per booking
+   - (done) the exposed extra customer should integrate the exposed incremental
+     invoices/bookings of the sub component
+*)
+
 open Core_kernel
 open Ghm
 open Incr_dom
@@ -10,9 +23,6 @@ let id () =
   incr last_id;
   sprintf "customer_form_%i" !last_id
 ;;
-
-(* Trigger compalation *)
-open Booking_form [@@warning "-33"]
 
 module Form_description = struct
   let name =
@@ -90,132 +100,6 @@ module Form_description = struct
         | s -> Ok s)
   ;;
 
-  let opt_date =
-    let open Form.Description in
-    conv_without_block string ~f:(fun s id ->
-        if s = ""
-        then Ok None
-        else (
-          match Date.of_string s with
-          | d -> Ok (Some d)
-          | exception _ ->
-            Error
-              [ Form.Form_error.create ~id (Error.of_string "Datum nicht auswertbar.") ])
-    )
-    |> contra_map ~f:(function
-           | None -> ""
-           | Some d -> Date.to_string d)
-  ;;
-
-  let period =
-    let open Form.Description in
-    let unvalidated =
-      let open Let_syntax in
-      let%map_open from = opt_date <^ Fn.compose Option.some Period.from
-      and till = opt_date <^ Fn.compose Option.some Period.till in
-      from, till
-    in
-    conv_without_block unvalidated ~f:(fun (f, t) _ ->
-        let default = Date.(add_days (today ~zone:Time.Zone.utc) 7) in
-        let f, t =
-          match f, t with
-          | None, None -> default, Date.add_days default 1
-          | None, Some d | Some d, None -> d, Date.add_days d 1
-          | Some a, Some b -> a, b
-        in
-        Ok (Period.of_dates f t))
-  ;;
-
-  let monetary_opt =
-    let open Form.Description in
-    conv_without_block string ~f:(fun s id ->
-        let e =
-          Error [ Form.Form_error.create ~id (Error.of_string "Geldwert erwartet.") ]
-        in
-        if s = ""
-        then Ok None
-        else (
-          match float_of_string s with
-          | x ->
-            (match Monetary.of_float x with
-            | Some m -> Ok (Some m)
-            | None -> e)
-          | exception _ -> e))
-    |> contra_map ~f:(function
-           | None -> ""
-           | Some x -> Monetary.to_string_dot x)
-  ;;
-
-  let monetary =
-    let open Form.Description in
-    conv_without_block monetary_opt ~f:(fun opt _id ->
-        match opt with
-        | None -> Ok Monetary.zero
-        | Some m -> Ok m)
-    |> contra_map ~f:(fun x -> if Monetary.(compare zero x) = 0 then None else Some x)
-  ;;
-
-  let int =
-    let open Form.Description in
-    conv_without_block string ~f:(fun s id ->
-        if s = ""
-        then Ok 0
-        else (
-          match int_of_string s with
-          | i -> Ok i
-          | exception _ ->
-            Error [ Form.Form_error.create ~id (Error.of_string "Ganze Zahl erwartet.") ])
-    )
-    |> contra_map ~f:(function
-           | 0 -> ""
-           | i -> string_of_int i)
-  ;;
-
-  let guest =
-    let open Form.Description in
-    let unvalidated =
-      Of_record.(
-        build_for_record
-          (Booking.Fields_of_guest.make_creator
-             ~given:(field string)
-             ~family:(field string)
-             ~born:(field opt_date)))
-    in
-    conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
-  ;;
-
-  let alloc =
-    let open Form.Description in
-    let unvalidated =
-      Of_record.(
-        build_for_record
-          (Booking.Fields_of_alloc.make_creator
-             ~room:(field string)
-             ~beds:(field int)
-             ~price_per_bed:(field monetary)
-             ~description:(field string)))
-    in
-    conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
-  ;;
-
-  let booking =
-    let open Form.Description in
-    let unvalidated =
-      Of_record.(
-        build_for_record
-          (Booking.Fields.make_creator
-             ~deposit_asked:(field monetary_opt)
-             ~deposit_got:(field monetary_opt)
-             ~tax_free:(field bool)
-             ~note:(field string)
-             ~invoice:(field (not_editable ~default:None))
-             ~guests:(field (list guest))
-             ~allocs:(field (list alloc))
-             ~period:(field period)))
-    in
-    conv unvalidated ~f:(fun b _ ~block_id:_ -> Ok b)
-  ;;
-
   let customer =
     let open Form.Description in
     let unvalidated =
@@ -228,7 +112,7 @@ module Form_description = struct
            ~contact:(field contact)
            ~keyword:(field (nonempty_string "Schlüsselwort darf nicht leer sein"))
            ~note:(field string)
-           ~bookings:(field (list booking)))
+           ~bookings:(field (not_editable ~default:[])))
     in
     conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
   ;;
@@ -244,7 +128,6 @@ module Model = struct
 
   type t =
     { form : Form.State.t
-    ; invoice_form : Invoice_form.Model.t
     ; remote : Customer.t
     ; local : Customer.t
     ; bookings : (visit * Booking_form.Model.t) list
@@ -257,13 +140,14 @@ module Model = struct
 
   let load nav (c : Customer.t) =
     { form = Form.State.create ~init:c customer_form
-    ; invoice_form = Invoice_form.Model.load Invoice.empty
     ; remote = c
     ; local = c
     ; nav
     ; touched_at = Int.max_value
-    ; bookings = List.map ~f:(fun b -> Saved (Booking.period b),
-                                       Booking_form.Model.load b) c.bookings
+    ; bookings =
+        List.map
+          ~f:(fun b -> Saved (Booking.period b), Booking_form.Model.load b)
+          c.bookings
     ; loading = false
     ; sync = true
     }
@@ -277,17 +161,6 @@ module Model = struct
   let create () = create' ()
 end
 
-(* TODO:
-   - database interaction should NOT be handled here
-   - nav should not be part of the model
-   - nav should be an incremental argument to the component
-   - local customer is exposed via extra, upper level should observe
-     changes and handle database interaction
-   - there should be one invoice form per booking
-   - the exposed extra customer should integrate the exposed incremental
-     invoices of the sub component
-*)
-
 module Action = struct
   type t =
     | FormUpdate of Form.State.t sexp_opaque
@@ -295,14 +168,12 @@ module Action = struct
     | GotCustomer of (int * Customer.t) Or_error.t
     | PostedCustomer of (int * Customer.t) Or_error.t
     | PatchedCustomer of Customer.t Or_error.t
-    | InvoiceForm of Invoice_form.Action.t
     | Save
     | Touch
     | Touched
     | NewBooking
     | DeleteBooking of int
     | DeleteCustomer
-    | LoadInvoice of int
     | Booking of int * Booking_form.Action.t
   [@@deriving sexp_of, variants]
 end
@@ -327,23 +198,8 @@ let fresh_booking () =
     }
 ;;
 
-let booking_list_id state =
-  let _, (_, (_, (_, (_, (_, (_, ((_, r), ()))))))) =
-    Form.State.field_ids state customer_form
-  in
-  r
-;;
-
-let booking_entry_ids state =
-  let _, (_, (_, (_, (_, (_, (_, ((r, _), ()))))))) =
-    Form.State.field_ids state customer_form
-  in
-  r
-;;
-
 let apply_action
     ~bookings
-    ~invoice
     (model : Model.t)
     (action : Action.t)
     (state : State.t)
@@ -398,8 +254,9 @@ let apply_action
         | Booking (i, _) -> i
         | _ -> 0
       in
-      match List.nth model.local.bookings i with
-      | Some b ->
+      match List.nth bookings i with
+      | Some c ->
+        let b : Booking.t = Component.extra c in
         { b with
           period = default_period ()
         ; deposit_asked = None
@@ -408,17 +265,15 @@ let apply_action
         }
       | None -> fresh_booking ()
     in
-    let form = Form.List.cons ~init model.form (booking_list_id model.form)
-    and bookings = (Model.Fresh, Booking_form.Model.load init) :: model.bookings
+    let bookings = (Model.Fresh, Booking_form.Model.load init) :: model.bookings
     and nav = fst model.nav, Nav.(Booking (0, BData)) in
     schedule_action Action.Touch;
-    { model with form; bookings; nav }
+    { model with bookings; nav }
   | DeleteBooking i ->
-    let form = Form.List.remove_nth model.form (booking_list_id model.form) i
-    and bookings = List.filteri ~f:(fun j _ -> i <> j) model.bookings in
+    let bookings = List.filteri ~f:(fun j _ -> i <> j) model.bookings in
     let nav = fst model.nav, Nav.(Booking (min i (List.length bookings - 1), BData)) in
     schedule_action Action.Touch;
-    { model with form; bookings; nav }
+    { model with bookings; nav }
   | DeleteCustomer ->
     let () =
       match model.nav with
@@ -443,21 +298,6 @@ let apply_action
   | GotCustomer (Error detail) ->
     state.handle_error { gist = "Laden fehlgeschlagen"; detail };
     model
-  | LoadInvoice i ->
-    let b =
-      match List.nth model.local.bookings i with
-      | None -> fresh_booking ()
-      | Some b -> b
-    in
-    let inv = Invoice_gen.gen ~date:(Ext_date.today ()) model.local b in
-    { model with
-      invoice_form = Invoice_form.Model.load inv
-    ; nav = fst model.nav, Booking (i, Invoice)
-    }
-  | InvoiceForm a ->
-    let schedule_action = Fn.compose schedule_action Action.invoiceform in
-    let invoice_form = Component.apply_action ~schedule_action invoice a state in
-    { model with invoice_form }
   | NavChange ((New, _) as nav) -> Model.create' ~nav ()
   | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
     let rq =
@@ -469,14 +309,14 @@ let apply_action
   | NavChange nav -> { model with nav }
   | Booking (i, a) ->
     let schedule_action = Fn.compose schedule_action (Action.booking i) in
-    let bookings = List.mapi model.bookings ~f:(fun j (v, m) ->
-        if i <> j then (v, m)
-        else
-          match List.nth bookings i with
-          | Some c ->
-            v, Component.apply_action ~schedule_action c a state
-          | None -> v, m
-      )
+    let bookings =
+      List.mapi model.bookings ~f:(fun j (v, m) ->
+          if i <> j
+          then v, m
+          else (
+            match List.nth bookings i with
+            | Some c -> v, Component.apply_action ~schedule_action c a state
+            | None -> v, m))
     in
     { model with bookings }
 ;;
@@ -502,20 +342,6 @@ let prepend_err_div state (id : Form.Block.t Form.Id.t) rows =
 ;;
 
 let group = Node.div [ Attr.class_ "form-group" ]
-
-let input_bool state label id =
-  let classes, divs =
-    match err_of_block state id with
-    | None -> [], []
-    | Some m -> [ "is-invalid" ], [ Node.div [ Attr.class_ "invalid-feedback" ] [ m ] ]
-  in
-  Node.div
-    [ Attr.classes [ "custom-control"; "custom-checkbox" ] ]
-    ([ Form.Input.checkbox state id [ Attr.classes ("custom-control-input" :: classes) ]
-     ; Form.Input.label id [ Attr.class_ "custom-control-label" ] [ Node.text label ]
-     ]
-    @ divs)
-;;
 
 let input_str
     ?(attr = []) ?(input = Form.Input.text) ?(type_ = "text") ?datalist state label id
@@ -545,10 +371,6 @@ let input_str
      ]
     @ error
     @ datalist)
-;;
-
-let input_number ~step =
-  input_str ~attr:[ Attr.create "step" (string_of_float step) ] ~type_:"number"
 ;;
 
 let dl1_id = id ()
@@ -617,64 +439,6 @@ let view_contact state ids =
     ]
 ;;
 
-let view_period state ids =
-  let from, till = ids in
-  Bs.Grid.(
-    frow
-      [ col [ input_str state "Von" ~type_:"date" from ]
-      ; col [ input_str state "Bis" ~type_:"date" till ]
-      ])
-;;
-
-let view_delete_button action title =
-  Bs.button
-    ~i:(R "trash-alt")
-    ~style:"outline-danger"
-    ~attr:[ Bs.tab_skip ]
-    ~action
-    title
-;;
-
-let dl_id = id ()
-
-let view_alloc delete state ids =
-  let block, (room, (price_per_bed, (beds, (description, ())))) = ids in
-  (* This puts redundant datalist with same id into the form. One for each room
-     Since datalists are static, it is no problem. *)
-  let datalist = dl_id, Booking.room_descriptions in
-  Bs.Grid.
-    [ frow [ col2 (prepend_err_div state block []) ]
-    ; frow
-        [ col3 [ input_str state "Nr." room ]
-        ; col9 [ input_str ~datalist state "Beschreibung" description ]
-        ]
-    ; frow
-        [ col4 [ input_number ~step:1. state "Betten" beds ]
-        ; col4 [ input_number ~step:0.01 state "Preis" price_per_bed ]
-        ; col4
-            ~c:[ "align-self-end"; "text-right" ]
-            [ view_delete_button delete "Zimmer löschen" ]
-        ]
-    ]
-;;
-
-let view_guest delete state ids =
-  let block, (given, (family, (born, ()))) = ids in
-  Bs.Grid.
-    [ frow [ col (prepend_err_div state block []) ]
-    ; frow
-        [ col [ input_str state "Vorname(n)" given ]
-        ; col [ input_str state "Nachname" family ]
-        ]
-    ; frow
-        [ col [ input_str state "Geburtsdatum" ~type_:"date" born ]
-        ; col
-            ~c:[ "align-self-end"; "text-right" ]
-            [ view_delete_button delete "Gast löschen" ]
-        ]
-    ]
-;;
-
 let textarea n state id attr =
   Form.Input.textarea state id (Attr.create "rows" (string_of_int n) :: attr)
 ;;
@@ -693,96 +457,6 @@ let save_btn ~sync ~inject =
 let uri_of_letter customer t =
   let date = Browser.Date.(now () |> to_locale_date_string) in
   Letter.(t ~date customer |> href)
-;;
-
-let view_booking ~inject ~sync (customer : Customer.t) selected state ids =
-  let ( block
-      , ( period
-        , ( deposit_asked
-          , ( deposit_got
-            , (tax_free, (note, ((guests, g_lst), ((positions, p_lst), (_invoice, ())))))
-            ) ) ) )
-    =
-    ids
-  in
-  let new_ lst_id _ev =
-    let state = Form.List.append state lst_id in
-    inject (Action.FormUpdate state)
-  in
-  let delete lst_id i _ev =
-    let state = Form.List.remove_nth state lst_id i in
-    inject (Action.FormUpdate state)
-  in
-  let new_g = new_ g_lst
-  and new_p = new_ p_lst
-  and new_b _evt = inject Action.NewBooking
-  and delete_g = delete g_lst
-  and delete_p = delete p_lst in
-  let guests =
-    (Node.h4 [] [ Node.text "Gäste" ]
-    :: List.concat_mapi guests ~f:(fun i ids ->
-           Node.hr [] :: view_guest (delete_g i) state ids))
-    @ [ Node.hr []
-      ; Node.div [] [ Bs.button ~i:(S "plus") ~action:new_g "Weiterer Gast" ]
-      ]
-  and allocs =
-    (Node.h4 [] [ Node.text "Positionen" ]
-    :: List.concat_mapi positions ~f:(fun i ids ->
-           Node.hr [] :: view_alloc (delete_p i) state ids))
-    @ [ Node.hr []
-      ; Node.div [] [ Bs.button ~i:(S "plus") ~action:new_p "Weitere Position" ]
-      ]
-  and main =
-    Bs.Grid.
-      [ Node.h4 [] [ Node.text "Aufenthalt" ]
-      ; Node.hr []
-      ; div [] (prepend_err_div state block [])
-      ; view_period state period
-      ; frow
-          [ col [ input_number ~step:0.01 state "Anzahlung gefordert" deposit_asked ]
-          ; col [ input_number ~step:0.01 state "Anzahlung erhalten" deposit_got ]
-          ]
-      ; frow [ col ~c:[ "mb-2" ] [ input_bool state "befreit von Kurtaxe" tax_free ] ]
-      ; frow [ col [ input_str ~input:(textarea 8) state "Notiz" note ] ]
-      ]
-  in
-  let excel =
-    match List.nth customer.bookings selected with
-    | None -> ""
-    | Some b -> Excel_br_2014_v2.of_customer_and_booking customer b
-  and confirmation =
-    match List.nth customer.bookings selected with
-    | None -> ""
-    | Some booking -> uri_of_letter customer (Letter.confirm ~booking)
-  and delete_b _evt = inject (Action.DeleteBooking selected)
-  and invoice_btn =
-    Bs.button
-      ~style:"info"
-      ~action:(fun _ -> inject (Action.LoadInvoice selected))
-      "Test: Rechnung"
-  in
-  Bs.Grid.
-    [ row [ col main; col allocs; col guests ]
-    ; frow
-        [ col_auto
-            ~c:[ "mb-2"; "mt-2" ]
-            [ Bs.button' ~href:confirmation ~blank:true "Bestätigung" ]
-        ; col_auto ~c:[ "mb-2"; "mt-2" ] [ Bs.button_clipboard ~value:excel "Excel" ]
-        ; col_auto ~c:[ "mb-2"; "mt-2" ] [ invoice_btn ]
-        ; col
-            [ frow
-                ~c:[ "justify-content-end" ]
-                [ col_auto
-                    ~c:[ "mb-2"; "mt-2" ]
-                    [ danger_btn delete_b "Buchung löschen" ]
-                ; col_auto
-                    ~c:[ "mb-2"; "mt-2" ]
-                    [ Bs.button ~action:new_b "Neue Buchung" ]
-                ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~inject ~sync ]
-                ]
-            ]
-        ]
-    ]
 ;;
 
 let letter_dropdown_id = id ()
@@ -853,8 +527,6 @@ let view_main ~sync ~inject customer state ids =
     ]
 ;;
 
-let _ = booking_entry_ids, view_booking (* TODO: get rid of redundant booking code *)
-
 let view_form ~bookings (model : Model.t Incr.t) ~inject =
   let open Vdom in
   let%map form = model >>| Model.form
@@ -866,12 +538,11 @@ let view_form ~bookings (model : Model.t Incr.t) ~inject =
   let save _evt = inject Action.Save in
   let rows =
     match nav with
-    | CData ->
-      view_main ~inject ~sync local form ids
+    | CData -> view_main ~inject ~sync local form ids
     | Booking (i, _) ->
-      match List.nth bookings i with
+      (match List.nth bookings i with
       | Some b -> [ Component.view b ]
-      | None -> []
+      | None -> [])
   in
   let touch _ _ = inject Action.Touch in
   Node.create "form" [ Attr.on "submit" save; Attr.on_input touch ] rows
@@ -915,37 +586,34 @@ let menu (m : Model.t) : Menu.t =
 
 let create ~(inject : Action.t -> Vdom.Event.t)
            (model : Model.t Incr.t) =
-  let invoice =
-    let inject = Fn.compose inject Action.invoiceform
-    and form_model = model >>| Model.invoice_form in
-    Invoice_form.create ~env:() ~inject form_model
-  in
   let bookings =
     (* This cannot be efficient. Fix? TODO *)
     let%bind bookings = model >>| Model.bookings
-    and nav = model >>| Model.nav >>| function
-      | (_, Booking (_, bnav)) -> bnav
+    and nav =
+      model
+      >>| Model.nav
+      >>| function
+      | _, Booking (_, bnav) -> bnav
       | _ -> Nav.BData
     in
     List.mapi bookings ~f:(fun i (_, b) ->
         let inject = Fn.compose inject (Action.booking i)
-        and env =
+        and env : Booking_form.env =
           { nav = Incr.const nav
           ; customer = model >>| Model.local
-          ; new_booking = Fn.compose inject (fun _b -> Action.newbooking)
-                (* TODO: use _b booking proposed by child component *)
-          ; delete_booking = Fn.compose inject
-                (fun () -> Action.deletebooking i)
+          ; new_booking =
+              Fn.compose inject (fun _b -> Action.newbooking)
+              (* TODO: use _b booking proposed by child component *)
+          ; delete_booking = Fn.compose inject (fun () -> Action.deletebooking i)
           }
         in
         Booking_form.create ~env ~inject (Incr.const b))
     |> Incr.all
   in
   let%map model = model
-  and invoice = invoice
   and bookings = bookings
   and view = view ~bookings ~inject model in
-  let apply_action = apply_action ~bookings ~invoice model
+  let apply_action = apply_action ~bookings model
   and extra : Menu.t * Customer.t =
     let c = model.local in
     let bookings = List.map ~f:Component.extra bookings in
