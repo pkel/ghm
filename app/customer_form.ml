@@ -24,109 +24,6 @@ open Incr_dom
 open Incr_dom_widgets
 open Incr.Let_syntax
 
-let last_id = ref (-1)
-
-let id () =
-  incr last_id;
-  sprintf "customer_form_%i" !last_id
-;;
-
-module Form_description = struct
-  let name =
-    let open Form.Description in
-    let unvalidated =
-      let open Of_record in
-      build_for_record
-        (Customer.Name.Fields.make_creator
-           ~title:(field string)
-           ~given:(field string)
-           ~letter:(field string)
-           ~family:(field string))
-    in
-    conv unvalidated ~f:(fun t _ ~block_id:_ ->
-        let errors = [] in
-        if List.is_empty errors then Ok t else Error errors)
-  ;;
-
-  let company =
-    let open Form.Description in
-    let unvalidated =
-      let open Of_record in
-      build_for_record
-        (Customer.Company.Fields.make_creator
-           ~name:(field string)
-           ~address:(field string))
-    in
-    conv unvalidated ~f:(fun t _ ~block_id:_ ->
-        let errors = [] in
-        if List.is_empty errors then Ok t else Error errors)
-  ;;
-
-  let address =
-    let open Form.Description in
-    let unvalidated =
-      let open Of_record in
-      build_for_record
-        (Customer.Address.Fields.make_creator
-           ~street_with_num:(field string)
-           ~postal_code:(field string)
-           ~city:(field string)
-           ~country:(field string)
-           ~country_code:(field string))
-    in
-    conv unvalidated ~f:(fun t _ ~block_id:_ ->
-        let errors = [] in
-        if List.is_empty errors then Ok t else Error errors)
-  ;;
-
-  let contact =
-    let open Form.Description in
-    let unvalidated =
-      let open Of_record in
-      build_for_record
-        (Customer.Contact.Fields.make_creator
-           ~phone:(field string)
-           ~phone2:(field string)
-           ~mobile:(field string)
-           ~fax:(field string)
-           ~fax2:(field string)
-           ~mail:(field string)
-           ~mail2:(field string)
-           ~web:(field string))
-    in
-    conv unvalidated ~f:(fun t _ ~block_id:_ ->
-        let errors = [] in
-        if List.is_empty errors then Ok t else Error errors)
-  ;;
-
-  let nonempty_string errmsg =
-    let open Form.Description in
-    conv_without_block string ~f:(fun s id ->
-        match s with
-        | "" -> Error [ Form.Form_error.create ~id (Error.of_string errmsg) ]
-        | s -> Ok s)
-  ;;
-
-  let customer =
-    let open Form.Description in
-    let unvalidated =
-      let open Of_record in
-      build_for_record
-        (Customer.Fields.make_creator
-           ~name:(field name)
-           ~address:(field address)
-           ~company:(field company)
-           ~contact:(field contact)
-           ~keyword:(field (nonempty_string "Schlüsselwort darf nicht leer sein"))
-           ~note:(field string)
-           ~bookings:(field (not_editable ~default:[])))
-    in
-    conv unvalidated ~f:(fun t _ ~block_id:_ -> Ok t)
-  ;;
-end
-
-let customer_form = Form.create ~name:"customer form" Form_description.customer
-
 module Model = struct
   type visit =
     | Fresh
@@ -134,8 +31,7 @@ module Model = struct
   [@@deriving compare]
 
   type t =
-    { form : Form.State.t
-    ; remote : Customer.t
+    { remote : Customer.t
     ; local : Customer.t
     ; bookings : (visit * Booking_form.Model.t) list
     ; nav : Nav.noi * Nav.customer
@@ -146,8 +42,7 @@ module Model = struct
   [@@deriving compare, fields]
 
   let load nav (c : Customer.t) =
-    { form = Form.State.create ~init:c customer_form
-    ; remote = c
+    { remote = c
     ; local = c
     ; nav
     ; touched_at = Int.max_value
@@ -169,8 +64,48 @@ module Model = struct
 end
 
 module Action = struct
+  type name =
+    | Title of string
+    | Letter of string
+    | Given of string
+    | Family of string
+  [@@deriving sexp_of, variants]
+
+  type address =
+    | Street_with_num of string
+    | Postal_code of string
+    | City of string
+    | Country of string
+    | Country_code of string
+  [@@deriving sexp_of, variants]
+
+  type contact =
+    | Phone of string
+    | Phone2 of string
+    | Mobile of string
+    | Fax of string
+    | Fax2 of string
+    | Mail of string
+    | Mail2 of string
+    | Web of string
+  [@@deriving sexp_of, variants]
+
+  type company =
+    | Company_name of string
+    | Company_address of string
+  [@@deriving sexp_of, variants]
+
+  type customer =
+    | Name of name
+    | Company of company
+    | Address of address
+    | Contact of contact
+    | Keyword of string
+    | Note of string
+  [@@deriving sexp_of, variants]
+
   type t =
-    | FormUpdate of Form.State.t sexp_opaque
+    | Customer of customer
     | NavChange of (Nav.noi * Nav.customer) sexp_opaque
     | GotCustomer of (int * Customer.t) Or_error.t
     | PostedCustomer of (int * Customer.t) Or_error.t
@@ -205,6 +140,57 @@ let fresh_booking () =
     }
 ;;
 
+let apply_form_action x =
+  let open Action in
+  let open Customer in
+  function
+  | Name action ->
+    let name =
+      let x = x.name in
+      match action with
+      | Title title -> { x with title }
+      | Letter letter -> { x with letter }
+      | Given given -> { x with given }
+      | Family family -> { x with family }
+    in
+    { x with name }
+  | Address action ->
+    let address =
+      let x = x.address in
+      match action with
+      | Street_with_num street_with_num -> { x with street_with_num }
+      | Postal_code postal_code -> { x with postal_code }
+      | City city -> { x with city }
+      | Country country -> { x with country }
+      | Country_code country_code -> { x with country_code }
+    in
+    { x with address }
+  | Contact action ->
+    let contact =
+      let x = x.contact in
+      match action with
+      | Phone phone -> { x with phone }
+      | Phone2 phone2 -> { x with phone2 }
+      | Mobile mobile -> { x with mobile }
+      | Fax fax -> { x with fax }
+      | Fax2 fax2 -> { x with fax2 }
+      | Mail mail -> { x with mail }
+      | Mail2 mail2 -> { x with mail2 }
+      | Web web -> { x with web }
+    in
+    { x with contact }
+  | Company action ->
+    let company =
+      let x = x.company in
+      match action with
+      | Company_name name -> { x with name }
+      | Company_address address -> { x with address }
+    in
+    { x with company }
+  | Note note -> { x with note }
+  | Keyword keyword -> { x with keyword }
+;;
+
 let apply_action
     ~bookings
     (model : Model.t)
@@ -215,6 +201,7 @@ let apply_action
   =
   let conn = state.connection in
   match action with
+  | Customer action -> { model with local = apply_form_action model.local action }
   | Touched ->
     (* We waited some time after a touch *)
     let () =
@@ -231,7 +218,8 @@ let apply_action
           (after (Time_ns.Span.of_sec 0.3) >>| fun () -> schedule_action Action.Touched))
     in
     { model with sync = false; touched_at = Browser.Date.(to_int (now ())) }
-  | Save ->
+  | Save -> model
+  (* TODO: saving
     let c_opt, form = Form.State.read_value model.form customer_form in
     let model = { model with form } in
     Log.form form;
@@ -250,10 +238,7 @@ let apply_action
             ~handler
             Remote.(Customer.patch id |> finalize conn)
       in
-      { model with local })
-  | FormUpdate form ->
-    schedule_action Action.Touch;
-    { model with form }
+      { model with local }) *)
   | NewBooking ->
     let init =
       let i =
@@ -328,127 +313,105 @@ let apply_action
     { model with bookings }
 ;;
 
+module Fields = struct
+  open Interactive
+  open Vdom
+
+  (* This is called once on Incr node construction, I hope. Use this fact for
+   * deriving id's and link labels *)
+
+  let input ?init label =
+    let attrs = [ Attr.class_ "form-control" ] in
+    Primitives.text ?init ~attrs ()
+    |> map_nodes ~f:(fun nodes -> Node.label [] [ Node.text label ] :: nodes)
+    |> wrap_in_div ~attrs:[ Attr.class_ "form-group" ]
+  ;;
+
+  let textarea ?init ~nrows label =
+    let attrs =
+      let open Attr in
+      [ class_ "form-control"; create "rows" (string_of_int nrows) ]
+    in
+    Primitives.text_area ?init ~attrs ()
+    |> map_nodes ~f:(fun nodes -> Node.label [] [ Node.text label ] :: nodes)
+    |> wrap_in_div ~attrs:[ Attr.class_ "form-group" ]
+  ;;
+end
+
 open Vdom
 
-let err_of_block state id =
-  let msg err =
-    String.strip ~drop:(fun c -> Char.equal c '"') (Error.to_string_hum err)
-  in
-  Option.map (Form.State.error state id) ~f:(fun x -> Node.text (msg x))
-;;
+module View = struct
+  open Action
+  open Fields
+  open Interactive
+  open Incr.Let_syntax
 
-let err_div_of_block state id =
-  Option.map (err_of_block state id) ~f:(fun x ->
-      Node.div [ Attr.classes [ "alert"; "alert-danger" ] ] [ x ])
-;;
+  let name ~inject (x : Customer.Name.t) =
+    let inject a = inject (Name a) in
+    let%map title = render (input ~init:x.title "Titel") ~inject ~on_input:title
+    and letter = render (input "Anrede Brief") ~inject ~on_input:letter
+    and given = render (input "Vorname") ~inject ~on_input:given
+    and family = render (input "Nachname") ~inject ~on_input:family in
+    Bs.Grid.
+      [ frow [ col4 [ title ]; col8 [ letter ] ]; frow [ col [ given ]; col [ family ] ] ]
+  ;;
 
-let prepend_err_div state (id : Form.Block.t Form.Id.t) rows =
-  match err_div_of_block state id with
-  | Some x -> x :: rows
-  | None -> rows
-;;
+  let company ~inject =
+    let inject a = inject (Company a) in
+    let%map name = render (input "Firma") ~inject ~on_input:company_name
+    and address = render (input "Abteilung") ~inject ~on_input:company_address in
+    Bs.Grid.[ frow [ col [ name ] ]; frow [ col [ address ] ] ]
+  ;;
 
-let group = Node.div [ Attr.class_ "form-group" ]
+  let address ~inject =
+    let inject a = inject (Address a) in
+    let%map street_with_num =
+      render (input "Straße und Hausnummer") ~inject ~on_input:street_with_num
+    and postal_code = render (input "Postleitzahl") ~inject ~on_input:postal_code
+    and city = render (input "Ort") ~inject ~on_input:city
+    and country = render (input "Land") ~inject ~on_input:country
+    and country_code = render (input "Code") ~inject ~on_input:country_code in
+    Bs.Grid.
+      [ frow [ col [ street_with_num ] ]
+      ; frow [ col4 [ postal_code ]; col8 [ city ] ]
+      ; frow [ col8 [ country ]; col4 [ country_code ] ]
+      ]
+  ;;
 
-let input_str
-    ?(attr = []) ?(input = Form.Input.text) ?(type_ = "text") ?datalist state label id
-  =
-  let classes, error =
-    match err_of_block state id with
-    | None -> [], []
-    | Some m -> [ "is-invalid" ], [ Node.div [ Attr.class_ "invalid-feedback" ] [ m ] ]
-  in
-  let attr, datalist =
-    match datalist with
-    | None -> attr, []
-    | Some (id, l) ->
-      ( Attr.create "list" id :: attr
-      , [ Node.create
-            "datalist"
-            [ Attr.id id ]
-            (List.map l ~f:(fun s -> Node.create "option" [ Attr.value s ] []))
-        ] )
-  in
-  group
-    ([ Form.Input.label id [] [ Node.text label ]
-     ; input
-         state
-         id
-         (Attr.classes ("form-control" :: classes) :: Attr.type_ type_ :: attr)
-     ]
-    @ error
-    @ datalist)
-;;
+  let contact ~inject =
+    let inject a = inject (Contact a) in
+    let%map phone = render (input "Telefon") ~inject ~on_input:phone
+    and phone2 = render (input "Telefon") ~inject ~on_input:phone2
+    and mobile = render (input "Mobile") ~inject ~on_input:mobile
+    and fax = render (input "Fax") ~inject ~on_input:fax
+    and fax2 = render (input "Fax") ~inject ~on_input:fax2
+    and mail = render (input "Mail") ~inject ~on_input:mail
+    and mail2 = render (input "Mail") ~inject ~on_input:mail2
+    and web = render (input "Internet") ~inject ~on_input:web in
+    Bs.Grid.
+      [ frow [ col [ phone ]; col [ phone2 ] ]
+      ; frow [ col [ mobile ] ]
+      ; frow [ col [ fax ]; col [ fax2 ] ]
+      ; frow [ col [ mail ] ]
+      ; frow [ col [ mail2 ] ]
+      ; frow [ col [ web ] ]
+      ]
+  ;;
 
-let dl1_id = id ()
-let dl2_id = id ()
-
-let view_name state ids =
-  let block, (title, (letter, (given, (family, ())))) = ids in
-  let titles, letters = List.unzip Customer.letter_by_title in
-  let titles = dl1_id, titles in
-  let letters = dl2_id, letters in
-  Bs.Grid.
-    [ frow [ col (prepend_err_div state block []) ]
-    ; frow
-        [ col4 [ input_str ~datalist:titles state "Titel" title ]
-        ; col8 [ input_str ~datalist:letters state "Anrede Brief" letter ]
-        ]
-    ; frow
-        [ col [ input_str state "Vorname" given ]
-        ; col [ input_str state "Nachname" family ]
-        ]
-    ]
-;;
-
-let view_company state ids =
-  let block, (name, (address, ())) = ids in
-  Bs.Grid.
-    [ frow [ col (prepend_err_div state block []) ]
-    ; frow [ col [ input_str state "Firma" name ] ]
-    ; frow [ col [ input_str state "Abteilung" address ] ]
-    ]
-;;
-
-let view_address state ids =
-  let block, (street_with_num, (postal_code, (city, (country, (country_code, ()))))) =
-    ids
-  in
-  Bs.Grid.
-    [ frow [ col (prepend_err_div state block []) ]
-    ; frow [ col [ input_str state "Straße und Hausnummer" street_with_num ] ]
-    ; frow
-        [ col4 [ input_str state "Postleitzahl" postal_code ]
-        ; col8 [ input_str state "Ort" city ]
-        ]
-    ; frow
-        [ col8 [ input_str state "Land" country ]
-        ; col4 [ input_str state "Code" country_code ]
-        ]
-    ]
-;;
-
-let view_contact state ids =
-  let block, (phone, (phone2, (mobile, (fax, (fax2, (mail, (mail2, (web, ())))))))) =
-    ids
-  in
-  Bs.Grid.
-    [ frow [ col (prepend_err_div state block []) ]
-    ; frow
-        [ col [ input_str state "Telefon" phone ]
-        ; col [ input_str state "Telefon" phone2 ]
-        ]
-    ; frow [ col [ input_str state "Mobil" mobile ] ]
-    ; frow [ col [ input_str state "Fax" fax ]; col [ input_str state "Fax" fax2 ] ]
-    ; frow [ col [ input_str state "Mail" mail ] ]
-    ; frow [ col [ input_str state "Mail" mail2 ] ]
-    ; frow [ col [ input_str state "Internet" web ] ]
-    ]
-;;
-
-let textarea n state id attr =
-  Form.Input.textarea state id (Attr.create "rows" (string_of_int n) :: attr)
-;;
+  let customer ~inject (x : Customer.t) =
+    let inject a = inject (Customer a) in
+    let%map name = name ~inject x.name
+    and company = company ~inject
+    and address = address ~inject
+    and contact = contact ~inject
+    and keyword = render (input "Schlüsselwort") ~inject ~on_input:keyword
+    and note = render (textarea ~nrows:8 "Notiz") ~inject ~on_input:note in
+    let left = Bs.Grid.((frow [ col [ keyword ] ] :: name) @ [ frow [ col [ note ] ] ])
+    and middle = address @ company
+    and right = contact in
+    Bs.Grid.[ row [ col left; col middle; col right ] ]
+  ;;
+end
 
 let danger_btn action title =
   Bs.button ~attr:[ Bs.tab_skip ] ~style:"outline-danger" ~action title
@@ -466,86 +429,83 @@ let uri_of_letter customer t =
   Letter.(t ~date customer |> href)
 ;;
 
-let letter_dropdown_id = id ()
+let letter_dropdown_id = "letter_dropdown_menu"
 
-let view_main ~sync ~inject customer state ids =
-  let block, (name, (company, (address, (contact, (keyword, (note, (_, ()))))))) = ids
-  and delete_c _evt = inject Action.DeleteCustomer
-  and new_b _evt = inject Action.NewBooking in
-  let left =
-    Bs.Grid.(
-      (frow [ col [ input_str state "Schlüsselwort" keyword ] ] :: view_name state name)
-      @ [ frow [ col [ input_str ~input:(textarea 8) state "Notiz" note ] ] ])
-  and middle = view_address state address @ view_company state company
-  and right = view_contact state contact
-  and letter_dropdown =
-    let items =
-      let f x =
-        let uri = uri_of_letter customer in
-        Node.a
-          Attr.[ class_ "dropdown-item"; href (uri (snd x)); create "target" "_blank" ]
-          [ Node.text (fst x) ]
-      and letters =
-        let open Letter in
-        [ "Leere Vorlage", blank ~attachments:[]
-        ; "Leere Vorlage (mit Anhang)", blank ~attachments:[ "Anhang 1"; "Anhang 2" ]
-        ; "Hausprospekt", flyer
-        ]
-      in
-      List.map ~f letters
+let letter_dropdown customer =
+  let items =
+    let f x =
+      let uri = uri_of_letter customer in
+      Node.a
+        Attr.[ class_ "dropdown-item"; href (uri (snd x)); create "target" "_blank" ]
+        [ Node.text (fst x) ]
+    and letters =
+      let open Letter in
+      [ "Leere Vorlage", blank ~attachments:[]
+      ; "Leere Vorlage (mit Anhang)", blank ~attachments:[ "Anhang 1"; "Anhang 2" ]
+      ; "Hausprospekt", flyer
+      ]
     in
-    Node.(
-      div
-        [ Attr.classes [ "dropdown"; "dropup" ] ]
-        [ a
-            Attr.
-              [ classes [ "btn"; "btn-secondary"; "dropdown-toggle" ]
-              ; href "#"
-              ; type_ "button"
-              ; id letter_dropdown_id
-              ; create "data-toggle" "dropdown"
-              ; create "aria-haspopup" "true"
-              ; create "aria-expanded" "false"
-              ]
-            [ Node.text "Brief" ]
-        ; div
-            Attr.[ class_ "dropdown-menu"; create "aria-labelledby" letter_dropdown_id ]
-            items
-        ])
+    List.map ~f letters
   in
-  Bs.Grid.
-    [ Node.h4 [] [ Node.text "Stammdaten" ]
-    ; Node.hr []
-    ; row (prepend_err_div state block [])
-    ; row [ col left; col middle; col right ]
-    ; frow
-        [ col_auto ~c:[ "mb-2"; "mt-2" ] [ letter_dropdown ]
-        ; col
-            [ frow
-                ~c:[ "justify-content-end" ]
-                [ col_auto ~c:[ "mb-2"; "mt-2" ] [ danger_btn delete_c "Kunde löschen" ]
-                ; col_auto
-                    ~c:[ "mb-2"; "mt-2" ]
-                    [ Bs.button ~action:new_b "Neue Buchung" ]
-                ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
-                ]
+  Node.(
+    div
+      [ Attr.classes [ "dropdown"; "dropup" ] ]
+      [ a
+          Attr.
+            [ classes [ "btn"; "btn-secondary"; "dropdown-toggle" ]
+            ; href "#"
+            ; type_ "button"
+            ; id letter_dropdown_id
+            ; create "data-toggle" "dropdown"
+            ; create "aria-haspopup" "true"
+            ; create "aria-expanded" "false"
             ]
-        ]
-    ]
+          [ Node.text "Brief" ]
+      ; div
+          Attr.[ class_ "dropdown-menu"; create "aria-labelledby" letter_dropdown_id ]
+          items
+      ])
+;;
+
+let view ~sync ~inject customer =
+  let delete_c _evt = inject Action.DeleteCustomer
+  and new_b _evt = inject Action.NewBooking in
+  let%map form = View.customer ~inject Customer.empty
+  (* TODO: changing the init customer triggers rebuild of all form fields.
+     Probably we need a model.init that is only changed on load. *)
+  and letter_dropdown = customer >>| letter_dropdown
+  and sync = sync in
+  Bs.Grid.(
+    (Node.h4 [] [ Node.text "Stammdaten" ] :: Node.hr [] :: form)
+    @ [ frow
+          [ col_auto ~c:[ "mb-2"; "mt-2" ] [ letter_dropdown ]
+          ; col
+              [ frow
+                  ~c:[ "justify-content-end" ]
+                  [ col_auto
+                      ~c:[ "mb-2"; "mt-2" ]
+                      [ danger_btn delete_c "Kunde löschen" ]
+                  ; col_auto
+                      ~c:[ "mb-2"; "mt-2" ]
+                      [ Bs.button ~action:new_b "Neue Buchung" ]
+                  ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
+                  ]
+              ]
+          ]
+      ])
 ;;
 
 let view_form ~bookings (model : Model.t Incr.t) ~inject =
   let open Vdom in
-  let%map form = model >>| Model.form
-  and local = model >>| Model.local
-  and sync = model >>| Model.sync
+  let%map form =
+    let sync = model >>| Model.sync in
+    view ~sync ~inject (model >>| Model.local)
   and bookings = bookings
   and nav = model >>| Model.nav >>| snd in
-  let ids = Form.State.field_ids form customer_form in
   let save _evt = inject Action.Save in
   let rows =
     match nav with
-    | CData -> view_main ~inject ~sync local form ids
+    | CData -> form
     | Booking (i, _) ->
       (match List.nth bookings i with
       | Some b -> [ Component.view b ]
