@@ -218,27 +218,25 @@ let apply_action
           (after (Time_ns.Span.of_sec 0.3) >>| fun () -> schedule_action Action.Touched))
     in
     { model with touched_at = Browser.Date.(to_int (now ())) }
-  | Save -> model
-  (* TODO: saving
-    let c_opt, form = Form.State.read_value model.form customer_form in
-    let model = { model with form } in
-    Log.form form;
-    (match c_opt with
-    | None -> model
-    | Some local ->
-      let () =
+  | Save ->
+    let () =
+      if model.local <> model.remote
+      then (
         match model.nav with
         | New, _ ->
           let handler = Fn.compose schedule_action Action.postedcustomer in
-          Request.XHR.send ~body:local ~handler Remote.(Customer.post |> finalize conn)
+          Request.XHR.send
+            ~body:model.local
+            ~handler
+            Remote.(Customer.post |> finalize conn)
         | Id id, _ ->
           let handler = Fn.compose schedule_action Action.patchedcustomer in
           Request.XHR.send
-            ~body:local
+            ~body:model.local
             ~handler
-            Remote.(Customer.patch id |> finalize conn)
-      in
-      { model with local }) *)
+            Remote.(Customer.patch id |> finalize conn))
+    in
+    model
   | NewBooking ->
     let init =
       let i =
@@ -246,9 +244,8 @@ let apply_action
         | Booking (i, _) -> i
         | _ -> 0
       in
-      match List.nth bookings i with
-      | Some c ->
-        let b : Booking.t = Component.extra c in
+      match List.nth model.local.bookings i with
+      | Some b ->
         { b with
           period = default_period ()
         ; deposit_asked = None
@@ -300,7 +297,21 @@ let apply_action
     Model.create' ~loading:true ~nav ()
   | NavChange nav -> { model with nav }
   | Booking (i, a) ->
+    (* TODO remove redundancy: *)
     let schedule_action = Fn.compose schedule_action (Action.booking i) in
+    let local =
+      let local = model.local in
+      let bookings =
+        List.mapi model.local.bookings ~f:(fun j b ->
+            if i <> j
+            then b
+            else (
+              match List.nth model.bookings i with
+              | Some (_, m) -> Booking_form.Model.read m
+              | None -> b))
+      in
+      { local with bookings }
+    in
     let bookings =
       List.mapi model.bookings ~f:(fun j (v, m) ->
           if i <> j
@@ -310,7 +321,7 @@ let apply_action
             | Some c -> v, Component.apply_action ~schedule_action c a state
             | None -> v, m))
     in
-    { model with bookings }
+    { model with bookings; local }
 ;;
 
 module Fields = struct
@@ -599,10 +610,6 @@ let create ~(inject : Action.t -> Vdom.Event.t)
   and bookings = bookings
   and view = view ~bookings ~inject model in
   let apply_action = apply_action ~bookings model
-  and extra : Menu.t * Customer.t =
-    let c = model.local in
-    let bookings = List.map ~f:Component.extra bookings in
-    menu model, { c with bookings }
-  in
+  and extra : Menu.t * Customer.t = menu model, model.local in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

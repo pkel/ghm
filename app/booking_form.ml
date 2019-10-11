@@ -29,6 +29,8 @@ module Model = struct
     ; invoice = Invoice_form.Model.load (Option.value ~default:Invoice.empty b.invoice)
     }
   ;;
+
+  let read x = x.local
 end
 
 module Action = struct
@@ -178,7 +180,12 @@ let apply_action
     { model with local }
   | Invoice action ->
     let schedule_action = Fn.compose schedule_action Action.invoice in
-    { model with invoice = Component.apply_action ~schedule_action invoice action state }
+    let invoice = Component.apply_action ~schedule_action invoice action state in
+    let local =
+      let x = model.local in
+      { x with invoice = Some (Invoice_form.Model.read invoice) }
+    in
+    { invoice; local }
 ;;
 
 open Vdom
@@ -347,10 +354,5 @@ let create ~env
     | Invoice -> invoice_view
   in
   let apply_action = apply_action ~invoice model in
-  let extra =
-    let b = model.local in
-    let invoice = Some (Component.extra invoice) (* TODO: filter empty invoice *) in
-    { b with invoice }
-  in
-  Component.create_with_extra ~apply_action ~extra model view
+  Component.create ~apply_action model view
 ;;

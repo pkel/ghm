@@ -10,6 +10,7 @@ module type FORM_COMPONENT = sig
     type t [@@deriving compare]
 
     val load : edit -> t
+    val read : t -> edit
   end
 
   module Action : sig
@@ -20,5 +21,5 @@ module type FORM_COMPONENT = sig
     :  env:env
     -> inject:Action.t inject
     -> Model.t Incr.t
-    -> (Action.t, Model.t, State.t, edit) Component.with_extra Incr.t
+    -> (Action.t, Model.t, State.t) Component.t Incr.t
 end

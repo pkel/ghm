@@ -26,6 +26,7 @@ module Model = struct
   ;;
 
   let load inv = { local = inv; dummy = () } |> ensure_empty_last
+  let read x = x.local
 end
 
 module Action = struct
@@ -224,5 +225,5 @@ let create ~env:()
   let%map model = model
   and view = view ~inject model in
   let apply_action = apply_action model in
-  Component.create_with_extra ~apply_action ~extra:model.local model view
+  Component.create ~apply_action model view
 ;;
