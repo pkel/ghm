@@ -299,19 +299,6 @@ let apply_action
   | Booking (i, a) ->
     (* TODO remove redundancy: *)
     let schedule_action = Fn.compose schedule_action (Action.booking i) in
-    let local =
-      let local = model.local in
-      let bookings =
-        List.mapi model.local.bookings ~f:(fun j b ->
-            if i <> j
-            then b
-            else (
-              match List.nth model.bookings i with
-              | Some (_, m) -> Booking_form.Model.read m
-              | None -> b))
-      in
-      { local with bookings }
-    in
     let bookings =
       List.mapi model.bookings ~f:(fun j (v, m) ->
           if i <> j
@@ -320,6 +307,11 @@ let apply_action
             match List.nth bookings i with
             | Some c -> v, Component.apply_action ~schedule_action c a state
             | None -> v, m))
+    in
+    let local =
+      let local = model.local in
+      let bookings = List.map bookings ~f:(fun (_, m) -> Booking_form.Model.read m) in
+      { local with bookings }
     in
     { model with bookings; local }
 ;;
