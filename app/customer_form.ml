@@ -4,8 +4,8 @@
      changes and handle database interaction
    - save booking
 
-   - fix form (switch to booking then back to CData)
-   - better: replace form with interactive
+   - (done) fix form (switch to booking then back to CData)
+   - (done) better: replace form with interactive
 
    - nav should not be part of the model
    - nav should be an incremental argument to the component
@@ -33,10 +33,10 @@ module Model = struct
   type t =
     { remote : Customer.t
     ; local : Customer.t
+    ; init : Customer.t
     ; bookings : (visit * Booking_form.Model.t) list
     ; nav : Nav.noi * Nav.customer
     ; touched_at : int
-    ; sync : bool
     ; loading : bool
     }
   [@@deriving compare, fields]
@@ -44,6 +44,7 @@ module Model = struct
   let load nav (c : Customer.t) =
     { remote = c
     ; local = c
+    ; init = c
     ; nav
     ; touched_at = Int.max_value
     ; bookings =
@@ -51,7 +52,6 @@ module Model = struct
           ~f:(fun b -> Saved (Booking.period b), Booking_form.Model.load b)
           c.bookings
     ; loading = false
-    ; sync = true
     }
   ;;
 
@@ -217,7 +217,7 @@ let apply_action
         don't_wait_for
           (after (Time_ns.Span.of_sec 0.3) >>| fun () -> schedule_action Action.Touched))
     in
-    { model with sync = false; touched_at = Browser.Date.(to_int (now ())) }
+    { model with touched_at = Browser.Date.(to_int (now ())) }
   | Save -> model
   (* TODO: saving
     let c_opt, form = Form.State.read_value model.form customer_form in
@@ -280,9 +280,9 @@ let apply_action
     in
     schedule_action Action.Touch;
     model
-  | PatchedCustomer (Ok remote) -> { model with remote; sync = model.local = remote }
+  | PatchedCustomer (Ok remote) -> { model with remote }
   | PostedCustomer (Ok (id, remote)) ->
-    { model with remote; nav = Nav.(Id id, snd model.nav); sync = model.local = remote }
+    { model with remote; nav = Nav.(Id id, snd model.nav) }
   | GotCustomer (Ok (id, remote)) -> Model.load Nav.(Id id, snd model.nav) remote
   | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
@@ -346,31 +346,42 @@ module View = struct
   open Interactive
   open Incr.Let_syntax
 
-  let name ~inject (x : Customer.Name.t) =
+  let name ~inject ~(init : Customer.Name.t) =
+    let x = init in
     let inject a = inject (Name a) in
     let%map title = render (input ~init:x.title "Titel") ~inject ~on_input:title
-    and letter = render (input "Anrede Brief") ~inject ~on_input:letter
-    and given = render (input "Vorname") ~inject ~on_input:given
-    and family = render (input "Nachname") ~inject ~on_input:family in
+    and letter = render (input ~init:x.letter "Anrede Brief") ~inject ~on_input:letter
+    and given = render (input ~init:x.given "Vorname") ~inject ~on_input:given
+    and family = render (input ~init:x.family "Nachname") ~inject ~on_input:family in
     Bs.Grid.
       [ frow [ col4 [ title ]; col8 [ letter ] ]; frow [ col [ given ]; col [ family ] ] ]
   ;;
 
-  let company ~inject =
+  let company ~inject ~(init : Customer.Company.t) =
+    let x = init in
     let inject a = inject (Company a) in
-    let%map name = render (input "Firma") ~inject ~on_input:company_name
-    and address = render (input "Abteilung") ~inject ~on_input:company_address in
+    let%map name = render (input ~init:x.name "Firma") ~inject ~on_input:company_name
+    and address =
+      render (input ~init:x.address "Abteilung") ~inject ~on_input:company_address
+    in
     Bs.Grid.[ frow [ col [ name ] ]; frow [ col [ address ] ] ]
   ;;
 
-  let address ~inject =
+  let address ~inject ~(init : Customer.Address.t) =
+    let x = init in
     let inject a = inject (Address a) in
     let%map street_with_num =
-      render (input "Straße und Hausnummer") ~inject ~on_input:street_with_num
-    and postal_code = render (input "Postleitzahl") ~inject ~on_input:postal_code
-    and city = render (input "Ort") ~inject ~on_input:city
-    and country = render (input "Land") ~inject ~on_input:country
-    and country_code = render (input "Code") ~inject ~on_input:country_code in
+      render
+        (input ~init:x.street_with_num "Straße und Hausnummer")
+        ~inject
+        ~on_input:street_with_num
+    and postal_code =
+      render (input ~init:x.postal_code "Postleitzahl") ~inject ~on_input:postal_code
+    and city = render (input ~init:x.city "Ort") ~inject ~on_input:city
+    and country = render (input ~init:x.country "Land") ~inject ~on_input:country
+    and country_code =
+      render (input ~init:x.country_code "Code") ~inject ~on_input:country_code
+    in
     Bs.Grid.
       [ frow [ col [ street_with_num ] ]
       ; frow [ col4 [ postal_code ]; col8 [ city ] ]
@@ -378,16 +389,17 @@ module View = struct
       ]
   ;;
 
-  let contact ~inject =
+  let contact ~inject ~(init : Customer.Contact.t) =
+    let x = init in
     let inject a = inject (Contact a) in
-    let%map phone = render (input "Telefon") ~inject ~on_input:phone
-    and phone2 = render (input "Telefon") ~inject ~on_input:phone2
-    and mobile = render (input "Mobile") ~inject ~on_input:mobile
-    and fax = render (input "Fax") ~inject ~on_input:fax
-    and fax2 = render (input "Fax") ~inject ~on_input:fax2
-    and mail = render (input "Mail") ~inject ~on_input:mail
-    and mail2 = render (input "Mail") ~inject ~on_input:mail2
-    and web = render (input "Internet") ~inject ~on_input:web in
+    let%map phone = render (input ~init:x.phone "Telefon") ~inject ~on_input:phone
+    and phone2 = render (input ~init:x.phone2 "Telefon") ~inject ~on_input:phone2
+    and mobile = render (input ~init:x.mobile "Mobile") ~inject ~on_input:mobile
+    and fax = render (input ~init:x.fax "Fax") ~inject ~on_input:fax
+    and fax2 = render (input ~init:x.fax2 "Fax") ~inject ~on_input:fax2
+    and mail = render (input ~init:x.mail "Mail") ~inject ~on_input:mail
+    and mail2 = render (input ~init:x.mail2 "Mail") ~inject ~on_input:mail2
+    and web = render (input ~init:x.web "Internet") ~inject ~on_input:web in
     Bs.Grid.
       [ frow [ col [ phone ]; col [ phone2 ] ]
       ; frow [ col [ mobile ] ]
@@ -398,14 +410,16 @@ module View = struct
       ]
   ;;
 
-  let customer ~inject (x : Customer.t) =
+  let customer ~inject ~(init : Customer.t) =
+    let x = init in
     let inject a = inject (Customer a) in
-    let%map name = name ~inject x.name
-    and company = company ~inject
-    and address = address ~inject
-    and contact = contact ~inject
-    and keyword = render (input "Schlüsselwort") ~inject ~on_input:keyword
-    and note = render (textarea ~nrows:8 "Notiz") ~inject ~on_input:note in
+    let%map name = name ~inject ~init:x.name
+    and company = company ~inject ~init:x.company
+    and address = address ~inject ~init:x.address
+    and contact = contact ~inject ~init:x.contact
+    and keyword =
+      render (input ~init:x.keyword "Schlüsselwort") ~inject ~on_input:keyword
+    and note = render (textarea ~init:x.note ~nrows:8 "Notiz") ~inject ~on_input:note in
     let left = Bs.Grid.((frow [ col [ keyword ] ] :: name) @ [ frow [ col [ note ] ] ])
     and middle = address @ company
     and right = contact in
@@ -467,12 +481,12 @@ let letter_dropdown customer =
       ])
 ;;
 
-let view ~sync ~inject customer =
+let view ~sync ~inject ~init customer =
   let delete_c _evt = inject Action.DeleteCustomer
   and new_b _evt = inject Action.NewBooking in
-  let%map form = View.customer ~inject Customer.empty
-  (* TODO: changing the init customer triggers rebuild of all form fields.
-     Probably we need a model.init that is only changed on load. *)
+  let%map form =
+    let%bind init = init in
+    View.customer ~inject ~init
   and letter_dropdown = customer >>| letter_dropdown
   and sync = sync in
   Bs.Grid.(
@@ -498,8 +512,12 @@ let view ~sync ~inject customer =
 let view_form ~bookings (model : Model.t Incr.t) ~inject =
   let open Vdom in
   let%map form =
-    let sync = model >>| Model.sync in
-    view ~sync ~inject (model >>| Model.local)
+    let sync =
+      let%map a = model >>| Model.remote
+      and b = model >>| Model.local in
+      a = b
+    and init = model >>| Model.init in
+    view ~sync ~inject ~init (model >>| Model.local)
   and bookings = bookings
   and nav = model >>| Model.nav >>| snd in
   let save _evt = inject Action.Save in
