@@ -541,23 +541,31 @@ let view ~bookings ~inject model =
   if loading then Incr.const Bs.Grid.loading_row else view_form ~bookings ~inject model
 ;;
 
-let menu (m : Model.t) : Menu.t =
+let menu ~bookings (m : Model.t) : Menu.t =
   let open Menu in
   let href nav = Href (Nav.href (Customer (fst m.nav, nav))) in
   let goto_main = href CData in
   let children =
     let f i v =
+      let active =
+        match snd m.nav with
+        | Booking (j, _) when j = i -> true
+        | _ -> false
+      in
       let title =
         match fst v with
         | Model.Fresh -> "Neue Buchung"
         | Saved p -> Period.to_string_hum ~sep:"-" p
-      and action = href (Booking (i, BData)) in
-      entry
-        title
-        action
-        (match snd m.nav with
-        | Booking (j, _) when j = i -> true
-        | _ -> false)
+      and action = href (Booking (i, BData))
+      and children =
+        if active
+        then (
+          match List.nth bookings i with
+          | Some c -> Component.extra c
+          | None -> [])
+        else []
+      in
+      entry ~children title action active
     in
     entry "Stammdaten" goto_main (snd m.nav = CData) :: List.mapi ~f m.bookings
   in
@@ -577,6 +585,7 @@ let create ~(inject : Action.t -> Vdom.Event.t)
   let bookings =
     (* This cannot be efficient. Fix? TODO *)
     let%bind bookings = model >>| Model.bookings
+    and nav' = model >>| Model.nav
     and nav =
       model
       >>| Model.nav
@@ -588,6 +597,7 @@ let create ~(inject : Action.t -> Vdom.Event.t)
         let inject = Fn.compose inject (Action.booking i)
         and env : Booking_form.env =
           { nav = Incr.const nav
+          ; rel = (fun b -> Nav.(Customer (fst nav', Booking (i, b))))
           ; customer = model >>| Model.local
           ; new_booking =
               Fn.compose inject (fun _b -> Action.newbooking)
@@ -602,6 +612,6 @@ let create ~(inject : Action.t -> Vdom.Event.t)
   and bookings = bookings
   and view = view ~bookings ~inject model in
   let apply_action = apply_action ~bookings model
-  and extra : Menu.t * Customer.t = menu model, model.local in
+  and extra : Menu.t * Customer.t = menu ~bookings model, model.local in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

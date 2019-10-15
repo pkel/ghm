@@ -21,5 +21,5 @@ module type FORM_COMPONENT = sig
     :  env:env
     -> inject:Action.t inject
     -> Model.t Incr.t
-    -> (Action.t, Model.t, State.t) Component.t Incr.t
+    -> (Action.t, Model.t, State.t, Menu.t) Component.with_extra Incr.t
 end

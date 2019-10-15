@@ -10,6 +10,7 @@ open Interfaces
 
 type env =
   { nav : Nav.booking Incr.t
+  ; rel : Nav.booking -> Nav.main
   ; customer : Customer.t Incr.t
   ; new_booking : Booking.t inject
   ; delete_booking : unit inject
@@ -353,6 +354,13 @@ let create ~env
     | BData -> bdata_view
     | Invoice -> invoice_view
   in
-  let apply_action = apply_action ~invoice model in
-  Component.create ~apply_action model view
+  let apply_action = apply_action ~invoice model
+  and extra =
+    let open Menu in
+    let rel x = Href (Nav.href (env.rel x)) in
+    [ entry "Eingabe" (rel Nav.BData) (phys_equal nav Nav.BData)
+    ; entry "Rechnung" (rel Nav.Invoice) (phys_equal nav Nav.Invoice)
+    ]
+  in
+  Component.create_with_extra ~extra ~apply_action model view
 ;;

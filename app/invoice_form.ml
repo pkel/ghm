@@ -224,6 +224,7 @@ let create ~env:()
            (model : Model.t Incr.t) =
   let%map model = model
   and view = view ~inject model in
-  let apply_action = apply_action model in
-  Component.create ~apply_action model view
+  let apply_action = apply_action model
+  and extra = [] in
+  Component.create_with_extra ~extra ~apply_action model view
 ;;
