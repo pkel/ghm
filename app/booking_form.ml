@@ -66,6 +66,7 @@ module Action = struct
   type t =
     | Booking of booking
     | Invoice of Invoice_form.Action.t
+    | Reload_invoice
   [@@deriving sexp_of, variants]
 end
 
@@ -113,6 +114,7 @@ end
 
 let apply_action
     ~invoice
+    ~customer
     (model : Model.t)
     (action : Action.t)
     (state : State.t)
@@ -187,6 +189,9 @@ let apply_action
       { x with invoice = Some (Invoice_form.Model.read invoice) }
     in
     { invoice; local }
+  | Reload_invoice ->
+    let invoice = Invoice_form.Model.load (Invoice_gen.gen customer model.local) in
+    { model with invoice }
 ;;
 
 open Vdom
@@ -339,8 +344,9 @@ let create ~env
            (model : Model.t Incr.t) =
   let invoice =
     let inject = Fn.compose inject Action.invoice
-    and model = model >>| Model.invoice in
-    Invoice_form.create ~env:() ~inject model
+    and model = model >>| Model.invoice
+    and env = { Invoice_form.reload = (fun () -> inject Action.Reload_invoice) } in
+    Invoice_form.create ~env ~inject model
   in
   let%map model = model
   and bdata_view =
@@ -348,13 +354,14 @@ let create ~env
     view ~env ~inject model
   and invoice_view = invoice >>| Component.view
   and nav = env.nav
-  and invoice = invoice in
+  and invoice = invoice
+  and customer = env.customer in
   let view =
     match nav with
     | BData -> bdata_view
     | Invoice -> invoice_view
   in
-  let apply_action = apply_action ~invoice model
+  let apply_action = apply_action ~customer ~invoice model
   and extra =
     let open Menu in
     let rel x = Href (Nav.href (env.rel x)) in

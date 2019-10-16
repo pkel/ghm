@@ -1,7 +1,14 @@
+(* TODO:
+   - make this an invoice option form.
+   - implement invoice number assignment.
+*)
+open Interfaces
 open Core_kernel
 open Ghm
 open Incr_dom
 open Incr.Let_syntax
+
+type env = { reload : unit inject }
 
 module Model = struct
   open Invoice
@@ -107,7 +114,7 @@ let apply_action (model : Model.t)
 open Vdom
 open Vdom_form
 
-let view (model : Model.t Incr.t) ~inject =
+let view (model : Model.t Incr.t) ~env ~inject =
   let title_f = labelled_input "Titel"
   and recipient_f = labelled_textfield ~rows:4 "Empfänger"
   and intro_f = labelled_textfield ~rows:1 "Freitext"
@@ -149,7 +156,7 @@ let view (model : Model.t Incr.t) ~inject =
   and letter_btn data =
     let href = Letter.(invoice (Model.strip_empty_pos data) |> href) in
     Bs.button' ~attr:Attr.[ create "target" "_blank" ] ~href "Drucken"
-  in
+  and reload_btn = Bs.button ~action:(fun _ -> env.reload ()) "Daten übernehmen" in
   let rows =
     let open Bs.Grid in
     [ frow
@@ -213,17 +220,21 @@ let view (model : Model.t Incr.t) ~inject =
               ]
           ]
       ; frow [ col [ input closing_f data.closing Action.closing ] ]
-      ; frow ~c:[ "mt-2"; "mb-2" ] [ col_auto [ letter_btn data ] ]
+      ; frow
+          ~c:[ "mt-2"; "mb-2" ]
+          [ col_auto [ reload_btn ]
+          ; col [ frow ~c:[ "justify-content-end" ] [ col_auto [ letter_btn data ] ] ]
+          ]
       ]
   in
   Node.create "form" [] rows
 ;;
 
-let create ~env:()
+let create ~env
            ~(inject : Action.t -> Vdom.Event.t)
            (model : Model.t Incr.t) =
   let%map model = model
-  and view = view ~inject model in
+  and view = view ~env ~inject model in
   let apply_action = apply_action model
   and extra = [] in
   Component.create_with_extra ~extra ~apply_action model view
