@@ -189,7 +189,10 @@ let apply_action
     in
     { invoice; local }
   | Reload_invoice ->
-    let invoice = Invoice_form.Model.load (Invoice_gen.gen customer model.local) in
+    let invoice =
+      Invoice_form.Model.load
+        (Invoice_gen.gen ~date:(Ext_date.today ()) customer model.local)
+    in
     { model with invoice }
 ;;
 

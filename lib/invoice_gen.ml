@@ -1,5 +1,15 @@
-open Base
+open Core_kernel
 open Invoice
+
+let id x =
+  match x.date with
+  | None -> "n/a"
+  | Some d ->
+    let d = Date.day d
+    and m = Date.month d |> Month.to_int
+    and y = Date.year d mod 2000 in
+    sprintf "%i%i%i" y m d
+;;
 
 let gen ?date (c : Customer.t) (b : Booking.t) =
   let nights = Period.nights b.period

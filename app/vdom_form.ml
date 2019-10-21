@@ -19,7 +19,7 @@ let rec attrs_of_type =
 
 let group = Node.div [ Attr.class_ "form-group" ]
 
-let labelled_input =
+let labelled_input ?(append = []) ?(prepend = []) =
   let cnt = ref 0 in
   fun ?(type_ = Text) label ->
     let id =
@@ -28,19 +28,45 @@ let labelled_input =
     in
     fun ~nth ?on_input value ->
       let id = Printf.sprintf "labelled_input_%i_%i" id nth in
-      group
-        [ Node.label [ Attr.for_ id ] [ Node.text label ]
-        ; Node.input
-            ([ Attr.id id
-             ; Attr.class_ "form-control"
-             ; Attr.value value
-             ; (match on_input with
-               | Some on_input -> Attr.on_input (fun _ -> on_input)
-               | None -> Attr.disabled)
-             ]
-            @ attrs_of_type type_)
-            []
-        ]
+      let input =
+        Node.input
+          ([ Attr.id id
+           ; Attr.class_ "form-control"
+           ; Attr.value value
+           ; (match on_input with
+             | Some on_input -> Attr.on_input (fun _ -> on_input)
+             | None -> Attr.disabled)
+           ]
+          @ attrs_of_type type_)
+          []
+      in
+      let input =
+        match append, prepend with
+        | [], [] -> input
+        | _ ->
+          Node.div
+            [ Attr.class_ "input-group" ]
+            (List.concat
+               [ (match prepend with
+                 | [] -> []
+                 | l -> [ Node.div [ Attr.class_ "input-group-prepend" ] l ])
+               ; [ Node.input
+                     ([ Attr.id id
+                      ; Attr.class_ "form-control"
+                      ; Attr.value value
+                      ; (match on_input with
+                        | Some on_input -> Attr.on_input (fun _ -> on_input)
+                        | None -> Attr.disabled)
+                      ]
+                     @ attrs_of_type type_)
+                     []
+                 ]
+               ; (match append with
+                 | [] -> []
+                 | l -> [ Node.div [ Attr.class_ "input-group-append" ] l ])
+               ])
+      in
+      group [ Node.label [ Attr.for_ id ] [ Node.text label ]; input ]
 ;;
 
 let labelled_textfield =
