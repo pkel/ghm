@@ -1,7 +1,6 @@
 (* TODO:
    - use Incr_dom_widgets.Interactive (also on invoice)
    - (re)add no_tax checkbox
-   - allow invoice reset
 *)
 open Base
 open Incr_dom

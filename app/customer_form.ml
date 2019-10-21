@@ -2,7 +2,7 @@
    - database interaction should NOT be handled here
    - local customer is exposed via extra, upper level should observe
      changes and handle database interaction
-   - save booking
+   - (done) save booking
 
    - (done) fix form (switch to booking then back to CData)
    - (done) better: replace form with interactive
@@ -201,7 +201,9 @@ let apply_action
   =
   let conn = state.connection in
   match action with
-  | Customer action -> { model with local = apply_form_action model.local action }
+  | Customer action ->
+    schedule_action Action.Touch;
+    { model with local = apply_form_action model.local action }
   | Touched ->
     (* We waited some time after a touch *)
     let () =
@@ -238,6 +240,7 @@ let apply_action
     in
     model
   | NewBooking ->
+    schedule_action Action.Touch;
     let init =
       let i =
         match snd model.nav with
@@ -256,14 +259,14 @@ let apply_action
     in
     let bookings = (Model.Fresh, Booking_form.Model.load init) :: model.bookings
     and nav = fst model.nav, Nav.(Booking (0, BData)) in
-    schedule_action Action.Touch;
     { model with bookings; nav }
   | DeleteBooking i ->
+    schedule_action Action.Touch;
     let bookings = List.filteri ~f:(fun j _ -> i <> j) model.bookings in
     let nav = fst model.nav, Nav.(Booking (min i (List.length bookings - 1), BData)) in
-    schedule_action Action.Touch;
     { model with bookings; nav }
   | DeleteCustomer ->
+    schedule_action Action.Touch;
     let () =
       match model.nav with
       | New, _ -> Nav.(set Overview)
@@ -275,7 +278,6 @@ let apply_action
         in
         Request.XHR.send' ~handler Remote.(Customer.delete i |> finalize conn)
     in
-    schedule_action Action.Touch;
     model
   | PatchedCustomer (Ok remote) -> { model with remote }
   | PostedCustomer (Ok (id, remote)) ->
@@ -297,6 +299,7 @@ let apply_action
     Model.create' ~loading:true ~nav ()
   | NavChange nav -> { model with nav }
   | Booking (i, a) ->
+    schedule_action Action.Touch;
     (* TODO remove redundancy: *)
     let schedule_action = Fn.compose schedule_action (Action.booking i) in
     let bookings =
@@ -532,8 +535,7 @@ let view_form ~bookings (model : Model.t Incr.t) ~inject =
       | Some b -> [ Component.view b ]
       | None -> [])
   in
-  let touch _ _ = inject Action.Touch in
-  Node.create "form" [ Attr.on "submit" save; Attr.on_input touch ] rows
+  Node.create "form" [ Attr.on "submit" save ] rows
 ;;
 
 let view ~bookings ~inject model =
