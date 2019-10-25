@@ -1,6 +1,6 @@
 (executables
- (names combit)
- (libraries csv ghm str sexplib yojson)
+ (names combit backup)
+ (libraries csv ghm str sexplib yojson cohttp-lwt-unix)
  (preprocess (pps
   js_of_ocaml-ppx ppx_jane ppxlib.runner
-  ppx_deriving_yojson)))
+  ppx_deriving_yojson ppx_deriving_cmdliner)))

@@ -3,7 +3,7 @@ base_uri := $(shell source svc/.env; echo $$base_uri)
 .PHONY: all watch format serve svc-up svc-init svc-psql import pwd clean-db clean
 
 all:
-	dune build app/app.bc.js tools/combit.exe
+	dune build app/app.bc.js tools/{combit.exe,backup.exe}
 	cp _build/default/app/app.bc.js webroot/app.js
 
 opt:

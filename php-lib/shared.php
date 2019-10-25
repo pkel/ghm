@@ -49,17 +49,25 @@ function logout() {
   redirect_get('/', 'logout-success');
 }
 
-function login($username, $password){
+function login($username, $password, $headless=false){
   $query = "SELECT auth.user_role(:id, :pass)";
   $stmt = pdo()->prepare($query);
   $stmt->execute(array(':id' => $username, ':pass' => $password));
   $role = $stmt->fetch()[0];
   if ($role === NULL) {
-    redirect_get('/', "login-fail");
+    if ($headless) {
+      fail(401);
+    } else {
+      redirect_get('/', "login-fail");
+    }
   } else {
     $_SESSION['user']=$username;
     $_SESSION['role']=$role;
-    redirect_get('/');
+    if ($headless) {
+      token ();
+    } else {
+      redirect_get('/');
+    }
   }
 }
 

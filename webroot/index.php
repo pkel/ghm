@@ -109,6 +109,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   case 'login':
     login(trim($post['username']), $post['password']);
     break;
+  case 'token':
+    login(trim($post['username']), $post['password'], true);
+    break;
   case 'logout':
     logout();
     break;
