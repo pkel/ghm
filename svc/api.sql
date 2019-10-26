@@ -5,7 +5,8 @@ create table customers (
     created timestamp not null default now (),
     modified timestamp not null default now (),
     data jsonb not null,
-    keyword text not null);
+    /* extract keyword from data for filtering */
+    keyword text generated always as (data->>'keyword') stored not null check (length(keyword) > 0));
 
 create table bookings (
     id bigint generated always as identity primary key,
@@ -13,6 +14,7 @@ create table bookings (
     created timestamp not null default now (),
     modified timestamp not null default now (),
     data jsonb not null,
+    /* extract dates from data for filtering (* TODO *) */
     arrival date not null,
     departure date not null);
 

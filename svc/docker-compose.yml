@@ -9,7 +9,7 @@ services:
       - db
   db:
     restart: always
-    image: postgres:10
+    image: postgres:12
     environment:
       POSTGRES_DB: ${db_name}
       POSTGRES_USER: ${db_root_user}

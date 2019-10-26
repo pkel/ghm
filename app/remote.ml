@@ -55,7 +55,7 @@ module Customer = struct
   type id = int
 
   type foreign =
-    { id : int [@key "customer_id"]
+    { id : int
     ; data : Customer.t
     }
   [@@deriving of_yojson { strict = false }]
@@ -71,14 +71,14 @@ module Customer = struct
   let delete id =
     Request.(
       create ~url:(base_url "customers")
-      |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
+      |> param ~key:"id" ~value:(sprintf "eq.%i" id)
       |> verb DELETE)
   ;;
 
   let get id =
     Request.(
       get_single_customer
-      |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
+      |> param ~key:"id" ~value:(sprintf "eq.%i" id)
       |> map_resp ~f:(fun x -> x.data))
   ;;
 
@@ -99,7 +99,7 @@ module Customer = struct
   let patch id =
     Request.(
       verb PATCH give_single
-      |> param ~key:"customer_id" ~value:(sprintf "eq.%i" id)
+      |> param ~key:"id" ~value:(sprintf "eq.%i" id)
       |> header ~key:"Prefer" ~value:"return=representation"
       |> map_resp ~f:(fun x -> x.data))
   ;;
@@ -117,7 +117,7 @@ module Customers = struct
   type foreign = Customer.foreign list [@@deriving of_yojson]
 
   let string_of_key = function
-    | Id -> "customer_id"
+    | Id -> "id"
     | Modified -> "modified"
   ;;
 
