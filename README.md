@@ -8,3 +8,5 @@ Guesthouse management using [incr_dom](gh:incr_dom) (work in progress).
 
 * integrate `token.php` into `index.php` and do
   `index.php?action=token`. Yields single file php
+* save/fetch bookings separately from customers
+* Json Export for jMeldeschein
