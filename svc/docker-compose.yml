@@ -23,7 +23,6 @@ services:
       dockerfile: Dockerfile-for-php
     volumes:
       - ../webroot/:/var/www/html:z
-      - ../php-lib/:/var/www/lib:Z
     environment:
       DB_HOST: db
       DB_PORT: 5432

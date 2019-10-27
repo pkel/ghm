@@ -308,9 +308,13 @@ let on_startup ~schedule_action _model =
   Nav.listen ~handler:(Fn.compose schedule_action Action.navchange);
   schedule_action (Action.NavChange (Nav.get ()));
   Remote.connect ()
-  >>| function
-  | None -> assert false (* TODO: logout/redirect *)
-  | Some connection ->
-    let handle_error e = schedule_action (Action.Errors (Errors.Action.log e)) in
-    State.{ handle_error; connection }
+  >>|
+  let handle_error e = schedule_action (Action.Errors (Errors.Action.log e)) in
+  function
+  | None ->
+    let open Browser in
+    Window.alert window "Authentifizierung fehlgeschlagen (token)";
+    Location.replace (Window.location window) "?action=logout";
+    assert false
+  | Some connection -> State.{ handle_error; connection }
 ;;

@@ -15,7 +15,7 @@ type connection = { mutable token : string }
 type ('a, 'b) request = ('a, 'b) Request.t
 
 let finalize c = Request.bearer ~token:c.token
-let get_token = Request.(create ~url:"/token.php" |> want_text)
+let get_token = Request.(create ~url:"?action=token" |> want_text)
 
 let refresh c () =
   Request.XHR.Deferred.send' get_token
