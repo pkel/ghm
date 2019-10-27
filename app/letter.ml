@@ -90,7 +90,7 @@ Ihre schriftliche Zimmerreservierung. |}
 ;;
 
 let base_date_to_string d =
-  Date_yojson.to_string d |> Browser.Date.of_string |> Browser.Date.to_locale_date_string
+  Date.to_string d |> Browser.Date.of_string |> Browser.Date.to_locale_date_string
 ;;
 
 let confirm ~(booking : Booking.t) =

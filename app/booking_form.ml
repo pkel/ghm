@@ -85,7 +85,7 @@ module P = struct
   ;;
 
   let date s =
-    match Date_yojson.of_string (string s) with
+    match Date.of_string (string s) with
     | f -> Some f
     | exception _ -> None
   ;;
@@ -103,7 +103,7 @@ module S = struct
   let int x = Int.to_string x
   let _float x = Float.to_string x
   let monetary x = Monetary.to_string_dot x
-  let date x = Date_yojson.to_string x
+  let date x = Date.to_string x
 
   let opt f = function
     | None -> ""

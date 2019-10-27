@@ -230,13 +230,13 @@ let apply_action
           Request.XHR.send
             ~body:model.local
             ~handler
-            Remote.(Customer.post |> finalize conn)
+            Remote.(Customer.S.post |> finalize conn)
         | Id id, _ ->
           let handler = Fn.compose schedule_action Action.patchedcustomer in
           Request.XHR.send
             ~body:model.local
             ~handler
-            Remote.(Customer.patch id |> finalize conn))
+            Remote.(Customer.S.patch id |> finalize conn))
     in
     model
   | NewBooking ->
@@ -276,7 +276,7 @@ let apply_action
             state.handle_error { gist = "Löschen fehlgeschlagen"; detail }
           | Ok () -> Nav.(set Overview)
         in
-        Request.XHR.send' ~handler Remote.(Customer.delete i |> finalize conn)
+        Request.XHR.send' ~handler Remote.(Customer.S.delete i |> finalize conn)
     in
     model
   | PatchedCustomer (Ok remote) -> { model with remote }
@@ -292,7 +292,7 @@ let apply_action
   | NavChange ((New, _) as nav) -> Model.create' ~nav ()
   | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
     let rq =
-      Request.map_resp ~f:(fun c -> i, c) Remote.(Customer.get i |> finalize conn)
+      Request.map_resp ~f:(fun c -> i, c) Remote.(Customer.S.get i |> finalize conn)
     in
     let handler = Fn.compose schedule_action Action.gotcustomer in
     Request.XHR.send' ~handler rq;

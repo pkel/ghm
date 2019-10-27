@@ -17,30 +17,56 @@ type 'a order =
   | Asc of 'a
   | Desc of 'a
 
-module Customer : sig
-  type t = Customer.t
-  type id = int
+module type RESOURCE = sig
+  type t
+  type id
+  type key
+  type filter
 
-  val get : id -> (unit, t) request
-  val post : (t, id * t) request
-  val patch : id -> (t, t) request
-  val delete : id -> (unit, unit) request
+  module S : sig
+    val get : id -> (unit, t) request
+    val post : (t, id * t) request
+    val patch : id -> (t, t) request
+    val delete : id -> (unit, unit) request
+  end
+
+  module M : sig
+    type nonrec t = (id * t) list
+
+    val get
+      :  ?offset:int
+      -> ?limit:int
+      -> ?sort:key order list
+      -> ?filter:filter
+      -> unit
+      -> (unit, t) request
+  end
 end
 
-module Customers : sig
-  type t = (int * Customer.t) list
+type customer_key =
+  | Id
+  | Modified
 
-  type key =
-    | Id
-    | Modified
+type customer_filter = Keyword of string
 
-  type filter = Keyword of string [@@deriving compare]
+module Customer :
+  RESOURCE
+  with type t := Customer.t
+   and type id := int
+   and type key := customer_key
+   and type filter := customer_filter
 
-  val get
-    :  ?offset:int
-    -> ?limit:int
-    -> ?sort:key order list
-    -> ?filter:filter
-    -> unit
-    -> (unit, t) request
-end
+type booking_key =
+  | Id
+  | Modified
+  | Arrival
+  | Departure
+
+type booking_filter = None
+
+module Booking :
+  RESOURCE
+  with type t := Booking.t
+   and type id := int
+   and type key := booking_key
+   and type filter := booking_filter

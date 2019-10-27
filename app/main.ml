@@ -95,7 +95,7 @@ let customer_page_size = 250
 let get_customers ~conn ~schedule_action ?(page = 0) ?filter () =
   let offset = if page > 0 then Some ((page * customer_page_size) + 1) else None in
   Request.XHR.send'
-    Remote.(Customers.get ?offset ~limit:customer_page_size ?filter () |> finalize conn)
+    Remote.(Customer.M.get ?offset ~limit:customer_page_size ?filter () |> finalize conn)
     ~handler:(fun r -> schedule_action (Action.GotCustomers (page, r)))
 ;;
 
@@ -113,7 +113,7 @@ let search_filter_of_input s =
   | "" -> None
   | s ->
     let s = (if l then "" else "%") ^ s ^ if r then "" else "%" in
-    Some (Remote.Customers.Keyword s)
+    Some (Keyword s : Remote.customer_filter)
 ;;
 
 let rec view_menu depth entries =
