@@ -1,6 +1,6 @@
 (executable
  (name app)
- (libraries ghm core_kernel incr_dom incr_dom_widgets incr_dom_partial_render yojson)
+ (libraries ghm core_kernel incr_dom incr_dom_widgets incr_dom_partial_render yojson gen_js_api)
  (preprocess (pps js_of_ocaml-ppx ppx_jane ppxlib.runner ppx_deriving_yojson)))
 
 (rule

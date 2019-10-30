@@ -12,68 +12,70 @@ module type REQUEST = sig
   val body : string -> t -> t
 end
 
+module Column : sig
+  type 'a t
+
+  val int : string -> int t
+  val string : string -> string t
+  val bool : string -> bool t
+  val date : string -> Date.t t
+end
+
 module Query : sig
-  type 'a column
-
-  val int : string -> int column
-  val string : string -> string column
-  val bool : string -> bool column
-  val date : string -> Date.t column
-
+  type t
   type select
 
-  val select : 'a column -> select
+  val select : 'a Column.t -> select
 
   type order
 
-  val desc : ?null:[ `First | `Last ] -> 'a column -> order
-  val asc : ?null:[ `First | `Last ] -> 'a column -> order
+  val desc : ?null:[ `First | `Last ] -> 'a Column.t -> order
+  val asc : ?null:[ `First | `Last ] -> 'a Column.t -> order
 
   type constr
 
-  val not_ : constr -> constr
-  val and_ : constr -> constr -> constr
-  val or_ : constr -> constr
+  val ( ! ) : constr -> constr
+  val ( && ) : constr -> constr -> constr
+  val ( || ) : constr -> constr -> constr
 
-  val query
+  val create
     :  ?select:select list
     -> ?filter:constr
     -> ?order:order list
     -> ?limit:int
     -> ?offset:int
     -> string
-    -> string
+    -> t
+
+  val to_string : t -> string
 
   module type EQUAL = sig
     type t
 
-    val eq : t column -> t -> constr
-    val neq : t column -> t -> constr
+    val ( = ) : t Column.t -> t -> constr
+    val ( <> ) : t Column.t -> t -> constr
   end
 
   module type COMPARE = sig
     type t
 
-    val gt : t column -> t -> constr
-    val gte : t column -> t -> constr
-    val lt : t column -> t -> constr
-    val lte : t column -> t -> constr
+    val ( > ) : t Column.t -> t -> constr
+    val ( >= ) : t Column.t -> t -> constr
+    val ( < ) : t Column.t -> t -> constr
+    val ( <= ) : t Column.t -> t -> constr
   end
 
   module type TEXT = sig
     type t
 
-    val gt : t column -> t -> constr
-    val gte : t column -> t -> constr
-    val lt : t column -> t -> constr
-    val lte : t column -> t -> constr
+    val like : t Column.t -> t -> constr
+    val ilike : t Column.t -> t -> constr
   end
 
   module Bool : sig
     type t = bool
 
-    val is_true : t column -> constr
-    val is_false : t column -> constr
+    include EQUAL with type t := t
   end
 
   module String : sig

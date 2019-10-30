@@ -1,4 +1,4 @@
 (library
  (name ghm)
- (libraries core_kernel yojson ppx_deriving_yojson.runtime gen_js_api base64 tyxml)
+ (libraries core_kernel yojson ppx_deriving_yojson.runtime base64 tyxml)
  (preprocess (pps ppx_deriving_yojson ppx_jane ppxlib.runner)))
