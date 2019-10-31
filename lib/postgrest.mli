@@ -12,64 +12,73 @@ module type REQUEST = sig
   val body : string -> t -> t
 end
 
-module Column : sig
-  type 'a t
+type 'a resource
+type ('a, 'b) column
 
-  val int : string -> int t
-  val string : string -> string t
-  val bool : string -> bool t
-  val date : string -> Date.t t
+module Setup : sig
+  val resource : string -> 'a resource
+
+  module Column : sig
+    type ('a, 'b) creator = 'a resource -> string -> ('a, 'b) column
+
+    val int : ('a, int) creator
+    val string : ('a, string) creator
+    val bool : ('a, bool) creator
+    val date : ('a, Date.t) creator
+  end
 end
 
 module Query : sig
-  type t
-  type select
+  type 'a t
+  type 'a select
 
-  val select : 'a Column.t -> select
+  val select : ('a, 'b) column -> 'a select
 
-  type order
+  type 'a order
 
-  val desc : ?null:[ `First | `Last ] -> 'a Column.t -> order
-  val asc : ?null:[ `First | `Last ] -> 'a Column.t -> order
+  val desc : ?null:[ `First | `Last ] -> ('a, 'b) column -> 'a order
+  val asc : ?null:[ `First | `Last ] -> ('a, 'b) column -> 'a order
 
-  type constr
+  type 'a constr
 
-  val ( ! ) : constr -> constr
-  val ( && ) : constr -> constr -> constr
-  val ( || ) : constr -> constr -> constr
+  val ( ! ) : 'a constr -> 'a constr
+  val ( && ) : 'a constr -> 'a constr -> 'a constr
+  val ( || ) : 'a constr -> 'a constr -> 'a constr
 
   val create
-    :  ?select:select list
-    -> ?filter:constr
-    -> ?order:order list
+    :  ?select:'a select list
+    -> ?filter:'a constr
+    -> ?order:'a order list
     -> ?limit:int
     -> ?offset:int
-    -> string
-    -> t
+    -> 'a resource
+    -> 'a t
 
-  val to_string : t -> string
+  val to_string : 'a t -> string
+
+  type ('a, 'b) op = ('a, 'b) column -> 'b -> 'a constr
 
   module type EQUAL = sig
     type t
 
-    val ( = ) : t Column.t -> t -> constr
-    val ( <> ) : t Column.t -> t -> constr
+    val ( = ) : ('a, t) op
+    val ( <> ) : ('a, t) op
   end
 
   module type COMPARE = sig
     type t
 
-    val ( > ) : t Column.t -> t -> constr
-    val ( >= ) : t Column.t -> t -> constr
-    val ( < ) : t Column.t -> t -> constr
-    val ( <= ) : t Column.t -> t -> constr
+    val ( > ) : ('a, t) op
+    val ( >= ) : ('a, t) op
+    val ( < ) : ('a, t) op
+    val ( <= ) : ('a, t) op
   end
 
   module type TEXT = sig
     type t
 
-    val like : t Column.t -> t -> constr
-    val ilike : t Column.t -> t -> constr
+    val like : ('a, t) op
+    val ilike : ('a, t) op
   end
 
   module Bool : sig

@@ -12,26 +12,33 @@ module type REQUEST = sig
   val body : string -> t -> t
 end
 
-module Column = struct
-  type 'a t = string
+type 'a resource = string
+type ('a, 'b) column = string
 
-  let column name = name
-  let string = column
-  let int = column
-  let bool = column
-  let date = column
+module Setup = struct
+  let resource s = s
+
+  module Column = struct
+    type ('a, 'b) creator = 'a resource -> string -> ('a, 'b) column
+
+    let column _ name = name
+    let string = column
+    let int = column
+    let bool = column
+    let date = column
+  end
 end
 
 module Query = struct
-  type t = string
+  type 'a t = string
 
   let to_string x = x
 
-  type select = string
+  type 'a select = string
 
   let select column = column
 
-  type order = string
+  type 'a order = string
 
   let order order ?null column =
     sprintf
@@ -47,16 +54,17 @@ module Query = struct
   let desc = order "desc"
   let asc = order "asc"
 
-  (* TODO: is this a nice encoding? *)
-  type constr =
-    { outer : unit -> string
-    ; inner : unit -> string
+  type _constr =
+    { outer : string lazy_t
+    ; inner : string lazy_t
     }
 
+  type 'a constr = _constr
+
   let opn name left right args =
-    let args = List.map ~f:(fun x -> x.inner ()) args |> String.concat ~sep:"," in
-    { outer = (fun () -> sprintf "%s=%s%s%s" name left args right)
-    ; inner = (fun () -> sprintf "%s%s%s%s" name left args right)
+    let args = List.map ~f:(fun x -> force x.inner) args |> String.concat ~sep:"," in
+    { outer = lazy (sprintf "%s=%s%s%s" name left args right)
+    ; inner = lazy (sprintf "%s%s%s%s" name left args right)
     }
   ;;
 
@@ -70,7 +78,7 @@ module Query = struct
     [ (match select with
       | [] -> None
       | _ -> Some (sprintf "select=%s" (String.concat ~sep:"," select)))
-    ; Option.map ~f:(fun { outer; _ } -> outer ()) filter
+    ; Option.map ~f:(fun x -> force x.outer) filter
     ; (match order with
       | [] -> None
       | _ -> Some (sprintf "order=%s" (String.concat ~sep:"," order)))
@@ -84,9 +92,11 @@ module Query = struct
     | params -> sprintf "%s?%s" resource params
   ;;
 
+  type ('a, 'b) op = ('a, 'b) column -> 'b -> 'a constr
+
   let op to_string op col x =
-    { inner = (fun () -> sprintf "%s.%s.%s" col op (to_string x))
-    ; outer = (fun () -> sprintf "%s=%s.%s" col op (to_string x))
+    { inner = lazy (sprintf "%s.%s.%s" col op (to_string x))
+    ; outer = lazy (sprintf "%s=%s.%s" col op (to_string x))
     }
   ;;
 
@@ -99,24 +109,24 @@ module Query = struct
   module type EQUAL = sig
     type t
 
-    val ( = ) : t Column.t -> t -> constr
-    val ( <> ) : t Column.t -> t -> constr
+    val ( = ) : ('a, t) op
+    val ( <> ) : ('a, t) op
   end
 
   module type COMPARE = sig
     type t
 
-    val ( > ) : t Column.t -> t -> constr
-    val ( >= ) : t Column.t -> t -> constr
-    val ( < ) : t Column.t -> t -> constr
-    val ( <= ) : t Column.t -> t -> constr
+    val ( > ) : ('a, t) op
+    val ( >= ) : ('a, t) op
+    val ( < ) : ('a, t) op
+    val ( <= ) : ('a, t) op
   end
 
   module type TEXT = sig
     type t
 
-    val like : t Column.t -> t -> constr
-    val ilike : t Column.t -> t -> constr
+    val like : ('a, t) op
+    val ilike : ('a, t) op
   end
 
   module Equal (T : TYP) : EQUAL with type t := T.t = struct
