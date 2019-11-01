@@ -1,31 +1,46 @@
+open Yojson.Safe
 open Core_kernel
 
-module type REQUEST = sig
-  type t
-
-  val delete : string -> t
-  val get : string -> t
-  val patch : string -> t
-  val post : string -> t
-  val put : string -> t
-  val header : key:string -> value:string -> t -> t
-  val body : string -> t -> t
-end
-
-type 'a resource = string
 type ('a, 'b) column = string
 
-module Setup = struct
-  let resource s = s
+module Resource = struct
+  type ('a, 'b, 'c) t =
+    { provide : 'b -> json
+    ; return : json -> 'c Or_error.t
+    ; name : string
+    ; select : string list
+    }
 
-  module Column = struct
-    type ('a, 'b) creator = 'a resource -> string -> ('a, 'b) column
+  module type SPEC = sig
+    val name : string
+    val select : string list
 
-    let column _ name = name
-    let string = column
-    let int = column
-    let bool = column
-    let date = column
+    type provide
+    type return
+
+    val provide : provide -> json
+    val return : json -> return Or_error.t
+  end
+
+  module Create (S : SPEC) = struct
+    open S
+
+    type provide = S.provide
+    type return = S.return
+    type 'a resource = ('a, provide, return) t
+    type t
+
+    let t : t resource = { provide; return; name; select }
+
+    module Column_creator = struct
+      type 'a creator = string -> (t, 'a) column
+
+      let gen x = x
+      let int = gen
+      let string = gen
+      let bool = gen
+      let date = gen
+    end
   end
 end
 
@@ -55,7 +70,7 @@ module Query = struct
   let asc = order "asc"
 
   type _constr =
-    { outer : string lazy_t
+    { param : Request.Url.param lazy_t
     ; inner : string lazy_t
     }
 
@@ -63,7 +78,9 @@ module Query = struct
 
   let opn name left right args =
     let args = List.map ~f:(fun x -> force x.inner) args |> String.concat ~sep:"," in
-    { outer = lazy (sprintf "%s=%s%s%s" name left args right)
+    { param =
+        lazy
+          (Request.Url.param ~key:name ~value:(Some (sprintf "%s%s%s" left args right)))
     ; inner = lazy (sprintf "%s%s%s%s" name left args right)
     }
   ;;
@@ -74,29 +91,13 @@ module Query = struct
   let ( && ) = op2 "and" "(" ")"
   let ( || ) = op2 "or" "(" ")"
 
-  let create ?(select = []) ?filter ?(order = []) ?limit ?offset resource =
-    [ (match select with
-      | [] -> None
-      | _ -> Some (sprintf "select=%s" (String.concat ~sep:"," select)))
-    ; Option.map ~f:(fun x -> force x.outer) filter
-    ; (match order with
-      | [] -> None
-      | _ -> Some (sprintf "order=%s" (String.concat ~sep:"," order)))
-    ; Option.map ~f:(fun i -> sprintf "limit=%i" i) limit
-    ; Option.map ~f:(fun i -> sprintf "offset=%i" i) offset
-    ]
-    |> List.filter_opt
-    |> String.concat ~sep:"&"
-    |> function
-    | "" -> resource
-    | params -> sprintf "%s?%s" resource params
-  ;;
-
   type ('a, 'b) op = ('a, 'b) column -> 'b -> 'a constr
 
   let op to_string op col x =
-    { inner = lazy (sprintf "%s.%s.%s" col op (to_string x))
-    ; outer = lazy (sprintf "%s=%s.%s" col op (to_string x))
+    { param =
+        lazy
+          (Request.Url.param ~key:col ~value:(Some (sprintf "%s.%s" op (to_string x))))
+    ; inner = lazy (sprintf "%s.%s.%s" col op (to_string x))
     }
   ;;
 
@@ -199,4 +200,37 @@ module Query = struct
     include Equal (T)
     include Compare (T)
   end
+end
+
+module Make
+    (R : Request.REQUEST) (C : sig
+        val to_json : R.body -> json
+        val of_json : json -> R.body
+    end) =
+struct
+  module Request = R
+  open Request
+  open Resource
+
+  let request = create
+  let give r = give ~content_type:"application/json" ~f:(Fn.compose C.of_json r.provide)
+  let want r = want ~accept:"application/json" ~f:(Fn.compose r.return C.to_json)
+  let create r = request POST (Url.url r.name []) |> give r
+
+  let read ?filter ?(order = []) ?limit ?offset r =
+    let open Url in
+    let params =
+      [ Option.map ~f:(fun x -> Query.(force x.param)) filter
+      ; (match order with
+        | [] -> None
+        | _ -> Some (param ~key:"order" ~value:(Some (String.concat ~sep:"," order))))
+      ; Option.map ~f:(fun i -> param ~key:"limit" ~value:(Some (Int.to_string i))) limit
+      ; Option.map
+          ~f:(fun i -> param ~key:"offset" ~value:(Some (Int.to_string i)))
+          offset
+      ]
+      |> List.filter_opt
+    in
+    request GET (Url.url r.name params) |> want r
+  ;;
 end

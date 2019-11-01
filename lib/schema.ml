@@ -1,22 +1,56 @@
+open Base
 open Postgrest
-open Setup
-open Column
+open Resource
+
+let parse ~f x =
+  match f x with
+  | Ok v -> Ok v
+  | Error s -> Or_error.error_string s
+;;
 
 module Customers = struct
-  type t
+  include Create (struct
+    type provide = Customer.t
 
-  let r : t resource = resource "customers"
-  let id = int r "modified"
-  let modified = date r "modified"
-  let keyword = date r "keyword"
+    type return =
+      { id : int
+      ; data : Customer.t
+      }
+    [@@deriving of_yojson]
+
+    let name = "customers"
+    let select = [ "id"; "data" ]
+    let provide = Customer.to_yojson
+    let return = parse ~f:return_of_yojson
+  end)
+
+  open Column_creator
+
+  let id = int "id"
+  let modified = date "modified"
+  let keyword = string "keyword"
 end
 
 module Bookings = struct
-  type t
+  include Create (struct
+    type provide = Booking.t
 
-  let r : t resource = resource "bookings"
-  let id = int r "id"
-  let modified = date r "modified"
-  let arrival = date r "arrival"
-  let departure = date r "departure"
+    type return =
+      { id : int
+      ; data : Booking.t
+      }
+    [@@deriving of_yojson]
+
+    let name = "bookings"
+    let select = [ "id"; "data" ]
+    let provide = Booking.to_yojson
+    let return = parse ~f:return_of_yojson
+  end)
+
+  open Column_creator
+
+  let id = int "id"
+  let modified = date "modified"
+  let arrival = date "arrival"
+  let departure = date "departure"
 end
