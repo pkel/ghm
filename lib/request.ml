@@ -45,7 +45,7 @@ module type REQUEST = sig
   val create : verb -> url -> (unit, unit) t
   val header : key:string -> value:string -> ('a, 'b) t -> ('a, 'b) t
   val give : content_type:string -> f:('a -> body) -> (unit, 'b) t -> ('a, 'b) t
-  val want : accept:string -> f:(body -> 'b) -> ('a, unit) t -> ('a, 'b) t
+  val want : accept:string -> f:(body -> 'b Or_error.t) -> ('a, unit) t -> ('a, 'b) t
   val map : f:('c -> 'a) -> ('a, 'b) t -> ('c, 'b) t
   val conv_resp : f:('b -> 'c Or_error.t) -> ('a, 'b) t -> ('a, 'c) t
   val map_resp : f:('b -> 'c) -> ('a, 'b) t -> ('a, 'c) t

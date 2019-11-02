@@ -106,11 +106,10 @@ module Query : sig
 end
 
 module Make
-    (R : Request.REQUEST) (C : sig
-        val to_json : R.body -> json
-        val of_json : json -> R.body
+    (Request : Request.REQUEST) (Conv : sig
+        val to_json : Request.body -> json Or_error.t
+        val of_json : json -> Request.body
     end) : sig
-  module Request = R
   open Query
 
   val create : ('a, 'b, 'c) Resource.t -> ('b, 'c) Request.t
