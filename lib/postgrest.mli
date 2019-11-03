@@ -105,11 +105,14 @@ module Query : sig
   end
 end
 
-module Make
-    (Request : Request.REQUEST) (Conv : sig
-        val to_json : Request.body -> json Or_error.t
-        val of_json : json -> Request.body
-    end) : sig
+module type REQUEST = sig
+  include Request.REQUEST
+
+  val give_json : ?content_type:string -> (unit, 'b) t -> (json, 'b) t
+  val want_json : ?accept:string -> ('a, unit) t -> ('a, json) t
+end
+
+module Make (Request : REQUEST) : sig
   open Query
 
   val create : ('a, 'b, 'c) Resource.t -> ('b, 'c) Request.t

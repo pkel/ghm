@@ -194,39 +194,30 @@ module Query = struct
   end
 end
 
-module Make
-    (Request : Request.REQUEST) (Conv : sig
-        val to_json : Request.body -> json Or_error.t
-        val of_json : json -> Request.body
-    end) =
-struct
+module type REQUEST = sig
+  include Request.REQUEST
+
+  val give_json : ?content_type:string -> (unit, 'b) t -> (json, 'b) t
+  val want_json : ?accept:string -> ('a, unit) t -> ('a, json) t
+end
+
+module Make (Request : REQUEST) = struct
   open Request
   open Resource
 
   let request = create
 
-  let give_s r =
-    give ~content_type:"application/json" ~f:(Fn.compose Conv.of_json r.provide)
-  ;;
-
-  let want_s r =
-    let f body = Conv.to_json body |> Or_error.bind ~f:r.return in
-    want ~accept:"application/json" ~f
-  ;;
-
-  let want_m r =
-    let f body =
-      Conv.to_json body
-      |> Or_error.(bind ~f:(fun json -> Util.convert_each r.return json |> Or_error.all))
-    in
-    want ~accept:"application/json" ~f
+  let conv_resp_list ~f =
+    conv_resp ~f:(fun json -> Util.convert_each f json |> Or_error.all)
   ;;
 
   let create r =
     request POST (Url.url r.name [])
-    |> give_s r
+    |> give_json
+    |> map ~f:r.provide
+    |> want_json
     |> header ~key:"Prefer" ~value:"return=representation"
-    |> want_s r
+    |> conv_resp ~f:r.return
   ;;
 
   let read ?filter ?(order = []) ?limit ?offset r =
@@ -243,14 +234,16 @@ struct
       ]
       |> List.filter_opt
     in
-    request GET (Url.url r.name params) |> want_m r
+    request GET (Url.url r.name params) |> want_json |> conv_resp_list ~f:r.return
   ;;
 
   let update filter r =
     request PUT (Url.url r.name Query.[ force filter.param ])
-    |> give_s r
+    |> give_json
+    |> map ~f:r.provide
     |> header ~key:"Prefer" ~value:"return=representation"
-    |> want_m r
+    |> want_json
+    |> conv_resp_list ~f:r.return
   ;;
 
   let delete filter r = request PUT (Url.url r.name Query.[ force filter.param ])
