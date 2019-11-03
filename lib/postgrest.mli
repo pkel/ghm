@@ -10,17 +10,15 @@ module Resource : sig
     val name : string
     val select : string list
 
-    type provide
-    type return
+    type a
+    type b
 
-    val provide : provide -> json
-    val return : json -> return Or_error.t
+    val provide : a -> json
+    val return : json -> b Or_error.t
   end
 
   module Create (S : SPEC) : sig
-    type provide = S.provide
-    type return = S.return
-    type 'a resource = ('a, provide, return) t
+    type 'a resource = ('a, S.a, S.b) t
     type t
 
     val t : t resource
@@ -127,4 +125,10 @@ module Make (Request : REQUEST) : sig
 
   val update : 'a constr -> ('a, 'b, 'c) Resource.t -> ('b, 'c list) Request.t
   val delete : 'a constr -> ('a, 'b, 'c) Resource.t -> (unit, unit) Request.t
+
+  (* TODO: add singular interface like
+     val unique : ('a, 'b) key -> 'b -> 'a unique
+     val read' : 'a unique -> ('a, 'b, 'c) Resource.t -> (unit, 'c) Request.t
+     val update' : 'a unique -> ('a, 'b, 'c) Resource.t -> ('b, 'c) Request.t
+  *)
 end

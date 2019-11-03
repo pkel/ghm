@@ -9,16 +9,19 @@ let parse ~f x =
 ;;
 
 module Customers = struct
+  type provide = Customer.t
+
+  type return =
+    { id : int
+    ; data : Customer.t
+    }
+  [@@deriving of_yojson, compare]
+
   include Create (struct
-    type provide = Customer.t
+    type a = provide
+    type b = return
 
-    type return =
-      { id : int
-      ; data : Customer.t
-      }
-    [@@deriving of_yojson]
-
-    let name = "customers"
+    let name = "api/customers"
     let select = [ "id"; "data" ]
     let provide = Customer.to_yojson
     let return = parse ~f:return_of_yojson
@@ -32,16 +35,19 @@ module Customers = struct
 end
 
 module Bookings = struct
+  type provide = Booking.t
+
+  type return =
+    { id : int
+    ; data : Booking.t
+    }
+  [@@deriving of_yojson, compare]
+
   include Create (struct
-    type provide = Booking.t
+    type a = provide
+    type b = return
 
-    type return =
-      { id : int
-      ; data : Booking.t
-      }
-    [@@deriving of_yojson]
-
-    let name = "bookings"
+    let name = "api/bookings"
     let select = [ "id"; "data" ]
     let provide = Booking.to_yojson
     let return = parse ~f:return_of_yojson

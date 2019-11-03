@@ -15,19 +15,17 @@ module Resource = struct
     val name : string
     val select : string list
 
-    type provide
-    type return
+    type a
+    type b
 
-    val provide : provide -> json
-    val return : json -> return Or_error.t
+    val provide : a -> json
+    val return : json -> b Or_error.t
   end
 
   module Create (S : SPEC) = struct
     open S
 
-    type provide = S.provide
-    type return = S.return
-    type 'a resource = ('a, provide, return) t
+    type 'a resource = ('a, S.a, S.b) t
     type t
 
     let t : t resource = { provide; return; name; select }
@@ -70,9 +68,7 @@ module Query = struct
 
   let opn name left right args =
     let args = List.map ~f:(fun x -> force x.inner) args |> String.concat ~sep:"," in
-    { param =
-        lazy
-          (Request.Url.param ~key:name ~value:(Some (sprintf "%s%s%s" left args right)))
+    { param = lazy (Request.Url.param name (sprintf "%s%s%s" left args right))
     ; inner = lazy (sprintf "%s%s%s%s" name left args right)
     }
   ;;
@@ -86,9 +82,7 @@ module Query = struct
   type ('a, 'b) op = ('a, 'b) column -> 'b -> 'a constr
 
   let op to_string op col x =
-    { param =
-        lazy
-          (Request.Url.param ~key:col ~value:(Some (sprintf "%s.%s" op (to_string x))))
+    { param = lazy (Request.Url.param col (sprintf "%s.%s" op (to_string x)))
     ; inner = lazy (sprintf "%s.%s.%s" col op (to_string x))
     }
   ;;
@@ -201,6 +195,8 @@ module type REQUEST = sig
   val want_json : ?accept:string -> ('a, unit) t -> ('a, json) t
 end
 
+module Url = Request.Url
+
 module Make (Request : REQUEST) = struct
   open Request
   open Resource
@@ -211,8 +207,10 @@ module Make (Request : REQUEST) = struct
     conv_resp ~f:(fun json -> Util.convert_each f json |> Or_error.all)
   ;;
 
+  let select r = Url.param "select" (String.concat ~sep:"," r.select)
+
   let create r =
-    request POST (Url.url r.name [])
+    request POST Url.(url r.name [ select r ])
     |> give_json
     |> map ~f:r.provide
     |> want_json
@@ -223,14 +221,13 @@ module Make (Request : REQUEST) = struct
   let read ?filter ?(order = []) ?limit ?offset r =
     let open Url in
     let params =
-      [ Option.map ~f:(fun x -> Query.(force x.param)) filter
+      [ Some (select r)
+      ; Option.map ~f:(fun x -> Query.(force x.param)) filter
       ; (match order with
         | [] -> None
-        | _ -> Some (param ~key:"order" ~value:(Some (String.concat ~sep:"," order))))
-      ; Option.map ~f:(fun i -> param ~key:"limit" ~value:(Some (Int.to_string i))) limit
-      ; Option.map
-          ~f:(fun i -> param ~key:"offset" ~value:(Some (Int.to_string i)))
-          offset
+        | _ -> Some (param "order" (String.concat ~sep:"," order)))
+      ; Option.map ~f:(fun i -> param "limit" (Int.to_string i)) limit
+      ; Option.map ~f:(fun i -> param "offset" (Int.to_string i)) offset
       ]
       |> List.filter_opt
     in
@@ -238,7 +235,7 @@ module Make (Request : REQUEST) = struct
   ;;
 
   let update filter r =
-    request PUT (Url.url r.name Query.[ force filter.param ])
+    request PUT (Url.url r.name Query.[ force filter.param; select r ])
     |> give_json
     |> map ~f:r.provide
     |> header ~key:"Prefer" ~value:"return=representation"

@@ -1,20 +1,12 @@
 open Core_kernel
-open Ghm
 open Incr_dom
 module Incr_map = Incr_map.Make (Incr)
 module Form = Incr_dom_widgets.Form
 module State = State
 
 module Model = struct
-  (* TODO: make this Customer.with_id? *)
-  type customer =
-    { id : int
-    ; data : Customer.t
-    }
-  [@@deriving compare]
-
   type t =
-    { customers : customer Int.Map.t option
+    { customers : Pg.Customers.return Int.Map.t option
     ; customer_table : Customer_table.Model.t
     ; customer_form : Customer_form.Model.t
     ; errors : Errors.Model.t
@@ -52,7 +44,7 @@ module Action = struct
     | CustomerTable of Customer_table.Action.t
     | CustomerForm of Customer_form.Action.t
     | Errors of Errors.Action.t
-    | GotCustomers of int (* page *) * (int * Customer.t) list Or_error.t
+    | GotCustomers of int (* page *) * Pg.Customers.return list sexp_opaque Or_error.t
   [@@deriving sexp_of, variants]
 end
 
@@ -94,8 +86,9 @@ let customer_page_size = 250
 
 let get_customers ~conn ~schedule_action ?(page = 0) ?filter () =
   let offset = if page > 0 then Some ((page * customer_page_size) + 1) else None in
-  Request.XHR.send'
-    Remote.(Customer.M.get ?offset ~limit:customer_page_size ?filter () |> finalize conn)
+  Xhr.send'
+    ~c:conn
+    Pg.(read ?offset ~limit:customer_page_size ?filter Customers.t)
     ~handler:(fun r -> schedule_action (Action.GotCustomers (page, r)))
 ;;
 
@@ -113,7 +106,8 @@ let search_filter_of_input s =
   | "" -> None
   | s ->
     let s = (if l then "" else "%") ^ s ^ if r then "" else "%" in
-    Some (Keyword s : Remote.customer_filter)
+    let open Pg.String in
+    Some Pg.(Customers.keyword = s)
 ;;
 
 let rec view_menu depth entries =
@@ -181,8 +175,7 @@ let create model ~old_model ~inject =
         model
       | GotCustomers (page, Ok l) ->
         let customers =
-          List.mapi l ~f:(fun i (id, data) ->
-              i + (page * customer_page_size), Model.{ id; data })
+          List.mapi l ~f:(fun i x -> i + (page * customer_page_size), x)
           |> Int.Map.of_alist_or_error
           |> function
           | Error detail ->
@@ -307,7 +300,7 @@ let on_startup ~schedule_action _model =
   let open Async_kernel in
   Nav.listen ~handler:(Fn.compose schedule_action Action.navchange);
   schedule_action (Action.NavChange (Nav.get ()));
-  Remote.connect ()
+  Xhr.connect ()
   >>|
   let handle_error e = schedule_action (Action.Errors (Errors.Action.log e)) in
   function

@@ -8,5 +8,5 @@ type error =
 
 type t =
   { handle_error : error -> unit
-  ; connection : Remote.connection
+  ; connection : Xhr.connection
   }

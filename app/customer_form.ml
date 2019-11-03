@@ -107,9 +107,9 @@ module Action = struct
   type t =
     | Customer of customer
     | NavChange of (Nav.noi * Nav.customer) sexp_opaque
-    | GotCustomer of (int * Customer.t) Or_error.t
-    | PostedCustomer of (int * Customer.t) Or_error.t
-    | PatchedCustomer of Customer.t Or_error.t
+    | GotCustomer of Pg.Customers.return sexp_opaque Or_error.t
+    | PostedCustomer of Pg.Customers.return sexp_opaque Or_error.t
+    | PatchedCustomer of Pg.Customers.return sexp_opaque Or_error.t
     | Save
     | Touch
     | Touched
@@ -227,16 +227,18 @@ let apply_action
         match model.nav with
         | New, _ ->
           let handler = Fn.compose schedule_action Action.postedcustomer in
-          Request.XHR.send
-            ~body:model.local
-            ~handler
-            Remote.(Customer.S.post |> finalize conn)
+          Xhr.send ~c:conn ~body:model.local ~handler Pg.(create Customers.t)
         | Id id, _ ->
           let handler = Fn.compose schedule_action Action.patchedcustomer in
-          Request.XHR.send
+          Xhr.send
+            ~c:conn
             ~body:model.local
             ~handler
-            Remote.(Customer.S.patch id |> finalize conn))
+            Pg.(
+              update Int.(Customers.id = id) Customers.t
+              |> Xhr.conv_resp ~f:(function
+                     | [ x ] -> Ok x (* TODO: Use singular Pg.update when ready *)
+                     | _ -> Or_error.errorf "expected single valued response")))
     in
     model
   | NewBooking ->
@@ -276,13 +278,13 @@ let apply_action
             state.handle_error { gist = "Löschen fehlgeschlagen"; detail }
           | Ok () -> Nav.(set Overview)
         in
-        Request.XHR.send' ~handler Remote.(Customer.S.delete i |> finalize conn)
+        Xhr.send' ~c:conn ~handler Pg.(delete Int.(Customers.id = i) Customers.t)
     in
     model
-  | PatchedCustomer (Ok remote) -> { model with remote }
-  | PostedCustomer (Ok (id, remote)) ->
-    { model with remote; nav = Nav.(Id id, snd model.nav) }
-  | GotCustomer (Ok (id, remote)) -> Model.load Nav.(Id id, snd model.nav) remote
+  | PatchedCustomer (Ok return) -> { model with remote = return.data }
+  | PostedCustomer (Ok return) ->
+    { model with remote = return.data; nav = Nav.(Id return.id, snd model.nav) }
+  | GotCustomer (Ok return) -> Model.load Nav.(Id return.id, snd model.nav) return.data
   | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
     model
@@ -292,10 +294,13 @@ let apply_action
   | NavChange ((New, _) as nav) -> Model.create' ~nav ()
   | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
     let rq =
-      Request.map_resp ~f:(fun c -> i, c) Remote.(Customer.S.get i |> finalize conn)
+      Pg.(read ~filter:Int.(Customers.id = i) Customers.t)
+      |> Xhr.conv_resp ~f:(function
+             | [ x ] -> Ok x (* TODO: use singular Pg.read when ready *)
+             | _ -> Or_error.errorf "expected singular response")
     in
     let handler = Fn.compose schedule_action Action.gotcustomer in
-    Request.XHR.send' ~handler rq;
+    Xhr.send' ~c:conn ~handler rq;
     Model.create' ~loading:true ~nav ()
   | NavChange nav -> { model with nav }
   | Booking (i, a) ->

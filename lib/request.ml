@@ -1,16 +1,19 @@
 open Base
 
 module Url : sig
-  type url
+  type t
   type param
 
-  val param : key:string -> value:string option -> param
-  val url : string -> param list -> url
+  val param : string -> string -> param
+  val param' : string -> param
+  val url : string -> param list -> t
+  val to_string : t -> string
 end = struct
-  type url = string
+  type t = string
   type param = string * string option
 
-  let param ~key ~value = key, value
+  let param key value = key, Some value
+  let param' key = key, None
 
   let url url = function
     | [] -> url
@@ -24,6 +27,8 @@ end = struct
                | Some value -> key ^ "=" ^ value
                | None -> key))
   ;;
+
+  let to_string s = s
 end
 
 type verb =
@@ -34,18 +39,15 @@ type verb =
   | DELETE
 
 module type REQUEST = sig
-  module Url = Url
-  open Url
-
   (** A request with body ['a] and response type ['b]. *)
   type ('a, 'b) t
 
   type body
 
-  val create : verb -> url -> (unit, unit) t
+  val create : verb -> Url.t -> (unit, unit) t
   val header : key:string -> value:string -> ('a, 'b) t -> ('a, 'b) t
-  val give : content_type:string -> f:('a -> body) -> (unit, 'b) t -> ('a, 'b) t
-  val want : accept:string -> f:(body -> 'b Or_error.t) -> ('a, unit) t -> ('a, 'b) t
+  val give : content_type:string -> (unit, 'b) t -> (body, 'b) t
+  val want : accept:string -> ('a, unit) t -> ('a, body) t
   val map : f:('c -> 'a) -> ('a, 'b) t -> ('c, 'b) t
   val conv_resp : f:('b -> 'c Or_error.t) -> ('a, 'b) t -> ('a, 'c) t
   val map_resp : f:('b -> 'c) -> ('a, 'b) t -> ('a, 'c) t
