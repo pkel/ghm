@@ -4,7 +4,7 @@ set -e
 
 source .env
 
-psql="sudo docker-compose exec -e PGPASSWORD=$db_root_pass -T db psql -U $db_root_user $db_name"
+psql="podman exec -i -e PGPASSWORD=$db_root_pass ghm_db psql -U $db_root_user $db_name"
 
 sql () {
   echo "--- executing $1.sql"
@@ -16,27 +16,25 @@ sql clean
 
 $psql << EOF
 drop role if exists ghm_user;
-drop role if exists postgrest;
+drop role if exists $db_postgrest_user;
 drop role if exists anonymous;
 drop role if exists $db_auth_user;
 EOF
-
-db_postgrest_pass="$(tr -dc _A-Z-a-z-0-9 < /dev/urandom | head -c48)"
 
 $psql << EOF
 -- php login
 create role $db_auth_user noinherit login password '$db_auth_pass';
 
 -- postgrest before jwt interpretation
-create role postgrest noinherit login password '$db_postgrest_pass';
+create role $db_postgrest_user noinherit login password '$db_postgrest_pass';
 
 -- authenticated ghm user via api
 create role ghm_user nologin noinherit;
-grant ghm_user to postgrest;
+grant ghm_user to $db_postgrest_user;
 
 -- unauthenticated user via api
 create role anonymous nologin noinherit;
-grant anonymous to postgrest;
+grant anonymous to $db_postgrest_user;
 EOF
 
 sql jwt # jwt and crypto extensions
@@ -56,19 +54,4 @@ EOF
 # generate ghm user for development
 $psql << EOF
 insert into auth.users(id, pass, role) values('$app_user', '$app_pass', 'ghm_user');
-EOF
-
-# generate postgrest config based on generated secrets
-cat << EOF > postgrest.conf
-db-uri = "postgres://postgrest:$db_postgrest_pass@db:5432/$db_name"
-db-schema = "api"
-db-anon-role = "anonymous"
-
-server-host = "*4"
-server-port = 3000
-
-jwt-secret = "$jwt_secret"
-secret-is-base64 = false
-
-server-proxy-uri = "${base_uri}/api/"
 EOF

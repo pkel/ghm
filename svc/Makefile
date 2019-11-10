@@ -1,45 +1,27 @@
 SHELL=/bin/bash
-compose=sudo docker-compose
+compose=podman
 
 .PHONY: up
-up : .env postgrest.conf
-	${compose} up -d
+up : .env
+	podman pod start ghm
 
 .env : env.sh
 	./env.sh > .env
 
-postgrest.conf :
-	touch postgrest.conf
-
-.PHONY: log
-log :
-	${compose} logs -f || true
-
 .PHONY: down
 down :
-	${compose} down
-
-.PHONY: init
-init :
-	./init.sh # generates postgrest.conf
-	${compose} restart api
+	podman pod stop ghm
 
 .PHONY: dump.sql
 dump.sql:
 	touch $@
 	chmod 600 $@
-	source .env ; ${compose} exec -T -e PGPASSWORD=$$db_root_pass db pg_dump -U $$db_root_user $$db_name > $@
+	source .env ; podman exec -i -e PGPASSWORD=$$db_root_pass ghm_db pg_dump -U $$db_root_user $$db_name > $@
 
 .PHONY: psql
 psql : .env
-	source .env ; ${compose} exec -e PGPASSWORD=$$db_root_pass db psql -U $$db_root_user $$db_name
+	source .env ; podman exec -i -e PGPASSWORD=$$db_root_pass ghm_db psql -U $$db_root_user $$db_name
 
 .PHONY: purge
 purge :
-	${compose} down -v
-	rm -f .env postgrest.conf
-
-.PHONE: get-compose
-get-compose:
-	curl -L https://github.com/docker/compose/releases/download/1.20.1/docker-compose-`uname -s`-`uname -m` -o docker-compose
-	chmod +x docker-compose
+	podman pod rm -f ghm
