@@ -1,3 +1,4 @@
+create schema api;
 set search_path=api;
 
 create table customers (
@@ -10,7 +11,7 @@ create table customers (
 
 create table bookings (
     id bigint generated always as identity primary key,
-    customer bigint references customers not null on delete cascade,
+    customer bigint not null references customers on delete cascade,
     created timestamp not null default now (),
     modified timestamp not null default now (),
     data jsonb not null,
@@ -20,7 +21,7 @@ create table bookings (
 
 create table invoice_numbers (
     number text primary key,
-    booking bigint references bookings not null on delete restrict);
+    booking bigint not null references bookings on delete restrict);
 
 /* automatic modification timestamps */
 create or replace function set_modified_now ()

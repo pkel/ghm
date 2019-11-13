@@ -2,9 +2,10 @@
 -- 19.02.19
 -- TODO update automatically
 
-set search_path = crypto;
-create extension pgcrypto;
+create schema crypto;
+create extension pgcrypto schema crypto;
 
+create schema jwt;
 set search_path=jwt;
 
 CREATE OR REPLACE FUNCTION url_encode(data bytea) RETURNS text LANGUAGE sql AS $$

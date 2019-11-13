@@ -1,3 +1,4 @@
+create schema auth;
 set search_path = auth;
 
 create table users (

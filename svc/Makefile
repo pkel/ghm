@@ -1,27 +1,23 @@
 SHELL=/bin/bash
-compose=podman
 
 .PHONY: up
-up : .env
+up:
 	podman pod start ghm
 
-.env : env.sh
-	./env.sh > .env
-
 .PHONY: down
-down :
+down:
 	podman pod stop ghm
 
 .PHONY: dump.sql
 dump.sql:
 	touch $@
 	chmod 600 $@
-	source .env ; podman exec -i -e PGPASSWORD=$$db_root_pass ghm_db pg_dump -U $$db_root_user $$db_name > $@
+	podman exec ghm_db pg_dump -U $(shell cat secrets/db-user-root/username) $(shell cat secrets/db-cfg/db-name) > $@
 
 .PHONY: psql
-psql : .env
-	source .env ; podman exec -i -e PGPASSWORD=$$db_root_pass ghm_db psql -U $$db_root_user $$db_name
+psql:
+	podman exec -it ghm_db psql -U $(shell cat secrets/db-user-root/username) $(shell cat secrets/db-cfg/db-name)
 
 .PHONY: purge
-purge :
+purge:
 	podman pod rm -f ghm
