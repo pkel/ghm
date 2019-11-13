@@ -213,7 +213,7 @@ module Make (Request : REQUEST) = struct
     request POST Url.(url r.name [ select r ])
     |> give_json
     |> map ~f:r.provide
-    |> want_json
+    |> want_json ~accept:"application/vnd.pgrst.object+json"
     |> header ~key:"Prefer" ~value:"return=representation"
     |> conv_resp ~f:r.return
   ;;
@@ -235,7 +235,7 @@ module Make (Request : REQUEST) = struct
   ;;
 
   let update filter r =
-    request PUT (Url.url r.name Query.[ force filter.param; select r ])
+    request PATCH (Url.url r.name Query.[ force filter.param; select r ])
     |> give_json
     |> map ~f:r.provide
     |> header ~key:"Prefer" ~value:"return=representation"
@@ -243,5 +243,5 @@ module Make (Request : REQUEST) = struct
     |> conv_resp_list ~f:r.return
   ;;
 
-  let delete filter r = request PUT (Url.url r.name Query.[ force filter.param ])
+  let delete filter r = request DELETE (Url.url r.name Query.[ force filter.param ])
 end

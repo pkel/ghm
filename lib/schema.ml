@@ -20,10 +20,11 @@ module Customers = struct
   include Create (struct
     type a = provide
     type b = return
+    type __provide = { data : Customer.t } [@@deriving to_yojson]
 
     let name = "api/customers"
     let select = [ "id"; "data" ]
-    let provide = Customer.to_yojson
+    let provide data = __provide_to_yojson { data }
     let return = parse ~f:return_of_yojson
   end)
 
@@ -46,10 +47,11 @@ module Bookings = struct
   include Create (struct
     type a = provide
     type b = return
+    type __provide = { data : Booking.t } [@@deriving to_yojson]
 
     let name = "api/bookings"
     let select = [ "id"; "data" ]
-    let provide = Booking.to_yojson
+    let provide data = __provide_to_yojson { data }
     let return = parse ~f:return_of_yojson
   end)
 

@@ -88,7 +88,13 @@ let get_customers ~conn ~schedule_action ?(page = 0) ?filter () =
   let offset = if page > 0 then Some ((page * customer_page_size) + 1) else None in
   Xhr.send'
     ~c:conn
-    Pg.(read ?offset ~limit:customer_page_size ?filter Customers.t)
+    Pg.(
+      read
+        ~order:[ desc Customers.modified ]
+        ?offset
+        ~limit:customer_page_size
+        ?filter
+        Customers.t)
     ~handler:(fun r -> schedule_action (Action.GotCustomers (page, r)))
 ;;
 
