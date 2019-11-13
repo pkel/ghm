@@ -1,4 +1,5 @@
-base_uri := $(shell source svc/.env; echo $$base_uri)
+# deprecated
+# base_uri := $(shell source svc/.env; echo $$base_uri)
 
 .PHONY: all watch format serve svc-up svc-init svc-psql import pwd clean-db clean
 
@@ -17,22 +18,26 @@ format:
 	# do not auto promote test output
 	dune runtest && dune build @fmt --auto-promote
 
-svc-up:
+up:
 	cd svc; make up
 
-svc-init:
-	cd svc; make init
+down:
+	cd svc; make down
 
 psql:
-	source svc/.env; PGPASSWORD=$$db_root_pass psql -h localhost -p 5432 -U $$db_root_user ghm
+	cd svc; make psql
 
 clean-db:
+	# deprecated
+	false
 	curl \
 		-X DELETE "$(base_uri)/api/customers" \
 		-H "Authorization: Bearer $(shell scripts/get-token.sh)" \
 		-H "Accept: application/json"
 
 import: clean-db
+	# deprecated
+	false
 	dune exec tools/combit.exe data/combit.csv | \
 		curl \
 		"${base_uri}/api/customers" \
