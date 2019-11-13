@@ -44,14 +44,31 @@ podman run -d --pod ghm --name ghm_api \
   postgrest/postgrest
 
 rm_container ghm_php
-podman run -d --pod ghm --name ghm_php \
-  -e DB_HOST=localhost \
-  -e DB_PORT=5432 \
-  -e DB_NAME="$(secret db-cfg/db-name)" \
-  -e DB_USER="$(secret db-user-auth/username)" \
-  -e DB_PASS="$(secret db-user-auth/password)" \
-  -e JWT_SECRET="$(secret jwt/secret)" \
-  ghm_php
-
 rm_container ghm_nginx
-podman run -d --pod ghm --name ghm_nginx ghm_nginx
+
+if [ -z "$MOUNT_WEBROOT" ]
+then
+  podman run -d --pod ghm --name ghm_php \
+    -e DB_HOST=localhost \
+    -e DB_PORT=5432 \
+    -e DB_NAME="$(secret db-cfg/db-name)" \
+    -e DB_USER="$(secret db-user-auth/username)" \
+    -e DB_PASS="$(secret db-user-auth/password)" \
+    -e JWT_SECRET="$(secret jwt/secret)" \
+    ghm_php
+  podman run -d --pod ghm --name ghm_nginx \
+    ghm_nginx
+else
+  podman run -d --pod ghm --name ghm_php \
+    -e DB_HOST=localhost \
+    -e DB_PORT=5432 \
+    -e DB_NAME="$(secret db-cfg/db-name)" \
+    -e DB_USER="$(secret db-user-auth/username)" \
+    -e DB_PASS="$(secret db-user-auth/password)" \
+    -e JWT_SECRET="$(secret jwt/secret)" \
+    -v ./webroot:/var/www/html:z \
+    ghm_php
+  podman run -d --pod ghm --name ghm_nginx \
+    -v ./webroot:/var/www/html:z \
+    ghm_nginx
+fi
