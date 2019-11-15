@@ -2,6 +2,7 @@ open Yojson.Safe
 open Core_kernel
 
 type ('a, 'b) column
+type ('a, 'b) key_column
 
 module Resource : sig
   type ('a, 'b, 'c) t
@@ -34,6 +35,7 @@ module Resource : sig
       val string : string creator
       val bool : bool creator
       val date : Date.t creator
+      val key : (t, 'a) column -> (t, 'a) key_column
     end
   end
 end
@@ -45,6 +47,7 @@ module Query : sig
   val asc : ?null:[ `First | `Last ] -> ('a, 'b) column -> 'a order
 
   type 'a constr
+  type 'a unique
 
   val ( ! ) : 'a constr -> 'a constr
   val ( && ) : 'a constr -> 'a constr -> 'a constr
@@ -57,6 +60,7 @@ module Query : sig
 
     val ( = ) : ('a, t) op
     val ( <> ) : ('a, t) op
+    val ( == ) : ('a, 'b) key_column -> 'b -> 'a unique
   end
 
   module type COMPARE = sig
@@ -123,12 +127,8 @@ module Make (Request : REQUEST) : sig
     -> ('a, 'b, 'c) Resource.t
     -> (unit, 'c list) Request.t
 
+  val read' : 'a unique -> ('a, 'b, 'c) Resource.t -> (unit, 'c) Request.t
   val update : 'a constr -> ('a, 'b, 'c) Resource.t -> ('b, 'c list) Request.t
+  val update' : 'a unique -> ('a, 'b, 'c) Resource.t -> ('b, 'c) Request.t
   val delete : 'a constr -> ('a, 'b, 'c) Resource.t -> (unit, unit) Request.t
-
-  (* TODO: add singular interface like
-     val unique : ('a, 'b) key -> 'b -> 'a unique
-     val read' : 'a unique -> ('a, 'b, 'c) Resource.t -> (unit, 'c) Request.t
-     val update' : 'a unique -> ('a, 'b, 'c) Resource.t -> ('b, 'c) Request.t
-  *)
 end

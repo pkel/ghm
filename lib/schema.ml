@@ -31,6 +31,7 @@ module Customers = struct
   open Column_creator
 
   let id = int "id"
+  let id' = key id
   let modified = date "modified"
   let keyword = string "keyword"
 end
@@ -58,6 +59,7 @@ module Bookings = struct
   open Column_creator
 
   let id = int "id"
+  let id' = key id
   let modified = date "modified"
   let arrival = date "arrival"
   let departure = date "departure"
