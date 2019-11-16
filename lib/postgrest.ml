@@ -2,6 +2,7 @@ open Yojson.Safe
 open Core_kernel
 
 type ('a, 'b) column = string
+type ('a, 'b) key = ('a, 'b) column
 
 module Resource = struct
   type ('a, 'b, 'c) t =
@@ -38,6 +39,7 @@ module Resource = struct
       let string = gen
       let bool = gen
       let date = gen
+      let key = Fn.id
     end
   end
 end
@@ -65,6 +67,7 @@ module Query = struct
     }
 
   type 'a constr = _constr
+  type 'a unique = Request.Url.param
 
   let opn name left right args =
     let args = List.map ~f:(fun x -> force x.inner) args |> String.concat ~sep:"," in
@@ -98,6 +101,7 @@ module Query = struct
 
     val ( = ) : ('a, t) op
     val ( <> ) : ('a, t) op
+    val ( == ) : ('a, t) key -> t -> 'a unique
   end
 
   module type COMPARE = sig
@@ -120,6 +124,7 @@ module Query = struct
     let op = op T.f
     let ( = ) = op "eq"
     let ( <> ) = op "neq"
+    let ( == ) col x = Request.Url.param col (sprintf "eq.%s" (T.f x))
   end
 
   module Compare (T : TYP) : COMPARE with type t := T.t = struct
@@ -234,6 +239,13 @@ module Make (Request : REQUEST) = struct
     request GET (Url.url r.name params) |> want_json |> conv_resp_list ~f:r.return
   ;;
 
+  let read' unique r =
+    let params = [ Some (select r); Some unique ] |> List.filter_opt in
+    request GET (Url.url r.name params)
+    |> want_json ~accept:"application/vnd.pgrst.object+json"
+    |> conv_resp ~f:r.return
+  ;;
+
   let update filter r =
     request PATCH (Url.url r.name Query.[ force filter.param; select r ])
     |> give_json
@@ -241,6 +253,15 @@ module Make (Request : REQUEST) = struct
     |> header ~key:"Prefer" ~value:"return=representation"
     |> want_json
     |> conv_resp_list ~f:r.return
+  ;;
+
+  let update' unique r =
+    request PATCH (Url.url r.name [ unique; select r ])
+    |> give_json
+    |> map ~f:r.provide
+    |> header ~key:"Prefer" ~value:"return=representation"
+    |> want_json ~accept:"application/vnd.pgrst.object+json"
+    |> conv_resp ~f:r.return
   ;;
 
   let delete filter r = request DELETE (Url.url r.name Query.[ force filter.param ])

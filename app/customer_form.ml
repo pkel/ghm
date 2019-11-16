@@ -234,11 +234,7 @@ let apply_action
             ~c:conn
             ~body:model.local
             ~handler
-            Pg.(
-              update Int.(Customers.id = id) Customers.t
-              |> Xhr.conv_resp ~f:(function
-                     | [ x ] -> Ok x (* TODO: Use singular Pg.update when ready *)
-                     | _ -> Or_error.errorf "expected single valued response")))
+            Pg.(update' Int.(Customers.id' == id) Customers.t))
     in
     model
   | NewBooking ->
@@ -293,12 +289,7 @@ let apply_action
     model
   | NavChange ((New, _) as nav) -> Model.create' ~nav ()
   | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
-    let rq =
-      Pg.(read ~filter:Int.(Customers.id = i) Customers.t)
-      |> Xhr.conv_resp ~f:(function
-             | [ x ] -> Ok x (* TODO: use singular Pg.read when ready *)
-             | _ -> Or_error.errorf "expected singular response")
-    in
+    let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
     let handler = Fn.compose schedule_action Action.gotcustomer in
     Xhr.send' ~c:conn ~handler rq;
     Model.create' ~loading:true ~nav ()

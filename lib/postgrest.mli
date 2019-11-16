@@ -2,7 +2,7 @@ open Yojson.Safe
 open Core_kernel
 
 type ('a, 'b) column
-type ('a, 'b) key_column
+type ('a, 'b) key
 
 module Resource : sig
   type ('a, 'b, 'c) t
@@ -35,7 +35,7 @@ module Resource : sig
       val string : string creator
       val bool : bool creator
       val date : Date.t creator
-      val key : (t, 'a) column -> (t, 'a) key_column
+      val key : (t, 'a) column -> (t, 'a) key
     end
   end
 end
@@ -60,7 +60,7 @@ module Query : sig
 
     val ( = ) : ('a, t) op
     val ( <> ) : ('a, t) op
-    val ( == ) : ('a, 'b) key_column -> 'b -> 'a unique
+    val ( == ) : ('a, t) key -> t -> 'a unique
   end
 
   module type COMPARE = sig
