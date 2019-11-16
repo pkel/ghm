@@ -107,6 +107,8 @@ module Query : sig
   end
 end
 
+module Request = Request
+
 module type REQUEST = sig
   include Request.REQUEST
 

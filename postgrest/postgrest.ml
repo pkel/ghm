@@ -1,5 +1,6 @@
 open Yojson.Safe
 open Core_kernel
+module Request = Request
 
 type ('a, 'b) column = string
 type ('a, 'b) key = ('a, 'b) column

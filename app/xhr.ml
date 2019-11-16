@@ -1,5 +1,5 @@
 open Core_kernel
-open Ghm.Request
+open Postgrest.Request
 
 let string_of_verb = function
   | GET -> "GET"

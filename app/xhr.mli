@@ -1,6 +1,6 @@
 open Core_kernel
 open Async_kernel
-include Ghm.Postgrest.REQUEST with type body = string
+include Postgrest.REQUEST with type body = string
 
 type connection
 
