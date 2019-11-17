@@ -4,12 +4,12 @@
 .PHONY: all watch format serve svc-up svc-init svc-psql import pwd clean-db clean
 
 all:
-	dune build app/app.bc.js tools/{combit.exe,backup.exe}
-	cp _build/default/app/app.bc.js webroot/app.js
+	dune build @install
+	cp _build/install/default/share/ghm/app.js webroot/app.js
 
 opt:
-	dune build --profile release app/app.bc.js
-	cp _build/default/app/app.bc.js webroot/app.js
+	dune build --profile release @app/install
+	cp _build/install/default/share/ghm/app.js webroot/app.js
 
 watch:
 	fd 'ml|dune' | entr -s 'make all'

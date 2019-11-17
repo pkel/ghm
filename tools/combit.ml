@@ -223,7 +223,7 @@ let main () =
       ~f:(fun ~key:_ ~data acc -> { data } :: acc)
       ~init:[]
   in
-  let y = Caml.([%to_yojson: wrapped list]) l in
+  let y = [%to_yojson: wrapped list] l in
   Yojson.Safe.to_channel stdout y
 ;;
 

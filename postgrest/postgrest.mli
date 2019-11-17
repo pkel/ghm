@@ -1,6 +1,6 @@
-open Yojson.Safe
 open Core_kernel
 
+type json = Yojson.Safe.t
 type ('a, 'b) column
 type ('a, 'b) key
 

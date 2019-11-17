@@ -1,5 +1,8 @@
 (executables
  (names combit backup)
+ (public_names ghm_combit ghm_backup)
+ (modes exe)
+ (package ghm)
  (libraries csv ghm str sexplib yojson cohttp-lwt-unix)
  (preprocess (pps
   js_of_ocaml-ppx ppx_jane ppxlib.runner

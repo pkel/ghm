@@ -2,6 +2,8 @@ open Yojson.Safe
 open Core_kernel
 module Request = Request
 
+type json = Yojson.Safe.t
+
 type ('a, 'b) column = string
 type ('a, 'b) key = ('a, 'b) column
 

@@ -1,5 +1,6 @@
 (executable
  (name app)
+ (modes js)
  (libraries ghm core_kernel incr_dom incr_dom_widgets incr_dom_partial_render yojson gen_js_api)
  (preprocess (pps js_of_ocaml-ppx ppx_jane ppxlib.runner ppx_deriving_yojson)))
 
@@ -8,4 +9,7 @@
  (deps browser.mli)
  (action (run ocamlfind gen_js_api/gen_js_api browser.mli)))
 
-(ignored_subdirs (assets))
+(install
+  (package ghm)
+  (section share)
+  (files   (app.bc.js as app.js)))
