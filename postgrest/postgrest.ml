@@ -224,6 +224,12 @@ module Make (Request : REQUEST) = struct
     |> conv_resp ~f:r.return
   ;;
 
+  let create_m r =
+    request POST Url.(url r.name [ select r ])
+    |> give_json
+    |> map ~f:(fun lst -> `List (List.map ~f:r.provide lst))
+  ;;
+
   let read ?filter ?(order = []) ?limit ?offset r =
     let open Url in
     let params =

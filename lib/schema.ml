@@ -31,7 +31,7 @@ module Customers = struct
     type __provide = { data : Customer.t } [@@deriving to_yojson]
 
     let name = "api/customers"
-    let select = [ "id"; "data"; "bookings(id, arrival, departure)" ]
+    let select = [ "id"; "data"; "bookings(id,arrival,departure)" ]
     let provide data = __provide_to_yojson { data }
     let return = parse ~f:return_of_yojson
   end)
@@ -45,10 +45,15 @@ module Customers = struct
 end
 
 module Bookings = struct
-  type provide = Booking.t
+  type provide =
+    { id : int
+    ; data : Booking.t
+    }
+  [@@deriving yojson, compare]
 
   type return =
     { id : int
+    ; customer : int
     ; data : Booking.t
     }
   [@@deriving yojson, compare]
@@ -56,11 +61,10 @@ module Bookings = struct
   include Create (struct
     type a = provide
     type b = return
-    type __provide = { data : Booking.t } [@@deriving to_yojson]
 
     let name = "api/bookings"
     let select = [ "id"; "data" ]
-    let provide data = __provide_to_yojson { data }
+    let provide = provide_to_yojson
     let return = parse ~f:return_of_yojson
   end)
 
@@ -68,6 +72,7 @@ module Bookings = struct
 
   let id = int "id"
   let id' = key id
+  let customer = int "customer"
   let modified = date "modified"
   let arrival = date "arrival"
   let departure = date "departure"
