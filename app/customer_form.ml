@@ -578,8 +578,7 @@ let menu ~bookings (m : Model.t) : Menu.t =
   [ entry ~children title goto_main false ]
 ;;
 
-let create ~(inject : Action.t -> Vdom.Event.t)
-           (model : Model.t Incr.t) =
+let create ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let bookings =
     (* This cannot be efficient. Fix? TODO *)
     let%bind bookings = model >>| Model.bookings

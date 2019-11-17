@@ -207,9 +207,7 @@ end
 let main () =
   (* Read *)
   let ch =
-    if Array.length Sys.argv > 1
-    then In_channel.create Sys.argv.(1)
-    else In_channel.stdin
+    if Array.length Sys.argv > 1 then In_channel.create Sys.argv.(1) else In_channel.stdin
   in
   Printf.eprintf "reading...%!";
   let db =

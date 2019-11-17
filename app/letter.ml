@@ -43,8 +43,7 @@ let recipient (c : Customer.t) =
     ; br ()
     ; txt c.address.street_with_num
     ; br ()
-    ; txt
-        (sprintf "%s-%s %s" c.address.country_code c.address.postal_code c.address.city)
+    ; txt (sprintf "%s-%s %s" c.address.country_code c.address.postal_code c.address.city)
     ]
 ;;
 
@@ -63,8 +62,7 @@ let generic ~subject ~body ~attachments ~date (c : Customer.t) =
       (if List.is_empty attachments
       then ""
       else
-        H.
-          [ p [ b [ txt "Anlagen:" ]; br (); txt (String.concat ~sep:", " attachments) ] ]
+        H.[ p [ b [ txt "Anlagen:" ]; br (); txt (String.concat ~sep:", " attachments) ] ]
         |> elts_to_string)
   ; sender
   }
@@ -174,8 +172,7 @@ let invoice (inv : Invoice.t) =
                ; tdr [ txt (sprintf "%i%%" p.tax) ]
                ; tdr [ txt (sprintf "%s€" (Monetary.to_string p.price)) ]
                ; tdr
-                   [ txt
-                       (sprintf "%s€" Monetary.(to_string (times p.quantity p.price)))
+                   [ txt (sprintf "%s€" Monetary.(to_string (times p.quantity p.price)))
                    ]
                ])
            inv.positions

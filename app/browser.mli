@@ -277,10 +277,7 @@ module Document : sig
   val t_of_js : Ojs.t -> t
   val t_to_js : t -> Ojs.t
   val create_element : t -> string -> Element.t
-
-  val create_element_ns : t -> string -> string -> Element.t
-    [@@js.call "createElementNS"]
-
+  val create_element_ns : t -> string -> string -> Element.t [@@js.call "createElementNS"]
   val create_text_node : t -> string -> Element.t
   val create_event : t -> string -> Event.t
   val get_element_by_id : t -> string -> Element.t option
@@ -618,9 +615,7 @@ module Svg : sig
     val normalized_path_seg_list : t -> PathSegList.t
     val animated_path_seg_list : t -> PathSegList.t
     val animated_normalized_path_seg_list : t -> PathSegList.t
-
-    val create_close_path : t -> unit -> PathSeg.t
-      [@@js.call "createSVGPathSegClosePath"]
+    val create_close_path : t -> unit -> PathSeg.t [@@js.call "createSVGPathSegClosePath"]
 
     val create_moveto_abs : t -> float -> float -> PathSeg.t
       [@@js.call "createSVGPathSegMovetoAbs"]

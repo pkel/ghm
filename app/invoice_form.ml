@@ -62,10 +62,7 @@ module Action = struct
   [@@deriving sexp, variants]
 end
 
-let apply_action (model : Model.t)
-                 (action : Action.t)
-                 (state : State.t)
-                 ~schedule_action
+let apply_action (model : Model.t) (action : Action.t) (state : State.t) ~schedule_action
     : Model.t
   =
   let open Invoice in
@@ -249,9 +246,7 @@ let view (model : Model.t Incr.t) ~env ~inject =
   Node.create "form" [] rows
 ;;
 
-let create ~env
-           ~(inject : Action.t -> Vdom.Event.t)
-           (model : Model.t Incr.t) =
+let create ~env ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let%map model = model
   and view = view ~env ~inject model in
   let apply_action = apply_action model

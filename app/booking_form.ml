@@ -341,9 +341,7 @@ let view ~env ~inject (model : Model.t Incr.t) =
       ]
 ;;
 
-let create ~env
-           ~(inject : Action.t -> Vdom.Event.t)
-           (model : Model.t Incr.t) =
+let create ~env ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let invoice =
     let inject = Fn.compose inject Action.invoice
     and model = model >>| Model.invoice

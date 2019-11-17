@@ -14,9 +14,7 @@ let id x =
 let gen ?date (c : Customer.t) (b : Booking.t) =
   let nights = Period.nights b.period
   and s = Booking.summarize b
-  and describe (a : Booking.alloc) =
-    Printf.sprintf "Übernachtung im %s" a.description
-  in
+  and describe (a : Booking.alloc) = Printf.sprintf "Übernachtung im %s" a.description in
   let title = "Rechnung"
   and intro =
     Printf.sprintf

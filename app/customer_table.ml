@@ -59,8 +59,7 @@ module Column = struct
       let group = group
       let get = get
       let sort_by = sort_by
-    end
-    : T
+    end : T
       with type row = row)
   ;;
 
@@ -122,8 +121,9 @@ module Row = struct
       ; keyword : string
       ; given : string
       ; family : string
-      ; company : string (* last booking *)
-      ; from : Date.t option
+      ; company : string
+      ; (* last booking *)
+        from : Date.t option
       ; till : Date.t option
       ; rooms : string
       ; guests : int option
@@ -207,13 +207,12 @@ module Model = struct
     }
   ;;
 
-  module Row :
-    sig
-      type t [@@deriving compare]
+  module Row : sig
+    type t [@@deriving compare]
 
-      val of_customer : id:int -> Customer.t -> t
-    end
-    with type t = Row.Model.t =
+    val of_customer : id:int -> Customer.t -> t
+  end
+  with type t = Row.Model.t =
     Row.Model
 end
 
