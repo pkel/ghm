@@ -7,7 +7,7 @@ create table customers (
     modified timestamp not null default now (),
     data jsonb not null,
     /* extract keyword from data for filtering */
-    keyword text generated always as (data->>'keyword') stored not null check (length(keyword) > 0));
+    keyword text generated always as (data->>'keyword') stored not null);
 
 create table bookings (
     id bigint generated always as identity primary key check (id >= 0),
@@ -16,8 +16,8 @@ create table bookings (
     modified timestamp not null default now (),
     data jsonb not null,
     /* extract dates from data for filtering (* TODO *) */
-    arrival date not null,
-    departure date not null);
+    arrival text generated always as (data->'period'->>0) stored not null,
+    departure text generated always as (data->'period'->>1) stored not null);
 
 create table invoice_numbers (
     number text primary key,

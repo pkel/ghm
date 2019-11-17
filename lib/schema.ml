@@ -46,7 +46,7 @@ end
 
 module Bookings = struct
   type provide =
-    { id : int
+    { customer : int
     ; data : Booking.t
     }
   [@@deriving yojson, compare]

@@ -53,7 +53,7 @@ let check_resp (resp, body) =
   Body.to_string body
   >|= function
   | body ->
-    if Code.code_of_status code > 400
+    if Code.code_of_status code >= 400
     then resp, Or_error.error_string body
     else resp, Ok body
 ;;

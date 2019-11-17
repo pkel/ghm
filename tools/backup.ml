@@ -28,14 +28,14 @@ let backup c args =
   Pg.(read Customers.t |> send' ~c)
   >>= (function
         | resp, Error e ->
-          Format.eprintf "%a\n%a%!" Response.pp_hum resp Error.pp e;
+          Format.eprintf "%a\n%a\n%!" Response.pp_hum resp Error.pp e;
           Lwt.fail_with "could not retrieve customers"
         | _, Ok customers -> Lwt.return customers)
   >>= Lwt_list.map_p (fun { Pg.Customers.id; data; _ } ->
           Pg.(read ~filter:Int.(Bookings.customer = id) Bookings.t |> send' ~c)
           >>= function
           | resp, Error e ->
-            Format.eprintf "%a\n%a%!" Response.pp_hum resp Error.pp e;
+            Format.eprintf "%a\n%a\n%!" Response.pp_hum resp Error.pp e;
             Lwt.fail_with (sprintf "could not retrieve bookings for customer %i" id)
           | _, Ok bookings ->
             Lwt.return { id; data; bookings = List.map ~f:(fun x -> x.data) bookings })
@@ -53,26 +53,29 @@ let restore c args =
   >|= of_yojson
   >>= function
   | Ok d ->
-    Lwt_list.iter_p
-      (fun { data; bookings; _ } ->
+    Lwt_list.iter_s
+      (fun { data; bookings; id } ->
+        let was_id = id in
         Pg.(create Customers.t |> send ~c ~body:data)
         >>= function
         | resp, Error e ->
-          Format.eprintf "%a\n%a%!" Response.pp_hum resp Error.pp e;
-          Lwt.fail_with "could not read backup"
+          Format.eprintf "%a\n%a\n%!" Response.pp_hum resp Error.pp e;
+          Lwt.fail_with (sprintf "could not create customer %i" id)
         | _, Ok { Pg.Customers.id; _ } ->
           let body =
-            List.map ~f:(fun data -> ({ id; data } : Pg.Bookings.provide)) bookings
+            List.map
+              ~f:(fun data -> ({ customer = id; data } : Pg.Bookings.provide))
+              bookings
           in
           Pg.(create_m Bookings.t |> send ~c ~body)
           >>= (function
           | _, Ok _ -> Lwt.return_unit
           | resp, Error e ->
-            Format.eprintf "%a\n%a%!" Response.pp_hum resp Error.pp e;
-            Lwt.fail_with "could not read backup"))
+            Format.eprintf "%a\n%a\n%!" Response.pp_hum resp Error.pp e;
+            Lwt.fail_with (sprintf "could not create bookings for customer %i" was_id)))
       d.customers
   | Error e ->
-    Format.eprintf "%s%!" e;
+    Format.eprintf "%s\n%!" e;
     Lwt.fail_with "could not read backup"
 ;;
 
