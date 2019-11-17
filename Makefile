@@ -4,7 +4,7 @@
 .PHONY: all watch format serve svc-up svc-init svc-psql import pwd clean-db clean
 
 all:
-	dune build @install
+	dune build @default
 	cp _build/install/default/share/ghm/app.js webroot/app.js
 
 opt:

@@ -16,14 +16,14 @@ module Customers = struct
     ; arrival : Date_yojson.t
     ; departure : Date_yojson.t
     }
-  [@@deriving of_yojson, compare]
+  [@@deriving yojson, compare]
 
   type return =
     { id : int
     ; data : Customer.t
     ; bookings : booking list
     }
-  [@@deriving of_yojson, compare]
+  [@@deriving yojson, compare]
 
   include Create (struct
     type a = provide
@@ -51,7 +51,7 @@ module Bookings = struct
     { id : int
     ; data : Booking.t
     }
-  [@@deriving of_yojson, compare]
+  [@@deriving yojson, compare]
 
   include Create (struct
     type a = provide
