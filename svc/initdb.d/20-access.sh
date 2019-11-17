@@ -28,7 +28,9 @@ grant select on auth.users to $(secret db-user-auth/username);
 
 -- ghm api users can work on api.*
 grant usage on schema api to ghm_user;
-grant all on api.customers to ghm_user;
+grant select, insert, update, delete
+  on all tables in schema api
+  to ghm_user;
 
 -- ghm api user for development
 insert into auth.users(id, pass, role)

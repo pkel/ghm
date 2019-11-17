@@ -1,6 +1,6 @@
 (executables
  (names combit backup)
- (public_names ghm_combit ghm_backup)
+ (public_names - ghm_backup)
  (modes exe)
  (package ghm)
  (libraries csv ghm str sexplib yojson cohttp-lwt-unix)

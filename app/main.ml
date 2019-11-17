@@ -152,7 +152,7 @@ let create model ~old_model ~inject =
     and inject = Fn.compose inject Action.customertable
     and rows =
       Incr_map.mapi customers ~f:(fun ~key:_ ~data ->
-          Customer_table.Model.Row.of_customer ~id:data.id data.data)
+          Customer_table.Model.Row.of_customer ~id:data.id data)
     in
     Customer_table.create rows ~old_model ~inject ~model
   and customer =
@@ -269,7 +269,7 @@ let create model ~old_model ~inject =
             ]
           | _ -> [])
         , [] )
-      | Customer _ -> [], [ Component.view customer ], fst (Component.extra customer)
+      | Customer _ -> [], [ Component.view customer ], Component.extra customer
     in
     let sidemenu =
       [ Menu.entry "Suchen" (Menu.Href Nav.(href Overview)) (model.nav = Overview) ]

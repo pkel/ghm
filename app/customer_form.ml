@@ -25,42 +25,36 @@ open Incr_dom_widgets
 open Incr.Let_syntax
 
 module Model = struct
-  type visit =
-    | Fresh
-    | Saved of Period.t
-  [@@deriving compare]
-
   type t =
-    { remote : Customer.t
-    ; local : Customer.t
+    { remote : Pg.Customers.return
     ; init : Customer.t
-    ; bookings : (visit * Booking_form.Model.t) list
-    ; nav : Nav.noi * Nav.customer
+    ; local : Customer.t
     ; touched_at : int
-    ; loading : bool
+    ; nav : Nav.noi * Nav.customer
+    ; is_loading : bool
     }
   [@@deriving compare, fields]
 
-  let load nav (c : Customer.t) =
+  let load ?(is_loading = false) nav c =
     { remote = c
-    ; local = c
-    ; init = c
-    ; nav
+    ; local = c.data
+    ; init = c.data
     ; touched_at = Int.max_value
-    ; bookings =
-        List.map
-          ~f:(fun b -> Saved (Booking.period b), Booking_form.Model.load b)
-          c.bookings
-    ; loading = false
+    ; nav
+    ; is_loading
     }
   ;;
 
-  let create' ?(loading = false) ?(nav = Nav.(New, CData)) () =
-    let m = load nav Customer.empty in
-    { m with loading }
+  let loading nav =
+    load ~is_loading:true nav { id = -1; data = Customer.empty; bookings = [] }
   ;;
 
-  let create () = create' ()
+  let create () =
+    load
+      ~is_loading:false
+      Nav.(New, CData)
+      { id = -1; data = Customer.empty; bookings = [] }
+  ;;
 end
 
 module Action = struct
@@ -106,41 +100,18 @@ module Action = struct
 
   type t =
     | Customer of customer
-    | NavChange of (Nav.noi * Nav.customer) sexp_opaque
-    | GotCustomer of Pg.Customers.return sexp_opaque Or_error.t
-    | PostedCustomer of Pg.Customers.return sexp_opaque Or_error.t
-    | PatchedCustomer of Pg.Customers.return sexp_opaque Or_error.t
-    | Save
     | Touch
     | Touched
-    | NewBooking
-    | DeleteBooking of int
+    | Save
+    | PostedCustomer of Pg.Customers.return sexp_opaque Or_error.t
+    | PatchedCustomer of Pg.Customers.return sexp_opaque Or_error.t
+    | NavChange of (Nav.noi * Nav.customer) sexp_opaque
+    | GotCustomer of Pg.Customers.return sexp_opaque Or_error.t
     | DeleteCustomer
-    | Booking of int * Booking_form.Action.t
   [@@deriving sexp_of, variants]
 end
 
-let default_period () =
-  let today = Ext_date.today () in
-  let from = Date.add_days today 7
-  and till = Date.add_days today 8 in
-  Period.of_dates from till
-;;
-
-let fresh_booking () =
-  Booking.
-    { deposit_asked = None
-    ; deposit_got = None
-    ; tax_free = false
-    ; note = ""
-    ; period = default_period ()
-    ; guests = []
-    ; allocs = []
-    ; invoice = None
-    }
-;;
-
-let apply_form_action x =
+let apply_customer_action x =
   let open Action in
   let open Customer in
   function
@@ -188,22 +159,19 @@ let apply_form_action x =
     in
     { x with company }
   | Note note -> { x with note }
-  | Keyword keyword -> { x with keyword }
+  | Keyword keyword ->
+    (match String.strip keyword with
+    | "" -> x (* TODO: Signal to user *)
+    | keyword -> { x with keyword })
 ;;
 
-let apply_action
-    ~bookings
-    (model : Model.t)
-    (action : Action.t)
-    (state : State.t)
-    ~schedule_action
+let apply_action (model : Model.t) (action : Action.t) (state : State.t) ~schedule_action
     : Model.t
   =
-  let conn = state.connection in
   match action with
   | Customer action ->
     schedule_action Action.Touch;
-    { model with local = apply_form_action model.local action }
+    { model with local = apply_customer_action model.local action }
   | Touched ->
     (* We waited some time after a touch *)
     let () =
@@ -222,49 +190,28 @@ let apply_action
     { model with touched_at = Browser.Date.(to_int (now ())) }
   | Save ->
     let () =
-      if model.local <> model.remote
+      if model.local <> model.remote.data
       then (
-        match model.nav with
-        | New, _ ->
+        let c = state.connection in
+        if model.remote.id < 0
+        then (
           let handler = Fn.compose schedule_action Action.postedcustomer in
-          Xhr.send ~c:conn ~body:model.local ~handler Pg.(create Customers.t)
-        | Id id, _ ->
+          Xhr.send ~c ~body:model.local ~handler Pg.(create Customers.t))
+        else (
           let handler = Fn.compose schedule_action Action.patchedcustomer in
           Xhr.send
-            ~c:conn
+            ~c
             ~body:model.local
             ~handler
-            Pg.(update' Int.(Customers.id' == id) Customers.t))
+            Pg.(update' Int.(Customers.id' == model.remote.id) Customers.t)))
     in
     model
-  | NewBooking ->
-    schedule_action Action.Touch;
-    let init =
-      let i =
-        match snd model.nav with
-        | Booking (i, _) -> i
-        | _ -> 0
-      in
-      match List.nth model.local.bookings i with
-      | Some b ->
-        { b with
-          period = default_period ()
-        ; deposit_asked = None
-        ; deposit_got = None
-        ; note = ""
-        }
-      | None -> fresh_booking ()
-    in
-    let bookings = (Model.Fresh, Booking_form.Model.load init) :: model.bookings
-    and nav = fst model.nav, Nav.(Booking (0, BData)) in
-    { model with bookings; nav }
-  | DeleteBooking i ->
-    schedule_action Action.Touch;
-    let bookings = List.filteri ~f:(fun j _ -> i <> j) model.bookings in
-    let nav = fst model.nav, Nav.(Booking (min i (List.length bookings - 1), BData)) in
-    { model with bookings; nav }
+  | PatchedCustomer (Ok remote) -> { model with remote }
+  | PostedCustomer (Ok remote) -> { model with remote }
+  | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
+    state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
+    model
   | DeleteCustomer ->
-    schedule_action Action.Touch;
     let () =
       match model.nav with
       | New, _ -> Nav.(set Overview)
@@ -274,45 +221,22 @@ let apply_action
             state.handle_error { gist = "Löschen fehlgeschlagen"; detail }
           | Ok () -> Nav.(set Overview)
         in
-        Xhr.send' ~c:conn ~handler Pg.(delete Int.(Customers.id = i) Customers.t)
+        let c = state.connection in
+        Xhr.send' ~c ~handler Pg.(delete Int.(Customers.id = i) Customers.t)
     in
     model
-  | PatchedCustomer (Ok return) -> { model with remote = return.data }
-  | PostedCustomer (Ok return) ->
-    { model with remote = return.data; nav = Nav.(Id return.id, snd model.nav) }
-  | GotCustomer (Ok return) -> Model.load Nav.(Id return.id, snd model.nav) return.data
-  | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
-    state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
-    model
-  | GotCustomer (Error detail) ->
-    state.handle_error { gist = "Laden fehlgeschlagen"; detail };
-    model
-  | NavChange ((New, _) as nav) -> Model.create' ~nav ()
+  | NavChange (New, _) -> Model.create ()
   | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
     let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
     let handler = Fn.compose schedule_action Action.gotcustomer in
-    Xhr.send' ~c:conn ~handler rq;
-    Model.create' ~loading:true ~nav ()
+    let c = state.connection in
+    Xhr.send' ~c ~handler rq;
+    Model.loading nav
   | NavChange nav -> { model with nav }
-  | Booking (i, a) ->
-    schedule_action Action.Touch;
-    (* TODO remove redundancy: *)
-    let schedule_action = Fn.compose schedule_action (Action.booking i) in
-    let bookings =
-      List.mapi model.bookings ~f:(fun j (v, m) ->
-          if i <> j
-          then v, m
-          else (
-            match List.nth bookings i with
-            | Some c -> v, Component.apply_action ~schedule_action c a state
-            | None -> v, m))
-    in
-    let local =
-      let local = model.local in
-      let bookings = List.map bookings ~f:(fun (_, m) -> Booking_form.Model.read m) in
-      { local with bookings }
-    in
-    { model with bookings; local }
+  | GotCustomer (Ok return) -> Model.load Nav.(Id return.id, snd model.nav) return
+  | GotCustomer (Error detail) ->
+    state.handle_error { gist = "Laden fehlgeschlagen"; detail };
+    model
 ;;
 
 module Fields = struct
@@ -434,7 +358,7 @@ let danger_btn action title =
 ;;
 
 let save_btn ~sync ~inject =
-  let action _ = inject Action.Save in
+  let action _ = inject Action.(Save) in
   if sync
   then Bs.button ~action ~i:(S "check") ~style:"outline-success" "Gespeichert"
   else Bs.button ~action ~i:(S "save") ~style:"outline-warning" "Speichern"
@@ -484,8 +408,7 @@ let letter_dropdown customer =
 ;;
 
 let view ~sync ~inject ~init customer =
-  let delete_c _evt = inject Action.DeleteCustomer
-  and new_b _evt = inject Action.NewBooking in
+  let delete_c _evt = inject Action.DeleteCustomer in
   let%map form =
     let%bind init = init in
     View.customer ~inject ~init
@@ -501,9 +424,6 @@ let view ~sync ~inject ~init customer =
                   [ col_auto
                       ~c:[ "mb-2"; "mt-2" ]
                       [ danger_btn delete_c "Kunde löschen" ]
-                  ; col_auto
-                      ~c:[ "mb-2"; "mt-2" ]
-                      [ Bs.button ~action:new_b "Neue Buchung" ]
                   ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
                   ]
               ]
@@ -511,64 +431,32 @@ let view ~sync ~inject ~init customer =
       ])
 ;;
 
-let view_form ~bookings (model : Model.t Incr.t) ~inject =
+let view_form (model : Model.t Incr.t) ~inject =
   let open Vdom in
   let%map form =
     let sync =
-      let%map a = model >>| Model.remote
+      let%map a = model >>| fun Model.{ remote = { data; _ }; _ } -> data
       and b = model >>| Model.local in
       a = b
     and init = model >>| Model.init in
     view ~sync ~inject ~init (model >>| Model.local)
-  and bookings = bookings
-  and nav = model >>| Model.nav >>| snd in
-  let save _evt = inject Action.Save in
-  let rows =
-    match nav with
-    | CData -> form
-    | Booking (i, _) ->
-      (match List.nth bookings i with
-      | Some b -> [ Component.view b ]
-      | None -> [])
   in
-  Node.create "form" [ Attr.on "submit" save ] rows
+  let save _evt = inject Action.(Save) in
+  Node.create "form" [ Attr.on "submit" save ] form
 ;;
 
-let view ~bookings ~inject model =
-  let%bind loading = model >>| Model.loading in
-  if loading then Incr.const Bs.Grid.loading_row else view_form ~bookings ~inject model
+let view ~inject model =
+  let cond = model >>| Model.is_loading in
+  Incr.if_ cond ~then_:(Incr.const Bs.Grid.loading_row) ~else_:(view_form ~inject model)
 ;;
 
-let menu ~bookings (m : Model.t) : Menu.t =
+let menu (m : Model.t) : Menu.t =
   let open Menu in
   let href nav = Href (Nav.href (Customer (fst m.nav, nav))) in
   let goto_main = href CData in
-  let children =
-    let f i v =
-      let active =
-        match snd m.nav with
-        | Booking (j, _) when j = i -> true
-        | _ -> false
-      in
-      let title =
-        match fst v with
-        | Model.Fresh -> "Neue Buchung"
-        | Saved p -> Period.to_string_hum ~sep:"-" p
-      and action = href (Booking (i, BData))
-      and children =
-        if active
-        then (
-          match List.nth bookings i with
-          | Some c -> Component.extra c
-          | None -> [])
-        else []
-      in
-      entry ~children title action active
-    in
-    entry "Stammdaten" goto_main (snd m.nav = CData) :: List.mapi ~f m.bookings
-  in
+  let children = [ entry "Stammdaten" goto_main (snd m.nav = CData) ] in
   let title =
-    if m.loading
+    if m.is_loading
     then "Kunde lädt ..."
     else (
       match String.strip m.local.keyword with
@@ -579,36 +467,9 @@ let menu ~bookings (m : Model.t) : Menu.t =
 ;;
 
 let create ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
-  let bookings =
-    (* This cannot be efficient. Fix? TODO *)
-    let%bind bookings = model >>| Model.bookings
-    and nav' = model >>| Model.nav
-    and nav =
-      model
-      >>| Model.nav
-      >>| function
-      | _, Booking (_, bnav) -> bnav
-      | _ -> Nav.BData
-    in
-    List.mapi bookings ~f:(fun i (_, b) ->
-        let inject = Fn.compose inject (Action.booking i)
-        and env : Booking_form.env =
-          { nav = Incr.const nav
-          ; rel = (fun b -> Nav.(Customer (fst nav', Booking (i, b))))
-          ; customer = model >>| Model.local
-          ; new_booking =
-              Fn.compose inject (fun _b -> Action.newbooking)
-              (* TODO: use _b booking proposed by child component *)
-          ; delete_booking = Fn.compose inject (fun () -> Action.deletebooking i)
-          }
-        in
-        Booking_form.create ~env ~inject (Incr.const b))
-    |> Incr.all
-  in
   let%map model = model
-  and bookings = bookings
-  and view = view ~bookings ~inject model in
-  let apply_action = apply_action ~bookings model
-  and extra : Menu.t * Customer.t = menu ~bookings model, model.local in
+  and view = view ~inject model in
+  let apply_action = apply_action model
+  and extra : Menu.t = menu model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

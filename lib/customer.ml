@@ -1,5 +1,6 @@
 open Core_kernel
 
+(* TODO: warning still needed? *)
 [@@@warning "-39"]
 
 module Name = struct
@@ -52,15 +53,8 @@ type t =
   ; contact : Contact.t
   ; keyword : string
   ; note : string
-  ; bookings : Booking.t list
   }
 [@@deriving fields, compare, sexp, yojson]
-
-let first_booking t : Booking.t option =
-  match t.bookings with
-  | [] -> None
-  | hd :: _ -> Some hd
-;;
 
 let empty =
   { name = { title = ""; letter = ""; given = ""; family = "" }
@@ -84,7 +78,6 @@ let empty =
       }
   ; keyword = ""
   ; note = ""
-  ; bookings = []
   }
 ;;
 

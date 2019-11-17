@@ -1,4 +1,3 @@
-open Yojson.Safe
 open Core_kernel
 module Request = Request
 
@@ -211,7 +210,7 @@ module Make (Request : REQUEST) = struct
   let request = create
 
   let conv_resp_list ~f =
-    conv_resp ~f:(fun json -> Util.convert_each f json |> Or_error.all)
+    conv_resp ~f:(fun json -> Yojson.Safe.Util.convert_each f json |> Or_error.all)
   ;;
 
   let select r = Url.param "select" (String.concat ~sep:"," r.select)

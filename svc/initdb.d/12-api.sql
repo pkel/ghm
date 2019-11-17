@@ -2,7 +2,7 @@ create schema api;
 set search_path=api;
 
 create table customers (
-    id bigint generated always as identity primary key,
+    id bigint generated always as identity primary key check (id >= 0),
     created timestamp not null default now (),
     modified timestamp not null default now (),
     data jsonb not null,
@@ -10,7 +10,7 @@ create table customers (
     keyword text generated always as (data->>'keyword') stored not null check (length(keyword) > 0));
 
 create table bookings (
-    id bigint generated always as identity primary key,
+    id bigint generated always as identity primary key check (id >= 0),
     customer bigint not null references customers on delete cascade,
     created timestamp not null default now (),
     modified timestamp not null default now (),

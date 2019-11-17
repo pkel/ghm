@@ -11,9 +11,17 @@ let parse ~f x =
 module Customers = struct
   type provide = Customer.t
 
+  type booking =
+    { id : int
+    ; arrival : Date_yojson.t
+    ; departure : Date_yojson.t
+    }
+  [@@deriving of_yojson, compare]
+
   type return =
     { id : int
     ; data : Customer.t
+    ; bookings : booking list
     }
   [@@deriving of_yojson, compare]
 
@@ -23,7 +31,7 @@ module Customers = struct
     type __provide = { data : Customer.t } [@@deriving to_yojson]
 
     let name = "api/customers"
-    let select = [ "id"; "data" ]
+    let select = [ "id"; "data"; "bookings(id, arrival, departure)" ]
     let provide data = __provide_to_yojson { data }
     let return = parse ~f:return_of_yojson
   end)

@@ -1,4 +1,3 @@
-open Ghm
 open Core_kernel
 open Incr_dom
 open Vdom
@@ -96,13 +95,6 @@ module Row = struct
   module Rn_spec = Incr_dom_partial_render.Row_node_spec
   module Sort_key = Incr_dom_partial_render.Table.Default_sort_spec.Sort_key
 
-  module IntOpt = struct
-    type t = int option
-
-    let to_string t = Option.map ~f:string_of_int t |> Option.value ~default:""
-    let sort_key x = Option.value ~default:0 x |> Int63.of_int |> Sort_key.Integer
-  end
-
   module DateOpt = struct
     type t = Date.t option
 
@@ -125,8 +117,6 @@ module Row = struct
       ; (* last booking *)
         from : Date.t option
       ; till : Date.t option
-      ; rooms : string
-      ; guests : int option
       }
     [@@deriving compare, fields]
 
@@ -139,7 +129,6 @@ module Row = struct
       and visit = "Letzter Aufenthalt" in
       let lex_s x = Sort_key.String x in
       let dat_s = DateOpt.sort_key in
-      let int_s = IntOpt.sort_key in
       Fields.fold
         ~init:[]
         ~id:(fun l _ -> l)
@@ -149,28 +138,21 @@ module Row = struct
         ~company:(add (module String) ~sort_by:lex_s "Firma" ~group:dsc)
         ~from:(add (module DateOpt) ~sort_by:dat_s "Von" ~group:visit)
         ~till:(add (module DateOpt) ~sort_by:dat_s "Bis" ~group:visit)
-        ~rooms:(add (module String) ~sort_by:lex_s "Zimmer" ~group:visit)
-        ~guests:(add (module IntOpt) ~sort_by:int_s "Gäste" ~group:visit)
       |> List.rev
     ;;
 
-    let of_customer ~id c : t =
-      let booking = Customer.first_booking c in
-      let summary = Option.map ~f:Booking.summarize booking in
-      let period = Option.map ~f:Booking.period booking in
+    let of_customer ~id (r : Pg.Customers.return) : t =
+      let c = r.data in
       let given = c.name.given
       and family = c.name.family
       and company = c.company.name
       and keyword = c.keyword
-      and guests = summary |> Option.map ~f:Booking.Summary.guests
-      and rooms =
-        summary
-        |> Option.map ~f:Booking.Summary.rooms
-        |> Option.map ~f:(String.concat ~sep:", ")
-        |> Option.value ~default:""
-      and from = period |> Option.map ~f:Period.from
-      and till = period |> Option.map ~f:Period.till in
-      { id; given; family; company; keyword; from; till; guests; rooms }
+      and from, till =
+        match List.nth r.bookings 0 with
+        | Some b -> Some b.arrival, Some b.departure
+        | None -> None, None
+      in
+      { id; given; family; company; keyword; from; till }
     ;;
   end
 
@@ -210,7 +192,7 @@ module Model = struct
   module Row : sig
     type t [@@deriving compare]
 
-    val of_customer : id:int -> Customer.t -> t
+    val of_customer : id:int -> Pg.Customers.return -> t
   end
   with type t = Row.Model.t =
     Row.Model

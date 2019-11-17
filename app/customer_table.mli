@@ -1,4 +1,3 @@
-open Ghm
 open Core_kernel
 open Incr_dom
 module RowId : module type of Int
@@ -12,7 +11,7 @@ module Model : sig
     type t [@@deriving compare]
 
     (** [id] is used with the select argument of {!create} *)
-    val of_customer : id:int -> Customer.t -> t
+    val of_customer : id:int -> Pg.Customers.return -> t
   end
 end
 
