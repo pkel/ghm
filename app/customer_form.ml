@@ -27,7 +27,7 @@ open Incr.Let_syntax
 module Model = struct
   type t =
     { remote : Pg.Customers.return
-    ; init : Customer.t
+    ; init : int (* times loaded, triggers recreation of form elements *) * Customer.t
     ; local : Customer.t
     ; touched_at : int
     ; nav : Nav.noi * Nav.customer
@@ -35,26 +35,32 @@ module Model = struct
     }
   [@@deriving compare, fields]
 
-  let load ?(is_loading = false) nav c =
+  let init_id =
+    let i = ref 0 in
+    function
+    | () ->
+      incr i;
+      !i
+  ;;
+
+  let t
+      ?(nav = Nav.(New, CData))
+      ?(is_loading = false)
+      ?(c = { Pg.Customers.id = -1; data = Customer.empty; bookings = [] })
+      ()
+    =
     { remote = c
     ; local = c.data
-    ; init = c.data
+    ; init = init_id (), c.data
     ; touched_at = Int.max_value
     ; nav
     ; is_loading
     }
   ;;
 
-  let loading nav =
-    load ~is_loading:true nav { id = -1; data = Customer.empty; bookings = [] }
-  ;;
-
-  let create () =
-    load
-      ~is_loading:false
-      Nav.(New, CData)
-      { id = -1; data = Customer.empty; bookings = [] }
-  ;;
+  let loading nav = t ~is_loading:true ~nav ()
+  let loaded m c = t ~nav:m.nav ~is_loading:false ~c ()
+  let create () = t ()
 end
 
 module Action = struct
@@ -207,7 +213,10 @@ let apply_action (model : Model.t) (action : Action.t) (state : State.t) ~schedu
     in
     model
   | PatchedCustomer (Ok remote) -> { model with remote }
-  | PostedCustomer (Ok remote) -> { model with remote }
+  | PostedCustomer (Ok remote) ->
+    let nav = Nav.Id remote.id, snd model.nav in
+    let () = Nav.set (Customer nav) in
+    { model with remote; nav }
   | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
     model
@@ -233,7 +242,7 @@ let apply_action (model : Model.t) (action : Action.t) (state : State.t) ~schedu
     Xhr.send' ~c ~handler rq;
     Model.loading nav
   | NavChange nav -> { model with nav }
-  | GotCustomer (Ok return) -> Model.load Nav.(Id return.id, snd model.nav) return
+  | GotCustomer (Ok return) -> Model.loaded model return
   | GotCustomer (Error detail) ->
     state.handle_error { gist = "Laden fehlgeschlagen"; detail };
     model
@@ -410,7 +419,7 @@ let letter_dropdown customer =
 let view ~sync ~inject ~init customer =
   let delete_c _evt = inject Action.DeleteCustomer in
   let%map form =
-    let%bind init = init in
+    let%bind _, init = init in
     View.customer ~inject ~init
   and letter_dropdown = customer >>| letter_dropdown
   and sync = sync in
