@@ -11,6 +11,11 @@ Migration from old production api (single table) to new schema:
 jq 'map({ id:.customer_id, data: (.data | del(.bookings)), bookings: .data.bookings }) | { customers: . }' < data/combit.json > data/combit.migrated.json
 ```
 
+Or only a subset for speedy import:
+```bash
+jq 'map(select(.customer_id >= 12000 and .customer_id <= 12100) | { id:.customer_id, data: (.data | del(.bookings)), bookings: .data.bookings }) | { customers: . }' < data/combit.json > data/combit.migrated.json
+```
+
 ## ToDo
 
 * save/fetch bookings separately from customers
