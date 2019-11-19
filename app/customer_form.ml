@@ -461,9 +461,17 @@ let view ~inject model =
 
 let menu (m : Model.t) : Menu.t =
   let open Menu in
+  let open Nav in
   let href nav = Href (Nav.href (Customer (fst m.nav, nav))) in
-  let goto_main = href CData in
-  let children = [ entry "Stammdaten" goto_main (snd m.nav = CData) ] in
+  let children =
+    entry "Stammdaten" (href CData) (snd m.nav = CData)
+    :: entry "Neue Buchung" (href (Booking (New, BData))) false
+    :: List.map m.remote.bookings ~f:(fun { arrival; departure; id } ->
+           entry
+             Period.(to_string_hum (of_dates arrival departure))
+             (href (Booking (Id id, BData)))
+             false)
+  in
   let title =
     if m.is_loading
     then "Kunde lädt ..."
@@ -472,7 +480,7 @@ let menu (m : Model.t) : Menu.t =
       | "" -> "Kunde: n/a"
       | s -> "Kunde: " ^ s)
   in
-  [ entry ~children title goto_main false ]
+  [ entry ~children title (href CData) false ]
 ;;
 
 let create ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =

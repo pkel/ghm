@@ -95,12 +95,12 @@ let booking_to_path = function
 
 type customer =
   | CData
-  | Booking of (int * booking)
+  | Booking of (noi * booking)
 [@@deriving compare, sexp_of]
 
 let customer_of_path = function
   | "booking" :: i :: tl ->
-    (match Caml.int_of_string_opt i with
+    (match noi_of_string_opt i with
     | Some i -> Booking (i, booking_of_path tl)
     | None -> CData)
   | _ -> CData
@@ -108,7 +108,7 @@ let customer_of_path = function
 
 let customer_to_path = function
   | CData -> []
-  | Booking (i, b) -> "booking" :: Int.to_string i :: booking_to_path b
+  | Booking (i, b) -> "booking" :: noi_to_string i :: booking_to_path b
 ;;
 
 type main =

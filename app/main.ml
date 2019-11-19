@@ -113,7 +113,7 @@ let search_filter_of_input s =
   | s ->
     let s = (if l then "" else "%") ^ s ^ if r then "" else "%" in
     let open Pg.String in
-    Some Pg.(Customers.keyword = s)
+    Some Pg.(ilike Customers.keyword s)
 ;;
 
 let rec view_menu depth entries =
