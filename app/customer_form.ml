@@ -1,21 +1,8 @@
 (* TODO:
-   - database interaction should NOT be handled here
-   - local customer is exposed via extra, upper level should observe
-     changes and handle database interaction
-   - (done) save booking
-
-   - (done) fix form (switch to booking then back to CData)
-   - (done) better: replace form with interactive
-
    - nav should not be part of the model
    - nav should be an incremental argument to the component
-   - nav menu should be rendered externally
 
-   - investigate effective use of Incremental for list of bookings
-
-   - (done) there should be one invoice form per booking
-   - (done) the exposed extra customer should integrate the exposed incremental
-     invoices/bookings of the sub component
+   - Use Interactive monad to filter empty keywords and display errors to user
 *)
 
 open Core_kernel
@@ -29,9 +16,9 @@ module Model = struct
     { remote : Pg.Customers.return
     ; init : int (* times loaded, triggers recreation of form elements *) * Customer.t
     ; local : Customer.t
-    ; touched_at : int
+    ; last_input_at : int
     ; nav : Nav.noi * Nav.customer
-    ; is_loading : bool
+    ; is_loading : bool (* ; booking : Booking_form.Model.t *)
     }
   [@@deriving compare, fields]
 
@@ -52,7 +39,7 @@ module Model = struct
     { remote = c
     ; local = c.data
     ; init = init_id (), c.data
-    ; touched_at = Int.max_value
+    ; last_input_at = Int.max_value
     ; nav
     ; is_loading
     }
@@ -106,14 +93,13 @@ module Action = struct
 
   type t =
     | Customer of customer
-    | Touch
-    | Touched
+    | Delayed_after_input
+    | DeleteCustomer
     | Save
     | PostedCustomer of Pg.Customers.return sexp_opaque Or_error.t
     | PatchedCustomer of Pg.Customers.return sexp_opaque Or_error.t
     | NavChange of (Nav.noi * Nav.customer) sexp_opaque
     | GotCustomer of Pg.Customers.return sexp_opaque Or_error.t
-    | DeleteCustomer
   [@@deriving sexp_of, variants]
 end
 
@@ -174,26 +160,26 @@ let apply_customer_action x =
 let apply_action (model : Model.t) (action : Action.t) (state : State.t) ~schedule_action
     : Model.t
   =
-  match action with
-  | Customer action ->
-    schedule_action Action.Touch;
-    { model with local = apply_customer_action model.local action }
-  | Touched ->
-    (* We waited some time after a touch *)
-    let () =
-      if Browser.Date.(to_int (now ())) - model.touched_at >= 300
-      then schedule_action Action.Save
-      else ()
-    in
-    model
-  | Touch ->
+  let delay_after_input model =
     (* Form touched. Wait a bit. Avoid high frequent saving. *)
     let () =
       Async_kernel.(
         don't_wait_for
-          (after (Time_ns.Span.of_sec 0.3) >>| fun () -> schedule_action Action.Touched))
+          (after (Time_ns.Span.of_sec 0.3)
+          >>| fun () -> schedule_action Action.Delayed_after_input))
     in
-    { model with touched_at = Browser.Date.(to_int (now ())) }
+    Model.{ model with last_input_at = Browser.Date.(to_int (now ())) }
+  in
+  match action with
+  | Customer action ->
+    delay_after_input { model with local = apply_customer_action model.local action }
+  | Delayed_after_input ->
+    let () =
+      if Browser.Date.(to_int (now ())) - model.last_input_at >= 300
+      then schedule_action Action.Save
+      else ()
+    in
+    model
   | Save ->
     let () =
       if model.local <> model.remote.data
@@ -252,18 +238,55 @@ module Fields = struct
   open Interactive
   open Vdom
 
-  (* This is called once on Incr node construction, I hope. Use this fact for
-   * deriving id's and link labels *)
+  module Primitives = struct
+    let shared_setup =
+      let incr =
+        let counter = ref 0 in
+        fun () ->
+          incr counter;
+          "ghm_form_" ^ Int.to_string !counter
+      in
+      fun ~id ->
+        let key = incr () in
+        key, Option.value id ~default:key
+    ;;
 
-  let input ?init label =
-    let attrs = [ Attr.class_ "form-control" ] in
+    let text_or_text_area ~which_one ?init ?(attrs = fun _ -> []) ?id () =
+      let open Incr.Let_syntax in
+      let init = Option.value init ~default:"" in
+      let key, id = shared_setup ~id in
+      Primitives.create ~init ~render:(fun ~inject ~value ->
+          let%map value = value in
+          let on_input = Attr.on_input (fun _ev text -> inject text) in
+          let attrs = Attr.id id :: on_input :: attrs value in
+          [ (match which_one with
+            | `Text -> Node.input ~key (Attr.type_ "text" :: Attr.value value :: attrs) []
+            | `Text_area -> Node.textarea ~key attrs [ Node.text value ])
+          ])
+    ;;
+
+    let text = text_or_text_area ~which_one:`Text
+    let text_area = text_or_text_area ~which_one:`Text_area
+  end
+
+  let input ?(validator = fun _ -> None) ?init label =
+    let label = Node.label [] [ Node.text label ] in
+    let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
+    let attrs value =
+      match validator value with
+      | None -> [ Attr.class_ "form-control" ]
+      | Some _ -> [ Attr.classes [ "form-control"; "is-invalid" ] ]
+    in
     Primitives.text ?init ~attrs ()
-    |> map_nodes ~f:(fun nodes -> Node.label [] [ Node.text label ] :: nodes)
+    |> map_nodes_value_dependent ~f:(fun x nodes ->
+           match validator x with
+           | None -> label :: nodes
+           | Some msg -> (label :: nodes) @ [ err msg ])
     |> wrap_in_div ~attrs:[ Attr.class_ "form-group" ]
   ;;
 
   let textarea ?init ~nrows label =
-    let attrs =
+    let attrs _ =
       let open Attr in
       [ class_ "form-control"; create "rows" (string_of_int nrows) ]
     in
@@ -353,7 +376,12 @@ module View = struct
     and address = address ~inject ~init:x.address
     and contact = contact ~inject ~init:x.contact
     and keyword =
-      render (input ~init:x.keyword "Schlüsselwort") ~inject ~on_input:keyword
+      let validator value =
+        match String.strip value with
+        | "" -> Some "Das Schlüsselwort darf nicht leer sein!"
+        | _ -> None
+      in
+      render (input ~validator ~init:x.keyword "Schlüsselwort") ~inject ~on_input:keyword
     and note = render (textarea ~init:x.note ~nrows:8 "Notiz") ~inject ~on_input:note in
     let left = Bs.Grid.((frow [ col [ keyword ] ] :: name) @ [ frow [ col [ note ] ] ])
     and middle = address @ company
