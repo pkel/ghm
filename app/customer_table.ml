@@ -12,8 +12,6 @@ module Table = struct
   include Table.Make (RowId) (Core_kernel.Int) (Table.Default_sort_spec)
 end
 
-module Form = Incr_dom_widgets.Form
-
 module Column = struct
   open Core_kernel
   open Incr_dom

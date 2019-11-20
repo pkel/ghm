@@ -127,3 +127,86 @@ module Grid = struct
       ]
   ;;
 end
+
+module Form = struct
+  open Incr_dom
+  open Vdom
+  open Incr_dom_widgets.Interactive
+
+  module Primitives = struct
+    let shared_setup =
+      let incr =
+        let counter = ref 0 in
+        fun () ->
+          incr counter;
+          "ghm_form_" ^ Int.to_string !counter
+      in
+      fun ~id ->
+        let key = incr () in
+        key, Option.value id ~default:key
+    ;;
+
+    let generic ~render ?(init = "") ?id () =
+      let open Incr.Let_syntax in
+      let key, id = shared_setup ~id in
+      Primitives.create ~init ~render:(fun ~inject ~value ->
+          let%map value = value in
+          let on_input = Attr.on_input (fun _ev text -> inject text) in
+          let attrs = [ Attr.id id; on_input ] in
+          render ~key ~attrs ~value)
+    ;;
+  end
+
+  let input ?(validator = fun _ -> None) ?placeholder ?init label =
+    let label = Node.label [] [ Node.text label ] in
+    let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
+    let render ~key ~attrs ~value =
+      let attrs classes =
+        let tl =
+          Attr.classes ("form-control" :: classes)
+          :: Attr.type_ "text"
+          :: Attr.value value
+          :: attrs
+        in
+        match placeholder with
+        | None -> tl
+        | Some p -> Attr.placeholder p :: tl
+      in
+      let nodes =
+        match validator value with
+        | None -> [ label; Node.input ~key (attrs []) [] ]
+        | Some msg -> [ label; Node.input ~key (attrs [ "is-invalid" ]) []; err msg ]
+      in
+      [ Node.div [ Attr.class_ "form-group" ] nodes ]
+    in
+    Primitives.generic ~render ?init ()
+  ;;
+
+  let textarea ?(validator = fun _ -> None) ~nrows ?placeholder ?init label =
+    let label = Node.label [] [ Node.text label ] in
+    let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
+    let render ~key ~attrs ~value =
+      let attrs classes =
+        let tl =
+          Attr.classes ("form-control" :: classes)
+          :: Attr.create "rows" (Int.to_string nrows)
+          :: attrs
+        in
+        match placeholder with
+        | None -> tl
+        | Some p -> Attr.placeholder p :: tl
+      in
+      let nodes =
+        match validator value with
+        | None -> [ label; Node.textarea ~key (attrs []) [ Node.text value ] ]
+        | Some msg ->
+          [ label
+          ; Node.textarea ~key (attrs [ "is-invalid" ]) [ Node.text value ]
+          ; err msg
+          ]
+      in
+      [ Node.div [ Attr.class_ "form-group" ] nodes ]
+    in
+    Primitives.generic ~render ?init ()
+  ;;
+end

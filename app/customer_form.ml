@@ -234,73 +234,11 @@ let apply_action (model : Model.t) (action : Action.t) (state : State.t) ~schedu
     model
 ;;
 
-module Fields = struct
-  open Interactive
-  open Vdom
-
-  module Primitives = struct
-    let shared_setup =
-      let incr =
-        let counter = ref 0 in
-        fun () ->
-          incr counter;
-          "ghm_form_" ^ Int.to_string !counter
-      in
-      fun ~id ->
-        let key = incr () in
-        key, Option.value id ~default:key
-    ;;
-
-    let text_or_text_area ~which_one ?init ?(attrs = fun _ -> []) ?id () =
-      let open Incr.Let_syntax in
-      let init = Option.value init ~default:"" in
-      let key, id = shared_setup ~id in
-      Primitives.create ~init ~render:(fun ~inject ~value ->
-          let%map value = value in
-          let on_input = Attr.on_input (fun _ev text -> inject text) in
-          let attrs = Attr.id id :: on_input :: attrs value in
-          [ (match which_one with
-            | `Text -> Node.input ~key (Attr.type_ "text" :: Attr.value value :: attrs) []
-            | `Text_area -> Node.textarea ~key attrs [ Node.text value ])
-          ])
-    ;;
-
-    let text = text_or_text_area ~which_one:`Text
-    let text_area = text_or_text_area ~which_one:`Text_area
-  end
-
-  let input ?(validator = fun _ -> None) ?init label =
-    let label = Node.label [] [ Node.text label ] in
-    let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
-    let attrs value =
-      match validator value with
-      | None -> [ Attr.class_ "form-control" ]
-      | Some _ -> [ Attr.classes [ "form-control"; "is-invalid" ] ]
-    in
-    Primitives.text ?init ~attrs ()
-    |> map_nodes_value_dependent ~f:(fun x nodes ->
-           match validator x with
-           | None -> label :: nodes
-           | Some msg -> (label :: nodes) @ [ err msg ])
-    |> wrap_in_div ~attrs:[ Attr.class_ "form-group" ]
-  ;;
-
-  let textarea ?init ~nrows label =
-    let attrs _ =
-      let open Attr in
-      [ class_ "form-control"; create "rows" (string_of_int nrows) ]
-    in
-    Primitives.text_area ?init ~attrs ()
-    |> map_nodes ~f:(fun nodes -> Node.label [] [ Node.text label ] :: nodes)
-    |> wrap_in_div ~attrs:[ Attr.class_ "form-group" ]
-  ;;
-end
-
 open Vdom
 
 module View = struct
   open Action
-  open Fields
+  open Bs.Form
   open Interactive
   open Incr.Let_syntax
 
