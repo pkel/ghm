@@ -11,8 +11,7 @@ type env =
   { nav : Nav.booking Incr.t
   ; rel : Nav.booking -> Nav.main
   ; customer : Customer.t Incr.t
-  ; new_booking : Booking.t inject
-  ; delete_booking : unit inject
+  ; customer_id : Nav.noi Incr.t
   }
 
 module Model = struct
@@ -66,6 +65,14 @@ module Action = struct
     | Booking of booking
     | Invoice of Invoice_form.Action.t
     | Reload_invoice
+    | Delete
+    | Delayed_after_input
+    | DeleteCustomer
+    | Save
+    | Pg_created of Pg.Bookings.return sexp_opaque Or_error.t
+    | Pg_saved of Pg.Customers.return sexp_opaque Or_error.t
+    | Pg_read of Pg.Customers.return sexp_opaque Or_error.t
+    | Pd_deleted of unit Or_error.t
   [@@deriving sexp_of, variants]
 end
 

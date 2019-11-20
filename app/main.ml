@@ -1,7 +1,6 @@
 open Core_kernel
 open Incr_dom
 module Incr_map = Incr_map.Make (Incr)
-module Form = Incr_dom_widgets.Form
 module State = State
 
 module Model = struct
@@ -12,15 +11,13 @@ module Model = struct
     ; errors : Errors.Model.t
     ; nav : Nav.main
     ; last_search : string option
-    ; search : Form.State.t
+    ; search_input : string
     ; page : int
     }
   [@@deriving compare, fields]
 
   let cutoff t1 t2 = compare t1 t2 = 0
 end
-
-let search_form = Form.(create ~name:"keyword search" Description.string)
 
 let init () : Model.t =
   (* TODO: make form components lazy ? *)
@@ -30,8 +27,8 @@ let init () : Model.t =
   ; errors = Errors.Model.empty
   ; nav = Nav.Overview
   ; last_search = None
+  ; search_input = ""
   ; page = 0
-  ; search = Form.State.create ~init:"" search_form
   }
 ;;
 
@@ -39,6 +36,7 @@ module Action = struct
   type t =
     | NavChange of Nav.main
     | Search
+    | Search_input of string
     | ResetSearch
     | GetMore
     | CustomerTable of Customer_table.Action.t
@@ -48,9 +46,13 @@ module Action = struct
   [@@deriving sexp_of, variants]
 end
 
-let view_head inject last_search state =
+let view_head ~on_input ~inject ~init =
   let open Vdom in
-  let fld_id = Form.State.field_ids state search_form in
+  let open Incr.Let_syntax in
+  let%map input = Incr_dom_widgets.Interactive.render ~on_input ~inject (
+                      Bs.Form.input ~placeholder:"Schlüsselwort" ~init "Label"
+                    )
+  in
   Node.create
     "form"
     [ Attr.on "submit" (fun _ -> inject Action.Search) ]
@@ -67,14 +69,7 @@ let view_head inject last_search state =
                           ~action:(fun _ -> inject Action.ResetSearch)
                           "Zurücksetzen"
                       ]
-                  ; Form.Input.text
-                      state
-                      fld_id
-                      ([ Attr.class_ "form-control"; Attr.placeholder "Schlüsselwort" ]
-                      @
-                      match last_search with
-                      | None -> []
-                      | Some s -> [ Attr.value s ])
+                  ; input
                   ; div [ A.class_ "input-group-append" ] [ Bs.button_submit "Suchen" ]
                   ]
               ]
@@ -168,9 +163,7 @@ let create model ~old_model ~inject =
   let%map table = table
   and model = model
   and customer = customer
-  and errors = errors
-  and search_state = model >>| Model.search
-  and last_search = model >>| Model.last_search in
+  and errors = errors in
   let apply_action (a : Action.t) (s : State.t) ~schedule_action =
     let conn = s.connection in
     let old_nav = model.nav in
@@ -226,13 +219,10 @@ let create model ~old_model ~inject =
         in
         { model with nav }
       | Search ->
-        let pattern_o, search = Form.State.read_value model.search search_form in
-        (match pattern_o with
-        | None -> model
-        | Some s ->
-          let filter = search_filter_of_input s in
+          let filter = search_filter_of_input model.search_input in
           get_customers ~conn ~schedule_action ?filter ();
-          { model with search; last_search = Some s })
+          { model with last_search = Some model.search_input }
+      | Search_input search_input -> { model with search_input }
       | GetMore ->
         let page = model.page + 1
         and filter = Option.bind ~f:search_filter_of_input model.last_search in
