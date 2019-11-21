@@ -18,5 +18,8 @@ jq 'map(select(.customer_id >= 12000 and .customer_id <= 12100) | { id:.customer
 
 ## ToDo
 
+* PHP puts cleatext password to error log / client on database
+  connection failure. Either wrap usage of password into try catch
+  or avoid PHP altogether
 * save/fetch bookings separately from customers
 * Json Export for jMeldeschein
