@@ -27,6 +27,7 @@
   (depends
     (incr_dom :build)
     (incr_dom_partial_render :build)
+    (incr_dom_widgets :build)
     (ppx_jane :build)
     (cmdliner :build)
     (ppx_deriving_cmdliner :build)

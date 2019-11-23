@@ -1,4 +1,3 @@
-open Incr_dom_widgets
 open Core_kernel
 open Browser
 open Console
@@ -16,10 +15,4 @@ let errorf f = Printf.ksprintf error_str f
 let error e =
   let msg = Error.to_string_hum e in
   error_str msg
-;;
-
-let form state =
-  List.iter (Form.State.errors state) ~f:(fun e ->
-      let msg = "FORM: " ^ Error.to_string_hum e in
-      error_str msg)
 ;;
