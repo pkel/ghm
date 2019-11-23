@@ -10,7 +10,7 @@ module Model = struct
     ; customer_form : Customer_form.Model.t
     ; errors : Errors.Model.t
     ; nav : Nav.main
-    ; last_search : string option
+    ; search_init : string
     ; search_input : string
     ; page : int
     }
@@ -26,7 +26,7 @@ let init () : Model.t =
   ; customer_form = Customer_form.Model.create ()
   ; errors = Errors.Model.empty
   ; nav = Nav.Overview
-  ; last_search = None
+  ; search_init = ""
   ; search_input = ""
   ; page = 0
   }
@@ -49,32 +49,25 @@ end
 let view_head ~on_input ~inject ~init =
   let open Vdom in
   let open Incr.Let_syntax in
-  let%map input = Incr_dom_widgets.Interactive.render ~on_input ~inject (
-                      Bs.Form.input ~placeholder:"Schlüsselwort" ~init "Label"
-                    )
+  let%bind init = init in
+  let%map input =
+    let prepend =
+      [ Bs.button
+          ~i:(S "undo")
+          ~action:(fun _ -> inject Action.ResetSearch)
+          "Zurücksetzen"
+      ]
+    and append = [ Bs.button_submit "Suchen" ]
+    and placeholder = "Schlüsselwort" in
+    Incr_dom_widgets.Interactive.render
+      ~on_input
+      ~inject
+      (Bs.Form.input ~prepend ~append ~placeholder ~init ())
   in
   Node.create
     "form"
     [ Attr.on "submit" (fun _ -> inject Action.Search) ]
-    [ Bs.Grid.(
-        frow
-          ~c:[ "mb-4"; "mt-2" ]
-          [ col_auto
-              [ div
-                  [ A.class_ "input-group" ]
-                  [ div
-                      [ A.class_ "input-group-prepend" ]
-                      [ Bs.button
-                          ~i:(S "undo")
-                          ~action:(fun _ -> inject Action.ResetSearch)
-                          "Zurücksetzen"
-                      ]
-                  ; input
-                  ; div [ A.class_ "input-group-append" ] [ Bs.button_submit "Suchen" ]
-                  ]
-              ]
-          ])
-    ]
+    [ Bs.Grid.(frow ~c:[ "mb-4"; "mt-2" ] [ col_auto [ input ] ]) ]
 ;;
 
 let customer_page_size = 250
@@ -161,6 +154,8 @@ let create model ~old_model ~inject =
     Errors.create ~inject model
   in
   let%map table = table
+  and head =
+    view_head ~inject ~on_input:Action.search_input ~init:(model >>| Model.search_init)
   and model = model
   and customer = customer
   and errors = errors in
@@ -214,23 +209,23 @@ let create model ~old_model ~inject =
             schedule_action (Action.CustomerForm (Customer_form.Action.navchange x))
           | Overview -> Nav.set Search
           | Search ->
-            let filter = Option.bind ~f:search_filter_of_input model.last_search in
+            let filter = search_filter_of_input model.search_init in
             get_customers ~conn ?filter ~schedule_action ()
         in
         { model with nav }
       | Search ->
-          let filter = search_filter_of_input model.search_input in
-          get_customers ~conn ~schedule_action ?filter ();
-          { model with last_search = Some model.search_input }
+        let filter = search_filter_of_input model.search_input in
+        get_customers ~conn ~schedule_action ?filter ();
+        { model with search_init = model.search_input }
       | Search_input search_input -> { model with search_input }
       | GetMore ->
         let page = model.page + 1
-        and filter = Option.bind ~f:search_filter_of_input model.last_search in
+        and filter = search_filter_of_input model.search_init in
         get_customers ~page ~conn ~schedule_action ?filter ();
         model
       | ResetSearch ->
         get_customers ~conn ~schedule_action ();
-        { model with last_search = None; search = Form.State.create search_form }
+        { model with search_init = ""; search_input = "" }
     in
     let () = if old_nav <> model.nav then Nav.set model.nav in
     model
@@ -241,7 +236,7 @@ let create model ~old_model ~inject =
       | Overview -> [], [], []
       | Search ->
         ( [ Attr.on "scroll" (fun _ -> Event.Viewport_changed) ]
-        , ([ view_head inject last_search search_state
+        , ([ head
            ; (if Option.is_some model.customers
              then Component.view table
              else Bs.Grid.loading_row)

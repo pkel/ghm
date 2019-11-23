@@ -242,6 +242,8 @@ module View = struct
   open Interactive
   open Incr.Let_syntax
 
+  let input ?validator ?init label = input ?validator ?init ~label ()
+
   let name ~inject ~(init : Customer.Name.t) =
     let x = init in
     let inject a = inject (Name a) in

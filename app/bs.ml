@@ -157,9 +157,33 @@ module Form = struct
     ;;
   end
 
-  let input ?(validator = fun _ -> None) ?placeholder ?init label =
-    let label = Node.label [] [ Node.text label ] in
+  let input
+      ?(validator = fun _ -> None)
+      ?(prepend = [])
+      ?(append = [])
+      ?placeholder
+      ?init
+      ?label
+      ()
+    =
+    let label = Option.map ~f:(fun l -> Node.label [] [ Node.text l ]) label in
     let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
+    let group input =
+      match append, prepend with
+      | [], [] -> input
+      | _ ->
+        Node.div
+          [ Attr.class_ "input-group" ]
+          (List.concat
+             [ (match prepend with
+               | [] -> []
+               | l -> [ Node.div [ Attr.class_ "input-group-prepend" ] l ])
+             ; [ input ]
+             ; (match append with
+               | [] -> []
+               | l -> [ Node.div [ Attr.class_ "input-group-append" ] l ])
+             ])
+    in
     let render ~key ~attrs ~value =
       let attrs classes =
         let tl =
@@ -174,10 +198,14 @@ module Form = struct
       in
       let nodes =
         match validator value with
-        | None -> [ label; Node.input ~key (attrs []) [] ]
-        | Some msg -> [ label; Node.input ~key (attrs [ "is-invalid" ]) []; err msg ]
+        | None -> [ label; Some (Node.input ~key (attrs []) [] |> group) ]
+        | Some msg ->
+          [ label
+          ; Some (Node.input ~key (attrs [ "is-invalid" ]) [] |> group)
+          ; Some (err msg)
+          ]
       in
-      [ Node.div [ Attr.class_ "form-group" ] nodes ]
+      [ Node.div [ Attr.class_ "form-group" ] (List.filter_opt nodes) ]
     in
     Primitives.generic ~render ?init ()
   ;;
