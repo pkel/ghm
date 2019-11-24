@@ -7,7 +7,7 @@ module Model = struct
   type t =
     { customers : Pg.Customers.return Int.Map.t option
     ; customer_table : Customer_table.Model.t
-    ; customer_form : Customer_form.Model.t
+    ; customer_view : Customer_view.Model.t
     ; errors : Errors.Model.t
     ; nav : Nav.main
     ; search_init : string
@@ -23,7 +23,7 @@ let init () : Model.t =
   (* TODO: make form components lazy ? *)
   { Model.customers = None
   ; customer_table = Customer_table.Model.create ()
-  ; customer_form = Customer_form.Model.create ()
+  ; customer_view = Customer_view.Model.create ()
   ; errors = Errors.Model.empty
   ; nav = Nav.Overview
   ; search_init = ""
@@ -40,7 +40,7 @@ module Action = struct
     | ResetSearch
     | GetMore
     | CustomerTable of Customer_table.Action.t
-    | CustomerForm of Customer_form.Action.t
+    | CustomerForm of Customer_view.Action.t
     | Errors of Errors.Action.t
     | GotCustomers of int (* page *) * Pg.Customers.return list sexp_opaque Or_error.t
   [@@deriving sexp_of, variants]
@@ -145,8 +145,8 @@ let create model ~old_model ~inject =
     Customer_table.create rows ~old_model ~inject ~model
   and customer =
     let inject = Fn.compose inject Action.customerform
-    and form_model = model >>| Model.customer_form in
-    Customer_form.create ~inject form_model
+    and form_model = model >>| Model.customer_view in
+    Customer_view.create ~inject form_model
   in
   let errors =
     let inject = Fn.compose inject Action.errors
@@ -196,8 +196,8 @@ let create model ~old_model ~inject =
         { model with customer_table }
       | CustomerForm a ->
         let schedule_action = Fn.compose schedule_action Action.customerform in
-        let customer_form = Component.apply_action ~schedule_action customer a s in
-        { model with customer_form }
+        let customer_view = Component.apply_action ~schedule_action customer a s in
+        { model with customer_view }
       | Errors a ->
         let schedule_action = Fn.compose schedule_action Action.errors in
         let errors = Component.apply_action ~schedule_action errors a s in
@@ -206,7 +206,7 @@ let create model ~old_model ~inject =
         let () =
           match nav with
           | Customer x ->
-            schedule_action (Action.CustomerForm (Customer_form.Action.navchange x))
+            schedule_action (Action.CustomerForm (Customer_view.Action.navchange x))
           | Overview -> Nav.set Search
           | Search ->
             let filter = search_filter_of_input model.search_init in
