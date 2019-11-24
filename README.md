@@ -23,3 +23,4 @@ jq 'map(select(.customer_id >= 12000 and .customer_id <= 12100) | { id:.customer
   or avoid PHP altogether
 * save/fetch bookings separately from customers
 * Json Export for jMeldeschein
+* Communicate with letter js via local storage. CORS should then avoid XSS.
