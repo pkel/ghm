@@ -1,10 +1,3 @@
-(* TODO:
-   - nav should not be part of the model
-   - nav should be an incremental argument to the component
-
-   - Use Interactive monad to filter empty keywords and display errors to user
-*)
-
 open Core_kernel
 open Ghm
 open Incr_dom
@@ -17,7 +10,7 @@ module Model = struct
     ; last_valid : Customer.t
     ; last_input_at : int
     ; nav : Nav.noi * Nav.customer
-    ; is_loading : bool (* ; booking : Booking_form.Model.t *)
+    ; is_loading : bool
     ; is_valid : bool
     }
   [@@deriving compare, fields]
