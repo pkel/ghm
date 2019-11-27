@@ -1,6 +1,5 @@
 open Incr_dom
 open Ghm
-open Interfaces
 
 type env =
   { nav : Nav.booking Incr.t
@@ -9,4 +8,4 @@ type env =
   ; customer_id : Nav.noi Incr.t
   }
 
-include FORM_COMPONENT with type edit := Booking.t and type env := env
+include Interfaces.EDITABLE with type env := env and type t = Booking.t

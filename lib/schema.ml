@@ -63,7 +63,7 @@ module Bookings = struct
     type b = return
 
     let name = "api/bookings"
-    let select = [ "id"; "data" ]
+    let select = [ "id"; "customer"; "data" ]
     let provide = provide_to_yojson
     let return = parse ~f:return_of_yojson
   end)

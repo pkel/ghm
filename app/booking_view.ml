@@ -5,27 +5,27 @@ open Incr.Let_syntax
 
 module Model = struct
   type t =
-    { remote : Pg.Customers.return
-    ; form : Customer_form.Model.t
-    ; booking : Booking_view.Model.t
-    ; last_valid : Customer.t
+    { remote : Pg.Bookings.return
+    ; booking : Booking_form.Model.t (* ; invoice : Invoice_form.Model.t *)
+    ; last_valid : Booking.t
     ; last_input_at : int
-    ; nav : Nav.noi * Nav.customer
+    ; nav : Nav.noi * Nav.booking
     ; is_loading : bool
     ; is_valid : bool
     }
   [@@deriving compare, fields]
 
+  let fresh_booking () = failwith ""
+
   let t
-      ?(nav = Nav.(New, CData))
+      ?(nav = Nav.(New, BData))
       ?(is_loading = false)
-      ?(c = { Pg.Customers.id = -1; data = Customer.empty; bookings = [] })
+      ?(b = { Pg.Bookings.id = -1; data = fresh_booking (); customer = -1 })
       ()
     =
-    { remote = c
-    ; form = Customer_form.init c.data
-    ; booking = Booking_view.Model.create ()
-    ; last_valid = c.data
+    { remote = b
+    ; booking = Booking_form.init b.data
+    ; last_valid = b.data
     ; is_valid = true
     ; last_input_at = Int.max_value
     ; nav
@@ -34,34 +34,34 @@ module Model = struct
   ;;
 
   let loading nav = t ~is_loading:true ~nav ()
-  let loaded m c = t ~nav:m.nav ~is_loading:false ~c ()
+  let loaded m b = t ~nav:m.nav ~is_loading:false ~b ()
   let create () = t ()
 
   let sync m =
     if m.is_valid
-    then if Customer.compare m.last_valid m.remote.data = 0 then `Sync else `Async
+    then if Booking.compare m.last_valid m.remote.data = 0 then `Sync else `Async
     else `Invalid_input
   ;;
 end
 
 module Action = struct
   type t =
-    | Form of Customer_form.Action.t
-    | Booking of Booking_view.Action.t
+    | Booking of Booking_form.Action.t
+    (* | Invoice of Invoice_form.Action.t *)
     | Delayed_after_input
     | DeleteCustomer
     | Save
-    | PostedCustomer of Pg.Customers.return sexp_opaque Or_error.t
-    | PatchedCustomer of Pg.Customers.return sexp_opaque Or_error.t
-    | NavChange of (Nav.noi * Nav.customer) sexp_opaque
-    | GotCustomer of Pg.Customers.return sexp_opaque Or_error.t
+    | Pg_posted of Pg.Bookings.return sexp_opaque Or_error.t
+    | Pg_patched of Pg.Bookings.return sexp_opaque Or_error.t
+    | Pg_got of Pg.Bookings.return sexp_opaque Or_error.t
+    | NavChange of (Nav.noi * Nav.booking) sexp_opaque
   [@@deriving sexp_of, variants]
 end
 
 let apply_action
-    ~form
     ~booking
-    (model : Model.t)
+    (* ~invoice *)
+      (model : Model.t)
     (action : Action.t)
     (state : State.t)
     ~schedule_action
@@ -78,19 +78,24 @@ let apply_action
     Model.{ model with last_input_at = Browser.Date.(to_int (now ())) }
   in
   match action with
-  | Form action ->
-    let schedule_action = Fn.compose schedule_action Action.form in
-    let form = Component.apply_action ~schedule_action form action state in
-    let is_valid, last_valid =
-      match Customer_form.eval form with
-      | Ok x -> true, x
-      | _ -> false, model.last_valid
-    in
-    delay_after_input { model with form; last_valid; is_valid }
   | Booking action ->
     let schedule_action = Fn.compose schedule_action Action.booking in
     let booking = Component.apply_action ~schedule_action booking action state in
-    { model with booking }
+    let is_valid, last_valid =
+      match Booking_form.eval booking with
+      | Ok x -> true, { x with invoice = model.last_valid.invoice }
+      | _ -> false, model.last_valid
+    in
+    delay_after_input { model with booking; last_valid; is_valid }
+  (* | Invoice action ->
+    let schedule_action = Fn.compose schedule_action Action.invoice in
+    let invoice = Component.apply_action ~schedule_action invoice action state in
+    let is_valid, last_valid =
+      match Invoice_form.eval invoice with
+      | Ok invoice -> true, let x = model.last_valid in { x with invoice }
+      | _ -> false, model.last_valid
+    in
+    delay_after_input { model with invoice; last_valid; is_valid } *)
   | Delayed_after_input ->
     let () =
       if Browser.Date.(to_int (now ())) - model.last_input_at >= 300
@@ -100,30 +105,36 @@ let apply_action
     model
   | Save ->
     let () =
-      let body = model.last_valid in
-      if body <> model.remote.data
+      let body =
+        Pg.Bookings.{ data = model.last_valid; customer = failwith "TODO: customer id" }
+      in
+      if body.data <> model.remote.data
       then (
         let c = state.connection in
         if model.remote.id < 0
         then (
-          let handler = Fn.compose schedule_action Action.postedcustomer in
-          Xhr.send ~c ~body ~handler Pg.(create Customers.t))
+          let handler = Fn.compose schedule_action Action.pg_posted in
+          Xhr.send ~c ~body ~handler Pg.(create Bookings.t))
         else (
-          let handler = Fn.compose schedule_action Action.patchedcustomer in
+          let handler = Fn.compose schedule_action Action.pg_patched in
           Xhr.send
             ~c
             ~body
             ~handler
-            Pg.(update' Int.(Customers.id' == model.remote.id) Customers.t)))
+            Pg.(update' Int.(Bookings.id' == model.remote.id) Bookings.t)))
     in
     model
-  | PatchedCustomer (Ok remote) -> { model with remote }
-  | PostedCustomer (Ok remote) ->
+  | Pg_patched (Ok remote) -> { model with remote }
+  | Pg_posted (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
     let () = Nav.set (Customer nav) in
     { model with remote; nav }
-  | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
+  | Pg_got (Ok return) -> Model.loaded model return
+  | Pg_posted (Error detail) | Pg_patched (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
+    model
+  | Pg_got (Error detail) ->
+    state.handle_error { gist = "Laden fehlgeschlagen"; detail };
     model
   | DeleteCustomer ->
     let () =
@@ -139,21 +150,14 @@ let apply_action
         Xhr.send' ~c ~handler Pg.(delete Int.(Customers.id = i) Customers.t)
     in
     model
-  | NavChange (New, CData) when fst model.nav <> New -> Model.create ()
-  | NavChange ((Id i, CData) as nav) when Nav.Id i <> fst model.nav ->
+  | NavChange (New, _) -> Model.create ()
+  | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
     let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
-    let handler = Fn.compose schedule_action Action.gotcustomer in
+    let handler = Fn.compose schedule_action Action.pg_got in
     let c = state.connection in
     Xhr.send' ~c ~handler rq;
     Model.loading nav
-  | NavChange ((_, Booking bnav) as nav) ->
-    schedule_action (Booking (Booking_view.Action.navchange bnav));
-    { model with nav }
   | NavChange nav -> { model with nav }
-  | GotCustomer (Ok return) -> Model.loaded model return
-  | GotCustomer (Error detail) ->
-    state.handle_error { gist = "Laden fehlgeschlagen"; detail };
-    model
 ;;
 
 open Vdom
@@ -235,7 +239,7 @@ let view ~sync ~inject ~form customer =
       ])
 ;;
 
-let view ~form (model : Model.t Incr.t) ~inject =
+let view_form ~form (model : Model.t Incr.t) ~inject =
   let open Vdom in
   let%map form =
     let sync = model >>| Model.sync in
@@ -247,15 +251,10 @@ let view ~form (model : Model.t Incr.t) ~inject =
 
 let view ~inject ~form model =
   let cond = model >>| Model.is_loading in
-  Incr.if_ cond ~then_:(Incr.const Bs.Grid.loading_row) ~else_:(view ~form ~inject model)
-;;
-
-let view ~inject ~form ~booking model =
-  match%bind model >>| Model.nav >>| snd with
-  | CData -> view ~inject ~form model
-  | Booking _ ->
-    let%map booking = booking in
-    Component.view booking
+  Incr.if_
+    cond
+    ~then_:(Incr.const Bs.Grid.loading_row)
+    ~else_:(view_form ~form ~inject model)
 ;;
 
 let menu (m : Model.t) : Menu.t =
@@ -286,15 +285,11 @@ let create ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let form =
     let inject = Fn.compose inject Action.form in
     Customer_form.create ~env:() ~inject (model >>| Model.form)
-  and booking =
-    let inject = Fn.compose inject Action.booking in
-    Booking_view.create ~inject (model >>| Model.booking)
   in
   let%map model = model
-  and view = view ~inject ~booking ~form model
-  and form = form
-  and booking = booking in
-  let apply_action = apply_action ~booking ~form model
+  and view = view ~inject ~form model
+  and form = form in
+  let apply_action = apply_action form model
   and extra : Menu.t = menu model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

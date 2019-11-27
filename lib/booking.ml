@@ -26,6 +26,18 @@ and alloc =
   }
 [@@deriving yojson, fields, compare, sexp]
 
+let empty ~period =
+  { period
+  ; deposit_asked = None
+  ; deposit_got = None
+  ; tax_free = false
+  ; note = ""
+  ; guests = []
+  ; allocs = []
+  ; invoice = None
+  }
+;;
+
 let empty_guest = { given = ""; family = ""; born = None }
 
 let empty_alloc =
