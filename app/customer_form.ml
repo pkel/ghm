@@ -4,14 +4,6 @@ open Ghm
 type t = Customer.t
 type env = unit
 
-let nonce =
-  let i = ref 0 in
-  function
-  | () ->
-    Int.incr i;
-    !i
-;;
-
 module Model = struct
   type t =
     { init : int * Customer.t
@@ -22,7 +14,7 @@ end
 
 let init customer =
   let open Model in
-  { init = nonce (), customer; cache = customer }
+  { init = Nonce.int (), customer; cache = customer }
 ;;
 
 let eval model =

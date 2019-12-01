@@ -129,9 +129,11 @@ module Grid = struct
 end
 
 module Form = struct
+  open Ghm
   open Incr_dom
   open Vdom
-  open Incr_dom_widgets.Interactive
+  open Incr_dom_widgets
+  open Interactive
 
   module Primitives = struct
     let shared_setup =
@@ -146,25 +148,59 @@ module Form = struct
         key, Option.value id ~default:key
     ;;
 
-    let generic ~render ?(init = "") ?id () =
+    let generic
+        (type a)
+        ~(of_string : string -> (a, string) result)
+        ~(to_string : a -> string)
+        ~init
+        ~render
+        ?id
+        ()
+        : a t
+      =
       let open Incr.Let_syntax in
       let key, id = shared_setup ~id in
       Primitives.create ~init ~render:(fun ~inject ~value ->
           let%map value = value in
-          let on_input = Attr.on_input (fun _ev text -> inject text) in
-          let attrs = [ Attr.id id; on_input ] in
+          let on_input =
+            Attr.on_input (fun _ev text ->
+                match of_string text with
+                | Ok x -> inject x
+                | Error _ -> Event.Ignore)
+          in
+          let attrs = [ Attr.id id; on_input ]
+          and value = to_string value in
           render ~key ~attrs ~value)
     ;;
   end
 
-  let input
-      ?(validator = fun _ -> None)
+  type input =
+    | Text
+    | Number of { step : float }
+    | Date
+    | Int
+
+  let rec attrs_of_type =
+    let open Attr in
+    function
+    | Text -> [ type_ "text" ]
+    | Number { step } -> [ type_ "number"; create "step" (string_of_float step) ]
+    | Date -> [ type_ "date" ]
+    | Int -> attrs_of_type (Number { step = 1. })
+  ;;
+
+  let input_conv
+      (type a)
+      ?(type_ = Text)
+      ~(of_string : string -> (a, string) result)
+      ~(to_string : a -> string)
+      ~init
       ?(prepend = [])
       ?(append = [])
       ?placeholder
-      ?init
       ?label
       ()
+      : a t
     =
     let label = Option.map ~f:(fun l -> Node.label [] [ Node.text l ]) label in
     let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
@@ -187,19 +223,20 @@ module Form = struct
     let render ~key ~attrs ~value =
       let attrs classes =
         let tl =
-          Attr.classes ("form-control" :: classes)
+          (Attr.classes ("form-control" :: classes)
           :: Attr.type_ "text"
           :: Attr.value value
-          :: attrs
+          :: attrs)
+          @ attrs_of_type type_
         in
         match placeholder with
         | None -> tl
         | Some p -> Attr.placeholder p :: tl
       in
       let nodes =
-        match validator value with
-        | None -> [ label; Some (Node.input ~key (attrs []) [] |> group) ]
-        | Some msg ->
+        match of_string value with
+        | Ok _ -> [ label; Some (Node.input ~key (attrs []) [] |> group) ]
+        | Error msg ->
           [ label
           ; Some (Node.input ~key (attrs [ "is-invalid" ]) [] |> group)
           ; Some (err msg)
@@ -207,10 +244,20 @@ module Form = struct
       in
       [ Node.div [ Attr.class_ "form-group" ] (List.filter_opt nodes) ]
     in
-    Primitives.generic ~render ?init ()
+    Primitives.generic ~to_string ~of_string ~init ~render ()
   ;;
 
-  let textarea ?(validator = fun _ -> None) ~nrows ?placeholder ?init label =
+  (* TODO: this should be obsolete by now *)
+  let input ?(validator = fun _ -> None) ?(init = "") =
+    let of_string s =
+      match validator s with
+      | Some msg -> Error msg
+      | None -> Ok s
+    and to_string = Fn.id in
+    input_conv ~of_string ~to_string ~init
+  ;;
+
+  let textarea ?(validator = fun _ -> None) ~nrows ?placeholder ?(init = "") label =
     let label = Node.label [] [ Node.text label ] in
     let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
     let render ~key ~attrs ~value =
@@ -235,6 +282,53 @@ module Form = struct
       in
       [ Node.div [ Attr.class_ "form-group" ] nodes ]
     in
-    Primitives.generic ~render ?init ()
+    Primitives.generic ~to_string:Fn.id ~of_string:Result.return ~render ~init ()
+  ;;
+
+  let opt ~of_string ~to_string =
+    let of_string s =
+      match String.strip s with
+      | "" -> Ok None
+      | s -> Result.map ~f:Option.return (of_string s)
+    and to_string x = Option.map ~f:to_string x |> Option.value ~default:"" in
+    input_conv ~to_string ~of_string
+  ;;
+
+  let monetary, monetary_opt =
+    let type_ = Number { step = 0.01 }
+    and of_string s =
+      let e = Result.failf "Interner Fehler: ungültiger Geldwert: %s" s in
+      match Float.of_string (String.strip s) |> Monetary.of_float with
+      | Some m -> Ok m
+      | None -> e
+      | exception _ -> e
+    and to_string = Monetary.to_string in
+    input_conv ~to_string ~of_string ~type_, opt ~to_string ~of_string ~type_
+  ;;
+
+  let date, date_opt =
+    let type_ = Date
+    and of_string s =
+      match Date.of_string (String.strip s) with
+      | x -> Ok x
+      | exception _ -> Result.failf "Interner Fehler: Ungültiges Datum: %s" s
+    and to_string = Date.to_string in
+    input_conv ~to_string ~of_string ~type_, opt ~to_string ~of_string ~type_
+  ;;
+
+  let int, int_opt =
+    let type_ = Int
+    and of_string s =
+      match Int.of_string (String.strip s) with
+      | x -> Ok x
+      | exception _ -> Result.failf "Interner Fehler: Ungültige Zahl: %s" s
+    and to_string = Int.to_string in
+    input_conv ~to_string ~of_string ~type_, opt ~to_string ~of_string ~type_
+  ;;
+
+  let string, string_opt =
+    let of_string s = Ok (String.strip s)
+    and to_string = Fn.id in
+    input_conv ~to_string ~of_string, opt ~to_string ~of_string
   ;;
 end

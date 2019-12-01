@@ -3,6 +3,13 @@ open Ghm
 open Incr_dom
 open Incr.Let_syntax
 
+type env =
+  { nav : Nav.noi * Nav.booking Incr.t
+  ; rel : Nav.noi * Nav.booking -> Nav.main
+  ; customer : Customer.t Incr.t
+  ; customer_id : Nav.noi Incr.t
+  }
+
 module Model = struct
   type t =
     { remote : Pg.Bookings.return
@@ -49,7 +56,7 @@ module Action = struct
     | Booking of Booking_form.Action.t
     (* | Invoice of Invoice_form.Action.t *)
     | Delayed_after_input
-    | DeleteCustomer
+    | Delete
     | Save
     | Pg_posted of Pg.Bookings.return sexp_opaque Or_error.t
     | Pg_patched of Pg.Bookings.return sexp_opaque Or_error.t
@@ -59,6 +66,7 @@ module Action = struct
 end
 
 let apply_action
+    ~env
     ~booking
     (* ~invoice *)
       (model : Model.t)
@@ -127,7 +135,7 @@ let apply_action
   | Pg_patched (Ok remote) -> { model with remote }
   | Pg_posted (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
-    let () = Nav.set (Customer nav) in
+    let () = Nav.set (env.rel nav) in
     { model with remote; nav }
   | Pg_got (Ok return) -> Model.loaded model return
   | Pg_posted (Error detail) | Pg_patched (Error detail) ->
@@ -136,7 +144,7 @@ let apply_action
   | Pg_got (Error detail) ->
     state.handle_error { gist = "Laden fehlgeschlagen"; detail };
     model
-  | DeleteCustomer ->
+  | Delete ->
     let () =
       match model.nav with
       | New, _ -> Nav.(set Overview)
@@ -147,12 +155,12 @@ let apply_action
           | Ok () -> Nav.(set Overview)
         in
         let c = state.connection in
-        Xhr.send' ~c ~handler Pg.(delete Int.(Customers.id = i) Customers.t)
+        Xhr.send' ~c ~handler Pg.(delete Int.(Bookings.id = i) Bookings.t)
     in
     model
   | NavChange (New, _) -> Model.create ()
   | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
-    let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
+    let rq = Pg.(read' Int.(Bookings.id' == i) Bookings.t) in
     let handler = Fn.compose schedule_action Action.pg_got in
     let c = state.connection in
     Xhr.send' ~c ~handler rq;
@@ -218,7 +226,7 @@ let letter_dropdown customer =
 ;;
 
 let view ~sync ~inject ~form customer =
-  let delete_c _evt = inject Action.DeleteCustomer in
+  let delete_c _evt = inject Action.Delete in
   let%map letter_dropdown = customer >>| letter_dropdown
   and sync = sync
   and form = form in
@@ -281,15 +289,20 @@ let menu (m : Model.t) : Menu.t =
   [ entry ~children title (href CData) false ]
 ;;
 
-let create ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
+let create
+    ~(inject : Action.t -> Vdom.Event.t)
+    (env : env Incr.t)
+    (model : Model.t Incr.t)
+  =
   let form =
     let inject = Fn.compose inject Action.form in
     Customer_form.create ~env:() ~inject (model >>| Model.form)
   in
   let%map model = model
+  and env = env
   and view = view ~inject ~form model
   and form = form in
-  let apply_action = apply_action form model
+  let apply_action = apply_action ~env form model
   and extra : Menu.t = menu model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;
