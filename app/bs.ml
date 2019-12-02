@@ -257,8 +257,8 @@ module Form = struct
     input_conv ~of_string ~to_string ~init
   ;;
 
-  let textarea ?(validator = fun _ -> None) ~nrows ?placeholder ?(init = "") label =
-    let label = Node.label [] [ Node.text label ] in
+  let textarea ?(validator = fun _ -> None) ~nrows ~init ?placeholder ?label () =
+    let label = Option.map ~f:(fun l -> Node.label [] [ Node.text l ]) label in
     let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
     let render ~key ~attrs ~value =
       let attrs classes =
@@ -273,14 +273,14 @@ module Form = struct
       in
       let nodes =
         match validator value with
-        | None -> [ label; Node.textarea ~key (attrs []) [ Node.text value ] ]
+        | None -> [ label; Some (Node.textarea ~key (attrs []) [ Node.text value ]) ]
         | Some msg ->
           [ label
-          ; Node.textarea ~key (attrs [ "is-invalid" ]) [ Node.text value ]
-          ; err msg
+          ; Some (Node.textarea ~key (attrs [ "is-invalid" ]) [ Node.text value ])
+          ; Some (err msg)
           ]
       in
-      [ Node.div [ Attr.class_ "form-group" ] nodes ]
+      [ Node.div [ Attr.class_ "form-group" ] (List.filter_opt nodes) ]
     in
     Primitives.generic ~to_string:Fn.id ~of_string:Result.return ~render ~init ()
   ;;

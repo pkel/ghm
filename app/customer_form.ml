@@ -1,9 +1,6 @@
 open Base
 open Ghm
 
-type t = Customer.t
-type env = unit
-
 module Model = struct
   type t =
     { init : int * Customer.t
@@ -207,7 +204,9 @@ let customer ~inject ~(init : Customer.t) =
       | _ -> None
     in
     render (input ~validator ~init:x.keyword "Schlüsselwort") ~inject ~on_input:keyword
-  and note = render (textarea ~init:x.note ~nrows:8 "Notiz") ~inject ~on_input:note in
+  and note =
+    render (textarea ~init:x.note ~nrows:8 ~label:"Notiz" ()) ~inject ~on_input:note
+  in
   let left = Bs.Grid.((frow [ col [ keyword ] ] :: name) @ [ frow [ col [ note ] ] ])
   and middle = address @ company
   and right = contact in

@@ -1,18 +1,8 @@
 (* TODO:
-   - use Incr_dom_widgets.Interactive (also on invoice)
    - (re)add no_tax checkbox
 *)
 open Base
-open Incr_dom
 open Ghm
-open Interfaces
-
-type env =
-  { nav : Nav.booking Incr.t
-  ; rel : Nav.booking -> Nav.main
-  ; customer : Customer.t Incr.t
-  ; customer_id : Nav.noi Incr.t
-  }
 
 module Model = struct
   type t =
@@ -98,8 +88,9 @@ let apply_action model action _state ~schedule_action:_ =
 ;;
 
 open Action
-open Bs.Form
 open Incr_dom
+open Vdom
+open Bs.Form
 open Incr_dom_widgets.Interactive
 open Incr.Let_syntax
 
@@ -147,150 +138,71 @@ let guest ~inject ~nth ~(init : Booking.guest) =
     ]
 ;;
 
-let view ~env ~inject (model : Model.t Incr.t) =
-  (* TODO: share with invoice_form *)
-  let input ?(nth = 0) lbl value action =
-    lbl ~nth ?on_input:(Some (Fn.compose inject action)) value
-  in
-  let act f _ = inject f in
-  let%map data = model >>| Model.local
-  and customer = env.customer in
-  let guests =
-    (Node.h4 [] [ Node.text "Gäste" ]
-    :: List.concat_mapi data.guests ~f:(fun nth x ->
-           let a f = Fn.compose (Action.guest nth) f in
-           let input = input ~nth in
-           Node.hr [] :: alloc ~inject ~nth ~init:x))
-    @ [ Node.hr []
-      ; Node.div
-          []
-          [ Bs.button ~i:(S "plus") ~action:(act Action.newguest) "Weiterer Gast" ]
-      ]
-  and allocs =
-    (Node.h4 [] [ Node.text "Positionen" ]
-    :: List.concat_mapi data.allocs ~f:(fun nth x ->
-           let a f = Fn.compose (Action.alloc nth) f in
-           let input = input ~nth in
-           Node.hr []
-           :: Bs.Grid.
-                [ frow
-                    [ col3 [ input F.room x.room (a Action.room) ]
-                    ; col9 [ input F.decription x.description (a Action.description) ]
-                    ]
-                ; frow
-                    [ col4 [ input F.beds (S.int x.beds) (a Action.beds) ]
-                    ; col4
-                        [ input
-                            F.price_per_bed
-                            (S.monetary x.price_per_bed)
-                            (a Action.price_per_bed)
-                        ]
-                    ; col4
-                        ~c:[ "align-self-end"; "text-right" ]
-                        [ delete_button (Action.deletealloc nth) "Zimmer löschen" ]
-                    ]
-                ]))
-    @ [ Node.hr []
-      ; Node.div
-          []
-          [ Bs.button ~i:(S "plus") ~action:(act Action.newalloc) "Weitere Position" ]
-      ]
-  and main =
-    Bs.Grid.
-      [ Node.h4 [] [ Node.text "Aufenthalt" ]
-      ; Node.hr []
-      ; frow
-          [ col [ input F.from (S.date (Period.a data.period)) Action.perioda ]
-          ; col [ input F.till (S.date (Period.b data.period)) Action.periodb ]
-          ]
-      ; frow
-          [ col
-              [ input
-                  F.deposit_asked
-                  S.(opt monetary data.deposit_asked)
-                  Action.deposit_asked
-              ]
-          ; col
-              [ input F.deposit_got S.(opt monetary data.deposit_got) Action.deposit_got ]
-          ]
-        (* ; frow [ col ~c:[ "mb-2" ] [ input_bool state "befreit von Kurtaxe" tax_free ] ] *)
-      ; frow [ col [ input F.note data.note Action.note ] ]
-      ]
-  in
-  let excel = Excel_br_2014_v2.of_customer_and_booking customer data
-  and confirmation =
-    let date = Browser.Date.(now () |> to_locale_date_string) in
-    Letter.(confirm ~booking:data ~date customer |> href)
-  and danger_btn action title =
-    (* TODO: reuse *)
-    Bs.button ~attr:[ Bs.tab_skip ] ~style:"outline-danger" ~action title
-  in
-  Node.div
-    [] (* TODO: double check whether div makes sense *)
-    Bs.Grid.
-      [ row [ col main; col allocs; col guests ]
-      ; frow
-          [ col_auto
-              ~c:[ "mb-2"; "mt-2" ]
-              [ Bs.button' ~href:confirmation ~blank:true "Bestätigung" ]
-          ; col_auto ~c:[ "mb-2"; "mt-2" ] [ Bs.button_clipboard ~value:excel "Excel" ]
-          ; col
-              [ frow
-                  ~c:[ "justify-content-end" ]
-                  [ col_auto
-                      ~c:[ "mb-2"; "mt-2" ]
-                      [ danger_btn (fun _ -> env.delete_booking ()) "Buchung löschen" ]
-                  ; col_auto
-                      ~c:[ "mb-2"; "mt-2" ]
-                      [ Bs.button ~action:(fun _ -> env.new_booking data) "Neue Buchung" ]
-                  ]
-              ]
-          ]
-      ]
+let main ~inject ~(init : Booking.t) =
+  let x = init in
+  let input on_input = render ~inject ~on_input in
+  let%map perioda = input perioda (date ~init:(Period.a x.period) ~label:"Von" ())
+  and periodb = input periodb (date ~init:(Period.b x.period) ~label:"Bis" ())
+  and deposit_got =
+    input deposit_got (monetary_opt ~init:x.deposit_got ~label:"Anzahlung erhalten" ())
+  and deposit_asked =
+    input
+      deposit_asked
+      (monetary_opt ~init:x.deposit_asked ~label:"Anzahlung gefordert" ())
+  and note = input note (textarea ~init:x.note ~label:"Notiz" ~nrows:8 ()) in
+  Bs.Grid.
+    [ Node.h4 [] [ Node.text "Aufenthalt" ]
+    ; Node.hr []
+    ; frow [ col [ perioda ]; col [ periodb ] ]
+    ; frow [ col [ deposit_asked ]; col [ deposit_got ] ]
+      (* TODO: ; frow [ col ~c:[ "mb-2" ] [ input_bool state "befreit von Kurtaxe" tax_free ] ] *)
+    ; frow [ col [ note ] ]
+    ]
 ;;
 
-(* TODO: use Incr_dom_widgets.Interactive *)
-module F = struct
-  let from = labelled_input ~type_:Date "Von"
-  let till = labelled_input ~type_:Date "Bis"
-  let deposit_asked = labelled_input ~type_:Monetary "Anzahlung gefordert"
-  let deposit_got = labelled_input "Anzahlung erhalten"
+let booking ~inject ~(init : Booking.t) =
+  let x = init in
+  let act f _ = inject f in
+  let%map guests =
+    let%map raw =
+      List.mapi x.guests ~f:(fun nth init -> guest ~inject ~nth ~init) |> Incr.all
+    in
+    (Node.h4 [] [ Node.text "Gäste" ]
+    :: List.concat_map raw ~f:(fun nodes -> Node.hr [] :: nodes))
+    @ [ Node.hr []
+      ; Node.div (* TODO: div seems weird. Use frow instead? *)
+          []
+          [ Bs.button
+              ~i:(S "plus")
+              ~action:(act Action.newguest)
+              "Weiteren Gast hinzufügen"
+          ]
+      ]
+  and allocs =
+    let%map raw =
+      List.mapi x.allocs ~f:(fun nth init -> alloc ~inject ~nth ~init) |> Incr.all
+    in
+    (Node.h4 [] [ Node.text "Positionen" ]
+    :: List.concat_map raw ~f:(fun nodes -> Node.hr [] :: nodes))
+    @ [ Node.hr []
+      ; Node.div (* TODO: div seems weird. Use frow instead? *)
+          []
+          [ Bs.button
+              ~i:(S "plus")
+              ~action:(act Action.newalloc)
+              "Weitere Position hinzufügen"
+          ]
+      ]
+  and main = main ~inject ~init in
+  Bs.Grid.(row [ col main; col allocs; col guests ])
+;;
 
-  (* let tax_free =  *)
-  let note = labelled_textfield ~rows:8 "Notiz"
-  let room = labelled_input "Nr."
-  let given = labelled_input "Vorname"
-  let family = labelled_input "Nachname"
-  let born = labelled_input ~type_:Date "Geburtsdatum"
-end
-
-let create ~env ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
-  let invoice =
-    let inject = Fn.compose inject Action.invoice
-    and model = model >>| Model.invoice
-    and env = { Invoice_form.reload = (fun () -> inject Action.Reload_invoice) } in
-    Invoice_form.create ~env ~inject model
-  in
-  let%map model = model
-  and bdata_view =
-    let inject = Fn.compose inject Action.booking in
-    view ~env ~inject model
-  and invoice_view = invoice >>| Component.view
-  and nav = env.nav
-  and invoice = invoice
-  and customer = env.customer in
-  let view =
-    match nav with
-    | BData -> bdata_view
-    | Invoice -> invoice_view
-  in
-  let apply_action = apply_action ~customer ~invoice model
-  and extra =
-    let open Menu in
-    let rel x = Href (Nav.href (env.rel x)) in
-    [ entry "Eingabe" (rel Nav.BData) (phys_equal nav Nav.BData)
-    ; entry "Rechnung" (rel Nav.Invoice) (phys_equal nav Nav.Invoice)
-    ]
-  in
-  Component.create_with_extra ~extra ~apply_action model view
+let create ~env:() ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
+  let%map form =
+    let%bind init = model >>| Model.init in
+    let init = snd init in
+    booking ~inject ~init
+  and model = model in
+  let apply_action = apply_action model in
+  Component.create ~apply_action model form
 ;;

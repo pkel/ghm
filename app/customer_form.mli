@@ -1,1 +1,1 @@
-include Interfaces.EDITABLE with type env = unit and type t = Ghm.Customer.t
+include Interfaces.EDITABLE with type env := unit and type t := Ghm.Customer.t
