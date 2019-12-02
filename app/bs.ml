@@ -302,7 +302,7 @@ module Form = struct
       | Some m -> Ok m
       | None -> e
       | exception _ -> e
-    and to_string = Monetary.to_string in
+    and to_string = Monetary.to_string_dot in
     input_conv ~to_string ~of_string ~type_, opt ~to_string ~of_string ~type_
   ;;
 

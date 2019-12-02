@@ -287,8 +287,13 @@ let create ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
     let inject = Fn.compose inject Action.form in
     Customer_form.create ~env:() ~inject (model >>| Model.form)
   and booking =
-    let inject = Fn.compose inject Action.booking in
-    Booking_view.create ~inject (model >>| Model.booking)
+    let inject = Fn.compose inject Action.booking
+    and env =
+      { Booking_view.customer = model >>| Model.last_valid
+      ; customer_id = model >>| Model.nav >>| fst
+      }
+    in
+    Booking_view.create ~env ~inject (model >>| Model.booking)
   in
   let%map model = model
   and view = view ~inject ~booking ~form model

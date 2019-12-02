@@ -50,16 +50,20 @@ module Action = struct
   [@@deriving sexp_of, variants]
 end
 
-let apply_action x =
+let apply_action model =
+  let open Model in
   let open Action in
   let open Booking in
+  let x = model.cache in
+  let init cache = { cache; init = fst model.init, cache }
+  and cache cache = { model with cache } in
   function
-  | PeriodA a -> { x with period = Period.update ~a x.period }
-  | PeriodB b -> { x with period = Period.update ~b x.period }
-  | Deposit_asked deposit_asked -> { x with deposit_asked }
-  | Deposit_got deposit_got -> { x with deposit_got }
-  | Tax_free tax_free -> { x with tax_free }
-  | Note note -> { x with note }
+  | PeriodA a -> cache { x with period = Period.update ~a x.period }
+  | PeriodB b -> cache { x with period = Period.update ~b x.period }
+  | Deposit_asked deposit_asked -> cache { x with deposit_asked }
+  | Deposit_got deposit_got -> cache { x with deposit_got }
+  | Tax_free tax_free -> cache { x with tax_free }
+  | Note note -> cache { x with note }
   | Alloc (i, action) ->
     let f x =
       match action with
@@ -68,7 +72,7 @@ let apply_action x =
       | Beds beds -> { x with beds }
       | Description description -> { x with description }
     in
-    { x with allocs = List.mapi ~f:(fun j x -> if i = j then f x else x) x.allocs }
+    cache { x with allocs = List.mapi ~f:(fun j x -> if i = j then f x else x) x.allocs }
   | Guest (i, action) ->
     let f x =
       match action with
@@ -76,16 +80,14 @@ let apply_action x =
       | Family family -> { x with family }
       | Born born -> { x with born }
     in
-    { x with guests = List.mapi ~f:(fun j x -> if i = j then f x else x) x.guests }
-  | DeleteGuest i -> { x with guests = List.filteri ~f:(fun j _ -> i <> j) x.guests }
-  | DeleteAlloc i -> { x with allocs = List.filteri ~f:(fun j _ -> i <> j) x.allocs }
-  | NewGuest -> { x with guests = x.guests @ [ Booking.empty_guest ] }
-  | NewAlloc -> { x with allocs = x.allocs @ [ Booking.empty_alloc ] }
+    cache { x with guests = List.mapi ~f:(fun j x -> if i = j then f x else x) x.guests }
+  | DeleteGuest i -> init { x with guests = List.filteri ~f:(fun j _ -> i <> j) x.guests }
+  | DeleteAlloc i -> init { x with allocs = List.filteri ~f:(fun j _ -> i <> j) x.allocs }
+  | NewGuest -> init { x with guests = x.guests @ [ Booking.empty_guest ] }
+  | NewAlloc -> init { x with allocs = x.allocs @ [ Booking.empty_alloc ] }
 ;;
 
-let apply_action model action _state ~schedule_action:_ =
-  Model.{ model with cache = apply_action model.cache action }
-;;
+let apply_action model action _state ~schedule_action:_ = apply_action model action
 
 open Action
 open Incr_dom

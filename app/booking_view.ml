@@ -4,9 +4,7 @@ open Incr_dom
 open Incr.Let_syntax
 
 type env =
-  { nav : Nav.noi * Nav.booking Incr.t
-  ; rel : Nav.noi * Nav.booking -> Nav.main
-  ; customer : Customer.t Incr.t
+  { customer : Customer.t Incr.t
   ; customer_id : Nav.noi Incr.t
   }
 
@@ -22,7 +20,12 @@ module Model = struct
     }
   [@@deriving compare, fields]
 
-  let fresh_booking () = failwith ""
+  let fresh_booking () =
+    let from = Ext_date.today () in
+    let till = Date.add_days from 7 in
+    let period = Period.of_dates from till in
+    Booking.empty ~period
+  ;;
 
   let t
       ?(nav = Nav.(New, BData))
@@ -66,7 +69,7 @@ module Action = struct
 end
 
 let apply_action
-    ~env
+    ~customer_id
     ~booking
     (* ~invoice *)
       (model : Model.t)
@@ -113,29 +116,30 @@ let apply_action
     model
   | Save ->
     let () =
-      let body =
-        Pg.Bookings.{ data = model.last_valid; customer = failwith "TODO: customer id" }
-      in
-      if body.data <> model.remote.data
-      then (
-        let c = state.connection in
-        if model.remote.id < 0
+      match customer_id with
+      | Nav.New -> ()
+      | Id customer ->
+        let body = { Pg.Bookings.data = model.last_valid; customer } in
+        if body.data <> model.remote.data
         then (
-          let handler = Fn.compose schedule_action Action.pg_posted in
-          Xhr.send ~c ~body ~handler Pg.(create Bookings.t))
-        else (
-          let handler = Fn.compose schedule_action Action.pg_patched in
-          Xhr.send
-            ~c
-            ~body
-            ~handler
-            Pg.(update' Int.(Bookings.id' == model.remote.id) Bookings.t)))
+          let c = state.connection in
+          if model.remote.id < 0
+          then (
+            let handler = Fn.compose schedule_action Action.pg_posted in
+            Xhr.send ~c ~body ~handler Pg.(create Bookings.t))
+          else (
+            let handler = Fn.compose schedule_action Action.pg_patched in
+            Xhr.send
+              ~c
+              ~body
+              ~handler
+              Pg.(update' Int.(Bookings.id' == model.remote.id) Bookings.t)))
     in
     model
   | Pg_patched (Ok remote) -> { model with remote }
   | Pg_posted (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
-    let () = Nav.set (env.rel nav) in
+    let () = Nav.set (Nav.Customer (customer_id, Nav.Booking nav)) in
     { model with remote; nav }
   | Pg_got (Ok return) -> Model.loaded model return
   | Pg_posted (Error detail) | Pg_patched (Error detail) ->
@@ -225,7 +229,7 @@ let letter_dropdown customer =
       ])
 ;;
 
-let view ~sync ~inject ~form customer =
+let view ~sync ~inject ~form ~customer =
   let delete_c _evt = inject Action.Delete in
   let%map letter_dropdown = customer >>| letter_dropdown
   and sync = sync
@@ -239,7 +243,7 @@ let view ~sync ~inject ~form customer =
                   ~c:[ "justify-content-end" ]
                   [ col_auto
                       ~c:[ "mb-2"; "mt-2" ]
-                      [ danger_btn delete_c "Kunde löschen" ]
+                      [ danger_btn delete_c "Buchung löschen" ]
                   ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
                   ]
               ]
@@ -247,62 +251,39 @@ let view ~sync ~inject ~form customer =
       ])
 ;;
 
-let view_form ~form (model : Model.t Incr.t) ~inject =
+let view ~form (model : Model.t Incr.t) ~inject ~customer =
   let open Vdom in
   let%map form =
     let sync = model >>| Model.sync in
-    view ~form ~sync ~inject (model >>| Model.last_valid)
+    view ~form ~sync ~inject ~customer
   in
   let save _evt = inject Action.(Save) in
   Node.create "form" [ Attr.on "submit" save ] form
 ;;
 
-let view ~inject ~form model =
+let view ~customer ~inject ~form model =
   let cond = model >>| Model.is_loading in
   Incr.if_
     cond
     ~then_:(Incr.const Bs.Grid.loading_row)
-    ~else_:(view_form ~form ~inject model)
+    ~else_:(view ~customer ~form ~inject model)
 ;;
 
-let menu (m : Model.t) : Menu.t =
-  let open Menu in
-  let open Nav in
-  let href nav = Href (Nav.href (Customer (fst m.nav, nav))) in
-  let children =
-    entry "Stammdaten" (href CData) (snd m.nav = CData)
-    :: entry "Neue Buchung" (href (Booking (New, BData))) false
-    :: List.map m.remote.bookings ~f:(fun { arrival; departure; id } ->
-           entry
-             Period.(to_string_hum (of_dates arrival departure))
-             (href (Booking (Id id, BData)))
-             false)
-  in
-  let title =
-    if m.is_loading
-    then "Kunde lädt ..."
-    else (
-      match String.strip m.last_valid.keyword with
-      | "" -> "Kunde: n/a"
-      | s -> "Kunde: " ^ s)
-  in
-  [ entry ~children title (href CData) false ]
-;;
+let menu (_m : Model.t) : Menu.t = []
 
-let create
-    ~(inject : Action.t -> Vdom.Event.t)
-    (env : env Incr.t)
-    (model : Model.t Incr.t)
-  =
-  let form =
-    let inject = Fn.compose inject Action.form in
-    Customer_form.create ~env:() ~inject (model >>| Model.form)
+let create ~(env : env) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
+  let booking =
+    let inject = Fn.compose inject Action.booking in
+    Booking_form.create ~env:() ~inject (model >>| Model.booking)
   in
   let%map model = model
-  and env = env
-  and view = view ~inject ~form model
-  and form = form in
-  let apply_action = apply_action ~env form model
+  and customer_id = env.customer_id
+  and view =
+    let customer = env.customer
+    and form = booking in
+    view ~customer ~inject ~form model
+  and booking = booking in
+  let apply_action = apply_action ~booking ~customer_id model
   and extra : Menu.t = menu model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;
