@@ -140,7 +140,7 @@ let apply_action
     in
     model
   | NavChange (New, CData) when fst model.nav <> New -> Model.create ()
-  | NavChange ((Id i, CData) as nav) when Nav.Id i <> fst model.nav ->
+  | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
     let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
     let handler = Fn.compose schedule_action Action.gotcustomer in
     let c = state.connection in

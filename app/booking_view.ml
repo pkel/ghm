@@ -151,12 +151,12 @@ let apply_action
   | Delete ->
     let () =
       match model.nav with
-      | New, _ -> Nav.(set Overview)
+      | New, _ -> Nav.set (Nav.Customer (customer_id, Nav.CData))
       | Id i, _ ->
         let handler = function
           | Error detail ->
             state.handle_error { gist = "Löschen fehlgeschlagen"; detail }
-          | Ok () -> Nav.(set Overview)
+          | Ok () -> Nav.set (Nav.Customer (customer_id, Nav.CData))
         in
         let c = state.connection in
         Xhr.send' ~c ~handler Pg.(delete Int.(Bookings.id = i) Bookings.t)

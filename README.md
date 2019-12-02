@@ -25,5 +25,7 @@ jq 'map(select(.customer_id >= 12000 and .customer_id <= 12100) | { id:.customer
 * Overview_view
   - Load today's bookings and view links: departing | staying | arriving
 * Booking_view
-  - Save/Fetch bookings separately from customers
+  - Initialize new booking from current or last booking
   - Json Export for jMeldeschein
+  - Highlight current location in menu
+* Lock new booking and similar unsaveable views for unsaved new customer.
