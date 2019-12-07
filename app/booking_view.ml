@@ -172,8 +172,6 @@ let apply_action
   | NavChange nav -> { model with nav }
 ;;
 
-open Vdom
-
 let danger_btn action title =
   Bs.button ~attr:[ Bs.tab_skip ] ~style:"outline-danger" ~action title
 ;;
@@ -186,76 +184,42 @@ let save_btn ~sync ~inject =
   | `Invalid_input -> Bs.button ~action ~i:(S "times") ~style:"outline-danger" "Speichern"
 ;;
 
-let uri_of_letter customer t =
-  let date = Browser.Date.(now () |> to_locale_date_string) in
-  Letter.(t ~date customer |> href)
-;;
-
-let letter_dropdown_id = "letter_dropdown_menu"
-
-let letter_dropdown customer =
-  let items =
-    let f x =
-      let uri = uri_of_letter customer in
-      Node.a
-        Attr.[ class_ "dropdown-item"; href (uri (snd x)); create "target" "_blank" ]
-        [ Node.text (fst x) ]
-    and letters =
-      let open Letter in
-      [ "Leere Vorlage", blank ~attachments:[]
-      ; "Leere Vorlage (mit Anhang)", blank ~attachments:[ "Anhang 1"; "Anhang 2" ]
-      ; "Hausprospekt", flyer
-      ]
-    in
-    List.map ~f letters
-  in
-  Node.(
-    div
-      [ Attr.classes [ "dropdown"; "dropup" ] ]
-      [ a
-          Attr.
-            [ classes [ "btn"; "btn-secondary"; "dropdown-toggle" ]
-            ; href "#"
-            ; type_ "button"
-            ; id letter_dropdown_id
-            ; create "data-toggle" "dropdown"
-            ; create "aria-haspopup" "true"
-            ; create "aria-expanded" "false"
-            ]
-          [ Node.text "Brief" ]
-      ; div
-          Attr.[ class_ "dropdown-menu"; create "aria-labelledby" letter_dropdown_id ]
-          items
-      ])
-;;
-
-let view ~sync ~inject ~form ~customer =
+let view ~sync ~inject ~form ~customer ~booking =
   let delete_c _evt = inject Action.Delete in
-  let%map letter_dropdown = customer >>| letter_dropdown
-  and sync = sync
-  and form = form in
-  Bs.Grid.(
-    [ Node.h4 [] [ Node.text "Stammdaten" ]; Node.hr []; Component.view form ]
-    @ [ frow
-          [ col_auto ~c:[ "mb-2"; "mt-2" ] [ letter_dropdown ]
-          ; col
-              [ frow
-                  ~c:[ "justify-content-end" ]
-                  [ col_auto
-                      ~c:[ "mb-2"; "mt-2" ]
-                      [ danger_btn delete_c "Buchung löschen" ]
-                  ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
-                  ]
-              ]
-          ]
-      ])
+  let%map sync = sync
+  and form = form
+  and confirmation, excel =
+    let%map booking = booking
+    and customer = customer in
+    let date = Browser.Date.(now () |> to_locale_date_string) in
+    ( Letter.(confirm ~booking ~date customer |> href)
+    , Excel_br_2014_v2.of_customer_and_booking customer booking )
+  in
+  Bs.Grid.
+    [ Component.view form
+    ; frow
+        [ col_auto
+            ~c:[ "mb-2"; "mt-2" ]
+            [ Bs.button' ~href:confirmation ~blank:true "Bestätigung" ]
+        ; col_auto ~c:[ "mb-2"; "mt-2" ] [ Bs.button_clipboard ~value:excel "Excel" ]
+        ; col
+            [ frow
+                ~c:[ "justify-content-end" ]
+                [ col_auto
+                    ~c:[ "mb-2"; "mt-2" ]
+                    [ danger_btn delete_c "Buchung löschen" ]
+                ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
+                ]
+            ]
+        ]
+    ]
 ;;
 
 let view ~form (model : Model.t Incr.t) ~inject ~customer =
   let open Vdom in
   let%map form =
     let sync = model >>| Model.sync in
-    view ~form ~sync ~inject ~customer
+    view ~form ~sync ~inject ~customer ~booking:(model >>| Model.last_valid)
   in
   let save _evt = inject Action.(Save) in
   Node.create "form" [ Attr.on "submit" save ] form
