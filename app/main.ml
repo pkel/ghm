@@ -5,7 +5,8 @@ module State = State
 
 module Model = struct
   type t =
-    { search_view : Search_view.Model.t
+    { agenda_view : Agenda_view.Model.t
+    ; search_view : Search_view.Model.t
     ; customer_view : Customer_view.Model.t
     ; errors : Errors.Model.t
     ; nav : Nav.main
@@ -16,7 +17,8 @@ module Model = struct
 end
 
 let init () : Model.t =
-  { search_view = Search_view.Model.create ()
+  { agenda_view = Agenda_view.Model.create ()
+  ; search_view = Search_view.Model.create ()
   ; customer_view = Customer_view.Model.create ()
   ; errors = Errors.Model.empty
   ; nav = Nav.Overview
@@ -26,8 +28,9 @@ let init () : Model.t =
 module Action = struct
   type t =
     | NavChange of Nav.main
-    | Customer_view of Customer_view.Action.t
+    | Agenda_view of Agenda_view.Action.t
     | Search_view of Search_view.Action.t
+    | Customer_view of Customer_view.Action.t
     | Errors of Errors.Action.t
   [@@deriving sexp_of, variants]
 end
@@ -61,7 +64,12 @@ let view_menu = view_menu 0
 
 let create model ~old_model ~inject =
   let open Incr.Let_syntax in
-  let search =
+  let%map model = model
+  and agenda =
+    let inject = Fn.compose inject Action.agenda_view
+    and model = model >>| Model.agenda_view in
+    Agenda_view.create ~inject model
+  and search =
     let inject = Fn.compose inject Action.search_view
     and model = model >>| Model.search_view
     and old_model = old_model >>| Model.search_view in
@@ -70,20 +78,19 @@ let create model ~old_model ~inject =
     let inject = Fn.compose inject Action.customer_view
     and model = model >>| Model.customer_view in
     Customer_view.create ~inject model
-  in
-  let errors =
+  and errors =
     let inject = Fn.compose inject Action.errors
     and model = model >>| Model.errors in
     Errors.create ~inject model
   in
-  let%map model = model
-  and customer = customer
-  and search = search
-  and errors = errors in
   let apply_action (a : Action.t) (s : State.t) ~schedule_action =
     let old_nav = model.nav in
     let model =
       match a with
+      | Agenda_view a ->
+        let schedule_action = Fn.compose schedule_action Action.agenda_view in
+        let agenda_view = Component.apply_action ~schedule_action agenda a s in
+        { model with agenda_view }
       | Search_view a ->
         let schedule_action = Fn.compose schedule_action Action.search_view in
         let search_view = Component.apply_action ~schedule_action search a s in
@@ -101,7 +108,7 @@ let create model ~old_model ~inject =
           match nav with
           | Customer x ->
             schedule_action (Action.customer_view (Customer_view.Action.navchange x))
-          | Overview -> Nav.set Search
+          | Overview -> schedule_action (Action.agenda_view Agenda_view.Action.refresh)
           | Search -> schedule_action (Action.search_view Search_view.Action.refresh)
         in
         { model with nav }
@@ -112,12 +119,14 @@ let create model ~old_model ~inject =
     let open Vdom in
     let attr, page, submenu =
       match model.nav with
-      | Overview -> [], [], []
+      | Overview -> [], [ Component.view agenda ], []
       | Search -> [], [ Component.view search ], []
       | Customer _ -> [], [ Component.view customer ], Component.extra customer
     in
     let sidemenu =
-      [ Menu.entry "Suchen" (Menu.Href Nav.(href Overview)) (model.nav = Overview) ]
+      [ Menu.entry "Übersicht" (Menu.Href Nav.(href Overview)) (model.nav = Overview)
+      ; Menu.entry "Suchen" (Menu.Href Nav.(href Search)) (model.nav = Search)
+      ]
       @ submenu
       @ [ Menu.entry "Neuer Kunde" (Menu.Href Nav.(href (Customer (New, CData)))) false ]
       |> view_menu

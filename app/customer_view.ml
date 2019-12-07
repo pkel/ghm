@@ -139,17 +139,26 @@ let apply_action
         Xhr.send' ~c ~handler Pg.(delete Int.(Customers.id = i) Customers.t)
     in
     model
-  | NavChange (New, CData) when fst model.nav <> New -> Model.create ()
-  | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
-    let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
-    let handler = Fn.compose schedule_action Action.gotcustomer in
-    let c = state.connection in
-    Xhr.send' ~c ~handler rq;
-    Model.loading nav
-  | NavChange ((_, Booking bnav) as nav) ->
-    schedule_action (Booking (Booking_view.Action.navchange bnav));
+  | NavChange nav ->
+    let () =
+      match snd nav with
+      | Booking bnav -> schedule_action (Booking (Booking_view.Action.navchange bnav))
+      | CData -> ()
+    in
+    let model =
+      if fst model.nav <> fst nav
+      then (
+        match fst nav with
+        | Nav.New -> Model.create ()
+        | Id i ->
+          let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
+          let handler = Fn.compose schedule_action Action.gotcustomer in
+          let c = state.connection in
+          Xhr.send' ~c ~handler rq;
+          Model.loading nav)
+      else model
+    in
     { model with nav }
-  | NavChange nav -> { model with nav }
   | GotCustomer (Ok return) -> Model.loaded model return
   | GotCustomer (Error detail) ->
     state.handle_error { gist = "Laden fehlgeschlagen"; detail };

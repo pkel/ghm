@@ -27,12 +27,12 @@ module Model = struct
     Booking.empty ~period
   ;;
 
-  let t
-      ?(nav = Nav.(New, BData))
-      ?(is_loading = false)
-      ?(b = { Pg.Bookings.id = -1; data = fresh_booking (); customer = -1 })
-      ()
-    =
+  let dummy_return () =
+    let customer : Pg.Bookings.return_customer = { id = -1; keyword = "n/a" } in
+    { Pg.Bookings.id = -1; data = fresh_booking (); customer }
+  ;;
+
+  let t ?(nav = Nav.(New, BData)) ?(is_loading = false) ?(b = dummy_return ()) () =
     { remote = b
     ; booking = Booking_form.init b.data
     ; last_valid = b.data
