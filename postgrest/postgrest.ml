@@ -228,6 +228,9 @@ module Make (Request : REQUEST) = struct
     request POST Url.(url r.name [ select r ])
     |> give_json
     |> map ~f:(fun lst -> `List (List.map ~f:r.provide lst))
+    |> want_json
+    |> header ~key:"Prefer" ~value:"return=representation"
+    |> conv_resp_list ~f:r.return
   ;;
 
   let read ?filter ?(order = []) ?limit ?offset r =

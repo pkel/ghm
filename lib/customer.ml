@@ -53,6 +53,7 @@ type t =
   ; contact : Contact.t
   ; keyword : string
   ; note : string
+  ; _import_key : int option [@default None]
   }
 [@@deriving fields, compare, sexp, yojson]
 
@@ -78,6 +79,7 @@ let empty =
       }
   ; keyword = ""
   ; note = ""
+  ; _import_key = None
   }
 ;;
 

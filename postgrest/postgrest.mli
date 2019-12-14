@@ -120,7 +120,7 @@ module Make (Request : REQUEST) : sig
   open Query
 
   val create : ('a, 'b, 'c) Resource.t -> ('b, 'c) Request.t
-  val create_m : ('a, 'b, 'c) Resource.t -> ('b list, unit) Request.t
+  val create_m : ('a, 'b, 'c) Resource.t -> ('b list, 'c list) Request.t
 
   val read
     :  ?filter:'a constr

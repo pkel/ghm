@@ -8,12 +8,8 @@ Guesthouse management using [incr_dom](gh:incr_dom) (work in progress).
 
 Migration from old production api (single table) to new schema:
 ```bash
-jq 'map({ id:.customer_id, data: (.data | del(.bookings)), bookings: .data.bookings }) | { customers: . }' < data/combit.json > data/combit.migrated.json
-```
-
-Or only a subset for speedy import:
-```bash
-jq 'map(select(.customer_id >= 12000 and .customer_id <= 12100) | { id:.customer_id, data: (.data | del(.bookings)), bookings: .data.bookings }) | { customers: . }' < data/combit.json > data/combit.migrated.json
+jq 'map({ id:.customer_id, data: (.data | del(.bookings)), bookings:
+.data.bookings }) | { customers: . }' < data/some.json > data/some.migrated.json
 ```
 
 ## ToDo
@@ -22,8 +18,6 @@ jq 'map(select(.customer_id >= 12000 and .customer_id <= 12100) | { id:.customer
   connection failure. Either wrap usage of password into try catch
   or avoid PHP altogether.
 * Communicate with letter js via local storage. CORS should then avoid XSS.
-* Overview_view
-  - Load today's bookings and view links: departing | staying | arriving
 * Booking_view
   - Initialize new booking from current or last booking
   - Json Export for jMeldeschein

@@ -51,32 +51,50 @@ let restore c args =
   >>= Lwt_io.read
   >|= Yojson.Safe.from_string
   >|= of_yojson
-  >>= function
-  | Ok d ->
-    Lwt_list.iter_s
-      (fun { data; bookings; id } ->
-        let was_id = id in
-        Pg.(create Customers.t |> send ~c ~body:data)
-        >>= function
+  >|= (function
+        | Ok backup -> backup.customers
+        | Error e ->
+          Format.eprintf "%s\n%!" e;
+          failwith "could not read backup")
+  >|= List.fold ~init:Int.Map.empty ~f:(fun acc data ->
+          match Int.Map.add acc ~data ~key:data.id with
+          | `Ok a -> a
+          | `Duplicate -> failwith "duplicate customer ids in backup")
+  >>= fun backup_map ->
+  let body =
+    let data = Int.Map.data backup_map in
+    List.map data ~f:(fun { id; data; _ } -> { data with _import_key = Some id })
+  in
+  Pg.(create_m Customers.t |> send ~c ~body)
+  >|= (function
         | resp, Error e ->
           Format.eprintf "%a\n%a\n%!" Response.pp_hum resp Error.pp e;
-          Lwt.fail_with (sprintf "could not create customer %i" id)
-        | _, Ok { Pg.Customers.id; _ } ->
-          let body =
-            List.map
-              ~f:(fun data -> ({ customer = id; data } : Pg.Bookings.provide))
-              bookings
+          failwith "could not create customers"
+        | _, Ok customers ->
+          List.fold customers ~init:Int.Map.empty ~f:(fun acc data ->
+              let key =
+                match data.data._import_key with
+                | None -> failwith "import key missing on remote data"
+                | Some a -> a
+              in
+              Int.Map.set acc ~data:data.id ~key))
+  >>= fun id_map ->
+  let bookings =
+    Int.Map.fold2 id_map backup_map ~init:[] ~f:(fun ~key:_ ~data acc ->
+        match data with
+        | `Both (id, local) ->
+          let bookings =
+            List.map local.bookings ~f:(fun data -> { Pg.Bookings.customer = id; data })
           in
-          Pg.(create_m Bookings.t |> send ~c ~body)
-          >>= (function
-          | _, Ok _ -> Lwt.return_unit
-          | resp, Error e ->
-            Format.eprintf "%a\n%a\n%!" Response.pp_hum resp Error.pp e;
-            Lwt.fail_with (sprintf "could not create bookings for customer %i" was_id)))
-      d.customers
-  | Error e ->
-    Format.eprintf "%s\n%!" e;
-    Lwt.fail_with "could not read backup"
+          bookings @ acc
+        | _ -> failwith "customer id mismatch")
+  in
+  Pg.(create_m Bookings.t |> send ~c ~body:bookings)
+  >|= function
+  | resp, Error e ->
+    Format.eprintf "%a\n%a\n%!" Response.pp_hum resp Error.pp e;
+    failwith "could not create bookings"
+  | _, Ok _ -> ()
 ;;
 
 let main args =
