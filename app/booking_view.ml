@@ -11,7 +11,8 @@ type env =
 module Model = struct
   type t =
     { remote : Pg.Bookings.return
-    ; booking : Booking_form.Model.t (* ; invoice : Invoice_form.Model.t *)
+    ; booking : Booking_form.Model.t
+    ; invoice : Invoice_form.Model.t
     ; last_valid : Booking.t
     ; last_input_at : int
     ; nav : Nav.noi * Nav.booking
@@ -35,6 +36,7 @@ module Model = struct
   let t ?(nav = Nav.(New, BData)) ?(is_loading = false) ?(b = dummy_return ()) () =
     { remote = b
     ; booking = Booking_form.init b.data
+    ; invoice = Invoice_form.init (Option.value ~default:Invoice.empty b.data.invoice)
     ; last_valid = b.data
     ; is_valid = true
     ; last_input_at = Int.max_value
@@ -57,7 +59,7 @@ end
 module Action = struct
   type t =
     | Booking of Booking_form.Action.t
-    (* | Invoice of Invoice_form.Action.t *)
+    | Invoice of Invoice_form.Action.t
     | Delayed_after_input
     | Delete
     | Save
@@ -71,8 +73,8 @@ end
 let apply_action
     ~customer_id
     ~booking
-    (* ~invoice *)
-      (model : Model.t)
+    ~invoice
+    (model : Model.t)
     (action : Action.t)
     (state : State.t)
     ~schedule_action
@@ -98,15 +100,18 @@ let apply_action
       | _ -> false, model.last_valid
     in
     delay_after_input { model with booking; last_valid; is_valid }
-  (* | Invoice action ->
+  | Invoice action ->
     let schedule_action = Fn.compose schedule_action Action.invoice in
     let invoice = Component.apply_action ~schedule_action invoice action state in
     let is_valid, last_valid =
       match Invoice_form.eval invoice with
-      | Ok invoice -> true, let x = model.last_valid in { x with invoice }
+      | Ok i ->
+        ( true
+        , let x = model.last_valid in
+          { x with invoice = Some i } )
       | _ -> false, model.last_valid
     in
-    delay_after_input { model with invoice; last_valid; is_valid } *)
+    delay_after_input { model with invoice; last_valid; is_valid }
   | Delayed_after_input ->
     let () =
       if Browser.Date.(to_int (now ())) - model.last_input_at >= 300
@@ -184,7 +189,7 @@ let save_btn ~sync ~inject =
   | `Invalid_input -> Bs.button ~action ~i:(S "times") ~style:"outline-danger" "Speichern"
 ;;
 
-let view ~sync ~inject ~form ~customer ~booking =
+let view_booking ~sync ~inject ~form ~customer ~booking =
   let delete_c _evt = inject Action.Delete in
   let%map sync = sync
   and form = form
@@ -215,22 +220,28 @@ let view ~sync ~inject ~form ~customer ~booking =
     ]
 ;;
 
-let view ~form (model : Model.t Incr.t) ~inject ~customer =
+let view ~invoice ~booking (model : Model.t Incr.t) ~inject ~customer =
   let open Vdom in
+  let _ = invoice in
   let%map form =
     let sync = model >>| Model.sync in
-    view ~form ~sync ~inject ~customer ~booking:(model >>| Model.last_valid)
+    view_booking
+      ~form:booking
+      ~sync
+      ~inject
+      ~customer
+      ~booking:(model >>| Model.last_valid)
   in
   let save _evt = inject Action.(Save) in
   Node.create "form" [ Attr.on "submit" save ] form
 ;;
 
-let view ~customer ~inject ~form model =
+let view ~customer ~inject ~booking ~invoice model =
   let cond = model >>| Model.is_loading in
   Incr.if_
     cond
     ~then_:(Incr.const Bs.Grid.loading_row)
-    ~else_:(view ~customer ~form ~inject model)
+    ~else_:(view ~customer ~booking ~invoice ~inject model)
 ;;
 
 let menu (_m : Model.t) : Menu.t = []
@@ -239,15 +250,18 @@ let create ~(env : env) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t In
   let booking =
     let inject = Fn.compose inject Action.booking in
     Booking_form.create ~env:() ~inject (model >>| Model.booking)
+  and invoice =
+    let inject = Fn.compose inject Action.invoice in
+    Invoice_form.create ~env:() ~inject (model >>| Model.invoice)
   in
   let%map model = model
   and customer_id = env.customer_id
   and view =
-    let customer = env.customer
-    and form = booking in
-    view ~customer ~inject ~form model
-  and booking = booking in
-  let apply_action = apply_action ~booking ~customer_id model
+    let customer = env.customer in
+    view ~customer ~inject ~booking ~invoice model
+  and booking = booking
+  and invoice = invoice in
+  let apply_action = apply_action ~booking ~invoice ~customer_id model
   and extra : Menu.t = menu model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

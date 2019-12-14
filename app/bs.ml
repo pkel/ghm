@@ -195,6 +195,7 @@ module Form = struct
       ~(of_string : string -> (a, string) result)
       ~(to_string : a -> string)
       ~init
+      ?(disabled = false)
       ?(prepend = [])
       ?(append = [])
       ?placeholder
@@ -227,7 +228,8 @@ module Form = struct
           :: Attr.type_ "text"
           :: Attr.value value
           :: attrs)
-          @ attrs_of_type type_
+          @
+          if disabled then [ Attr.create "disabled" "true" ] else [] @ attrs_of_type type_
         in
         match placeholder with
         | None -> tl

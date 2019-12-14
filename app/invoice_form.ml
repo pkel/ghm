@@ -1,22 +1,12 @@
-(* TODO:
-   - make this an invoice option form.
-   - include room number into invoice id
-   - use interactive like in customer form
-*)
-open Interfaces
 open Core_kernel
 open Ghm
-open Incr_dom
-open Incr.Let_syntax
-
-type env = { reload : unit inject }
+open Invoice
 
 module Model = struct
-  open Invoice
 
   type t =
-    { local : Invoice.t
-    ; dummy : unit
+    { init : int * Invoice.t
+    ; cache : Invoice.t
     }
   [@@deriving compare, fields]
 
@@ -27,104 +17,112 @@ module Model = struct
   ;;
 
   let ensure_empty_last m =
-    match List.last m.local.positions with
-    | Some e when e <> empty_position -> { m with local = append_empty_pos m.local }
-    | None -> { m with local = append_empty_pos m.local }
+    match List.last m.cache.positions with
+    | Some e when e <> empty_position -> { m with cache = append_empty_pos m.cache }
+    | None -> { m with cache = append_empty_pos m.cache }
     | _ -> m
   ;;
-
-  let load inv = { local = inv; dummy = () } |> ensure_empty_last
-  let read x = x.local
 end
+
+(* TODO: Do we need this nonce? *)
+let init cache = { Model.init = Nonce.int (), cache; cache}
+
+let eval model =
+  let open Model in
+  let x = model.cache in
+  Ok x
+;;
 
 module Action = struct
   type position =
-    | Quantity of string
+    | Quantity of int
     | Description of string
-    | Price of string
-    | Tax of string
-  [@@deriving sexp, variants]
-
-  type invoice =
-    | Recipient of string
-    | Title of string
-    | Date of string
-    | Id of string
-    | Position of int * position
-    | Deposit of string
-    | Intro of string
-    | Closing of string
+    | Price of Monetary.t
+    | Tax of int
   [@@deriving sexp, variants]
 
   type t =
-    | Field of invoice
-    | SetId
+    | Recipient of string
+    | Title of string
+    | Date of Date.t option
+    | Id of string option
+    | Position of int * position
+    | Deposit of Monetary.t
+    | Intro of string
+    | Closing of string
   [@@deriving sexp, variants]
 end
 
-let apply_action (model : Model.t) (action : Action.t) (state : State.t) ~schedule_action
-    : Model.t
-  =
+let apply_action model =
+  let open Model in
+  let open Action in
   let open Invoice in
-  let _ = state, schedule_action in
-  let form f = { model with local = f model.local } in
-  let form_p i f =
-    let f inv =
-      { inv with
-        positions = List.mapi ~f:(fun i' p -> if i <> i' then p else f p) inv.positions
-      }
+  let x = model.cache in
+  let _init cache = { cache; init = fst model.init, cache }
+  and cache cache = { model with cache }
+  in
+  function
+  | Recipient recipient -> cache { x with recipient }
+  | Title title -> cache { x with title }
+  | Intro intro -> cache { x with intro }
+  | Closing closing -> cache { x with closing }
+  | Id id -> cache { x with id }
+  | Date date -> cache { x with date }
+  | Deposit deposit -> cache { x with deposit }
+  | Position (i, action) ->
+    let f x =
+      match action with
+      | Description description -> { x with description }
+      | Quantity quantity -> { x with quantity }
+      | Tax tax -> { x with tax }
+      | Price price -> { x with price }
     in
-    form f
-  in
-  let strip = String.strip in
-  let model =
-    match action with
-    | Field action ->
-      (match action with
-      | Recipient s -> form (fun i -> { i with recipient = strip s })
-      | Title s -> form (fun i -> { i with title = strip s })
-      | Intro s -> form (fun i -> { i with intro = strip s })
-      | Closing s -> form (fun i -> { i with closing = strip s })
-      | Id id ->
-        (match strip id with
-        | "" -> form (fun i -> { i with id = None })
-        | id -> form (fun i -> { i with id = Some id }))
-      | Date date ->
-        (match Date.of_string date with
-        | date -> form (fun i -> { i with date = Some date })
-        | exception _ -> model (* TODO: handle *))
-      | Position (i, Description s) ->
-        form_p i (fun p -> { p with description = strip s })
-      | Position (i, Quantity quantity) ->
-        (match int_of_string quantity with
-        | quantity -> form_p i (fun p -> { p with quantity })
-        | exception _ -> model (* TODO: handle *))
-      | Position (i, Tax tax) ->
-        (match int_of_string tax with
-        | tax -> form_p i (fun p -> { p with tax })
-        | exception _ -> model (* TODO: handle *))
-      | Position (i, Price price) ->
-        (match Monetary.of_float (float_of_string price) with
-        | Some price -> form_p i (fun p -> { p with price })
-        | None -> model
-        | exception _ -> model (* TODO: handle *))
-      | Deposit deposit ->
-        (match Monetary.of_float (float_of_string deposit) with
-        | Some deposit -> form (fun i -> { i with deposit })
-        | None -> model
-        | exception _ -> model (* TODO: handle *)))
-    | SetId ->
-      let local =
-        let l = model.local in
-        { l with id = Some (Invoice_gen.id l) }
-      in
-      Model.load local
-  in
-  Model.ensure_empty_last model
-;;
+    cache { x with positions = List.mapi ~f:(fun j x -> if i= j then f x else x) x.positions }
 
+let apply_action model action _state ~schedule_action:_ = apply_action model action
+
+open Action
+open Incr_dom
 open Vdom
-open Vdom_form
+open Bs.Form
+open Incr_dom_widgets.Interactive
+open Incr.Let_syntax
+
+let ignore =
+  let inject _ = Event.Ignore
+  and on_input _ = () in
+  render ~inject ~on_input
+
+let position ~inject ~nth ~(init: Invoice.position) cache =
+  let x = init in
+  let input on_input =
+    let inject a = inject (Position (nth, a)) in
+    render ~inject ~on_input
+  in
+  let%map tax = input tax (int ~init:x.tax ~label:"Steuer" ())
+  and description = input description (string ~init:x.description ~label:"Beschreibung" ())
+  and quantity = input quantity (int ~init:x.quantity ~label:"Anzahl" ())
+  and price = input price (monetary ~init:x.price ~label:"Einzelpreis" ())
+  and sum =
+    let%bind cache = cache in
+    let init =
+      Monetary.times cache.quantity cache.price
+    in
+    ignore (monetary ~init ~label:"Preis" ())
+  in
+  let open Bs.Grid in
+  frow
+    [ col1 [ quantity ]
+    ; col6 [ description ]
+    ; col1 [ tax ]
+    ; col2 [ price ]
+    ; col2 [ sum ]
+    ]
+
+let invoice ~inject ~(init: Invoice.t) cache =
+  let x = init in
+  (* TODO: WIP here *)
+;;
 
 let view (model : Model.t Incr.t) ~env ~inject =
   let id_btn =

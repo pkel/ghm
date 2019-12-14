@@ -12,6 +12,7 @@ module Model = struct
   [@@deriving compare, fields]
 end
 
+(* TODO: Do we need this nonce? *)
 let init cache = { Model.init = Nonce.int (), cache; cache }
 
 let eval model =
