@@ -8,6 +8,14 @@ up:
 down:
 	podman pod stop ghm
 
+.PHONY: pod
+pod:
+	./pod.sh
+
+.PHONY: pod-mount-webroot
+pod-mount-webroot:
+	MOUNT_WEBROOT=1 ./pod.sh
+
 .PHONY: dump.sql
 dump.sql:
 	touch $@
