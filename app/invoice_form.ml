@@ -3,13 +3,13 @@ open Ghm
 open Invoice
 
 module Model = struct
-
   type t =
     { init : int * Invoice.t
     ; cache : Invoice.t
     }
   [@@deriving compare, fields]
 
+  (* TODO: use or delete
   let append_empty_pos inv = { inv with positions = inv.positions @ [ empty_position ] }
 
   let strip_empty_pos inv =
@@ -22,10 +22,11 @@ module Model = struct
     | None -> { m with cache = append_empty_pos m.cache }
     | _ -> m
   ;;
+  *)
 end
 
 (* TODO: Do we need this nonce? *)
-let init cache = { Model.init = Nonce.int (), cache; cache}
+let init cache = { Model.init = Nonce.int (), cache; cache }
 
 let eval model =
   let open Model in
@@ -59,8 +60,7 @@ let apply_action model =
   let open Invoice in
   let x = model.cache in
   let _init cache = { cache; init = fst model.init, cache }
-  and cache cache = { model with cache }
-  in
+  and cache cache = { model with cache } in
   function
   | Recipient recipient -> cache { x with recipient }
   | Title title -> cache { x with title }
@@ -77,7 +77,11 @@ let apply_action model =
       | Tax tax -> { x with tax }
       | Price price -> { x with price }
     in
-    cache { x with positions = List.mapi ~f:(fun j x -> if i= j then f x else x) x.positions }
+    cache
+      { x with
+        positions = List.mapi ~f:(fun j x -> if i = j then f x else x) x.positions
+      }
+;;
 
 let apply_action model action _state ~schedule_action:_ = apply_action model action
 
@@ -92,23 +96,24 @@ let ignore =
   let inject _ = Event.Ignore
   and on_input _ = () in
   render ~inject ~on_input
+;;
 
-let position ~inject ~nth ~(init: Invoice.position) cache =
-  let x = init in
-  let input on_input =
+let position ~inject ~nth ~(init : Invoice.position) cache =
+  let x = init
+  and disabled = true
+  and input on_input =
     let inject a = inject (Position (nth, a)) in
     render ~inject ~on_input
   in
   let%map tax = input tax (int ~init:x.tax ~label:"Steuer" ())
-  and description = input description (string ~init:x.description ~label:"Beschreibung" ())
+  and description =
+    input description (string ~init:x.description ~label:"Beschreibung" ())
   and quantity = input quantity (int ~init:x.quantity ~label:"Anzahl" ())
   and price = input price (monetary ~init:x.price ~label:"Einzelpreis" ())
   and sum =
     let%bind cache = cache in
-    let init =
-      Monetary.times cache.quantity cache.price
-    in
-    ignore (monetary ~init ~label:"Preis" ())
+    let init = Monetary.times cache.quantity cache.price in
+    ignore (monetary ~init ~disabled ~label:"Preis" ())
   in
   let open Bs.Grid in
   frow
@@ -118,136 +123,70 @@ let position ~inject ~nth ~(init: Invoice.position) cache =
     ; col2 [ price ]
     ; col2 [ sum ]
     ]
-
-let invoice ~inject ~(init: Invoice.t) cache =
-  let x = init in
-  (* TODO: WIP here *)
 ;;
 
-let view (model : Model.t Incr.t) ~env ~inject =
-  let id_btn =
-    Bs.button ~i:(S "magic") ~action:(fun _ -> inject Action.setid) "Nummer Erfinden"
-  in
-  let inject = Fn.compose inject Action.field in
-  let title_f = labelled_input "Titel"
-  and recipient_f = labelled_textfield ~rows:4 "Empfänger"
-  and intro_f = labelled_textfield ~rows:1 "Freitext"
-  and closing_f = labelled_textfield ~rows:1 "Freitext"
-  and date_f = labelled_input ~type_:Date "Datum"
-  and id_f = labelled_input ~append:[ id_btn ] "Rechnungsnummer"
-  and quantity_f = labelled_input ~type_:Int "Anzahl"
-  and description_f = labelled_input "Beschreibung"
-  and price_f = labelled_input ~type_:Monetary "Einzelpreis"
-  and tax_f = labelled_input ~type_:Int "Steuer"
-  and sum_f = labelled_input ~type_:Monetary "Summe"
-  and sum_row_f = labelled_input ~type_:Monetary "Preis"
-  and deposit_f = labelled_input ~type_:Monetary "Anzahlung"
-  and sum'_f = labelled_input ~type_:Monetary "Nach Anzahlung" in
-  let%map data = model >>| Model.local
-  and s = model >>| Fn.compose Invoice.summary Model.local in
-  let input ?(nth = 0) lbl value action =
-    lbl ~nth ?on_input:(Some (Fn.compose inject action)) value
-  and no_input ?(nth = 0) lbl value = lbl ~nth ?on_input:None value
-  and tax_table =
-    let open Node in
-    table
-      [ Attr.classes [ "table"; "table-sm" ] ]
-      [ thead
-          []
-          [ tr
-              []
-              [ th [ Attr.create "colspan" "2" ] [ text "Enthaltene Mehrwertsteuer" ] ]
-          ]
-      ; tbody
-          []
-          (List.map s.included_tax ~f:(fun (rate, value) ->
-               tr
-                 []
-                 [ td [] [ text (string_of_int rate); text "%" ]
-                 ; td [] [ text (Monetary.to_string value); text "€" ]
-                 ]))
-      ]
-  and letter_btn data =
-    let href = Letter.(invoice (Model.strip_empty_pos data) |> href) in
-    Bs.button' ~attr:Attr.[ create "target" "_blank" ] ~href "Drucken"
-  and reload_btn = Bs.button ~action:(fun _ -> env.reload ()) "Daten übernehmen" in
-  let rows =
-    let open Bs.Grid in
-    [ frow
-        [ col4 [ input recipient_f data.recipient Action.recipient ]
-        ; col4 []
-        ; col4
-            [ input id_f (Option.value ~default:"" data.id) Action.id
-            ; input
-                date_f
-                (Option.value ~default:(Ext_date.today ()) data.date |> Date.to_string)
-                Action.date
-            ]
+let tax_table invoice_summary =
+  let open Node in
+  table
+    [ Attr.classes [ "table"; "table-sm" ] ]
+    [ thead
+        []
+        [ tr [] [ th [ Attr.create "colspan" "2" ] [ text "Enthaltene Mehrwertsteuer" ] ]
         ]
-    ; frow [ col [ input title_f data.title Action.title ] ]
-    ; frow [ col [ input intro_f data.intro Action.intro ] ]
+    ; tbody
+        []
+        (List.map invoice_summary.included_tax ~f:(fun (rate, value) ->
+             tr
+               []
+               [ td [] [ text (string_of_int rate); text "%" ]
+               ; td [] [ text (Monetary.to_string value); text "€" ]
+               ]))
     ]
-    @ List.mapi data.positions ~f:(fun nth p ->
-          frow
-            [ col1
-                [ input
-                    quantity_f
-                    ~nth
-                    (string_of_int p.quantity)
-                    (Fn.compose (Action.position nth) Action.quantity)
-                ]
-            ; col6
-                [ input
-                    description_f
-                    ~nth
-                    p.description
-                    (Fn.compose (Action.position nth) Action.description)
-                ]
-            ; col1
-                [ input
-                    tax_f
-                    ~nth
-                    (string_of_int p.tax)
-                    (Fn.compose (Action.position nth) Action.tax)
-                ]
-            ; col2
-                [ input
-                    price_f
-                    ~nth
-                    (Monetary.to_string_dot p.price)
-                    (Fn.compose (Action.position nth) Action.price)
-                ]
-            ; col2
-                [ no_input
-                    sum_row_f
-                    ~nth
-                    Monetary.(to_string_dot (times p.quantity p.price))
-                ]
-            ])
-    @ [ frow
-          [ col4 [ tax_table ]
-          ; col6 []
-          ; col2
-              [ no_input sum_f (Monetary.to_string_dot s.sum)
-              ; input deposit_f (Monetary.to_string_dot data.deposit) Action.deposit
-              ; no_input sum'_f Monetary.(s.sum - data.deposit |> to_string_dot)
-              ]
-          ]
-      ; frow [ col [ input closing_f data.closing Action.closing ] ]
-      ; frow
-          ~c:[ "mt-2"; "mb-2" ]
-          [ col_auto [ reload_btn ]
-          ; col [ frow ~c:[ "justify-content-end" ] [ col_auto [ letter_btn data ] ] ]
-          ]
-      ]
-  in
-  Node.create "form" [] rows
 ;;
 
-let create ~env ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
+let invoice ~inject ~(init : Invoice.t) cache =
+  let x = init
+  and disabled = true
+  and input on_input = render ~inject ~on_input in
+  let%bind title = input title (string ~init:x.title ~label:"Titel" ())
+  and recipient =
+    input recipient (textarea ~nrows:4 ~init:x.recipient ~label:"Empfänger" ())
+  and intro = input intro (string ~init:x.intro ~label:"Freitext" ())
+  and closing = input closing (string ~init:x.closing ~label:"Freitext" ())
+  and date = input Action.date (date_opt ~init:x.date ~label:"Datum" ())
+  and id = input id (string_opt ~init:x.id ~label:"Rechnungsnummer" ())
+  and deposit = input deposit (monetary ~init:x.deposit ~label:"Anzahlung" ()) in
+  let%bind cache = cache in
+  let s = Invoice.summary cache in
+  let tax_table = tax_table s in
+  let%map sum = ignore (monetary ~init:s.sum ~label:"Summe" ~disabled ())
+  and sum_after_deposit =
+    let init =
+      let open Monetary in
+      s.sum - cache.deposit
+    in
+    ignore (monetary ~init ~label:"Nach Anzahlung" ~disabled ())
+  in
+  let open Bs.Grid in
+  [ frow [ col4 [ recipient ]; col4 []; col4 [ id; date ] ]
+  ; frow [ col [ title ] ]
+  ; frow [ col [ intro ] ]
+  ]
+  @ (let _ = position in
+     [])
+  (* TODO: positions *)
+  @ [ frow [ col4 [ tax_table ]; col6 []; col2 [ sum; deposit; sum_after_deposit ] ]
+    ; frow [ col [ closing ] ]
+    ]
+;;
+
+let create ~env:() ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let%map model = model
-  and view = view ~env ~inject model in
-  let apply_action = apply_action model
-  and extra = [] in
-  Component.create_with_extra ~extra ~apply_action model view
+  and view =
+    let%bind init = model >>| Model.init >>| snd in
+    let%map rows = invoice ~inject ~init (model >>| Model.cache) in
+    Node.create "form" [] rows
+  in
+  let apply_action = apply_action model in
+  Component.create ~apply_action model view
 ;;

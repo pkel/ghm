@@ -195,11 +195,11 @@ module Form = struct
       ~(of_string : string -> (a, string) result)
       ~(to_string : a -> string)
       ~init
-      ?(disabled = false)
       ?(prepend = [])
       ?(append = [])
       ?placeholder
       ?label
+      ?(disabled = false)
       ()
       : a t
     =
@@ -259,6 +259,7 @@ module Form = struct
     input_conv ~of_string ~to_string ~init
   ;;
 
+  (* TODO: Make this similar to string input field (ideally reuse) *)
   let textarea ?(validator = fun _ -> None) ~nrows ~init ?placeholder ?label () =
     let label = Option.map ~f:(fun l -> Node.label [] [ Node.text l ]) label in
     let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in

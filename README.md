@@ -23,3 +23,5 @@ jq 'map({ id:.customer_id, data: (.data | del(.bookings)), bookings:
   - Json Export for jMeldeschein
   - Highlight current location in menu
 * Lock new booking and similar unsaveable views for unsaved new customer.
+* It seems like `customer/<cid>/booking/<bid>` opens booking bid under
+  customer cid. This might move booking bid to cid on next save.

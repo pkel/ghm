@@ -197,7 +197,7 @@ let booking ~inject ~(init : Booking.t) =
           ]
       ]
   and main = main ~inject ~init in
-  Bs.Grid.(row [ col main; col allocs; col guests ])
+  Bs.Grid.(frow [ col main; col allocs; col guests ])
 ;;
 
 let create ~env:() ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
