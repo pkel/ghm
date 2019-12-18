@@ -63,6 +63,7 @@ module Action = struct
     | Delayed_after_input
     | Delete
     | Save
+    | Reload_invoice
     | Pg_posted of Pg.Bookings.return sexp_opaque Or_error.t
     | Pg_patched of Pg.Bookings.return sexp_opaque Or_error.t
     | Pg_got of Pg.Bookings.return sexp_opaque Or_error.t
@@ -71,6 +72,7 @@ module Action = struct
 end
 
 let apply_action
+    ~customer
     ~customer_id
     ~booking
     ~invoice
@@ -141,6 +143,12 @@ let apply_action
               Pg.(update' Int.(Bookings.id' == model.remote.id) Bookings.t)))
     in
     model
+  | Reload_invoice ->
+    let invoice =
+      Invoice_form.init
+        (Invoice_gen.gen ~date:(Ext_date.today ()) customer model.last_valid)
+    in
+    { model with invoice }
   | Pg_patched (Ok remote) -> { model with remote }
   | Pg_posted (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
@@ -220,20 +228,43 @@ let view_booking ~sync ~inject ~form ~customer ~booking =
     ]
 ;;
 
+let view_invoice ~sync ~inject ~form ~booking =
+  let reload_c _evt = inject Action.Reload_invoice in
+  let%map sync = sync
+  and form = form
+  and confirmation =
+    let%map x = booking >>| Booking.invoice >>| Option.value ~default:Invoice.empty in
+    Letter.(invoice x |> href)
+  in
+  Bs.Grid.
+    [ Component.view form
+    ; frow
+        [ col_auto
+            ~c:[ "mb-2"; "mt-2" ]
+            [ Bs.button' ~href:confirmation ~blank:true "Drucken" ]
+        ; col
+            [ frow
+                ~c:[ "justify-content-end" ]
+                [ col_auto ~c:[ "mb-2"; "mt-2" ] [ danger_btn reload_c "Neu Laden" ]
+                ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
+                ]
+            ]
+        ]
+    ]
+;;
+
 let view ~invoice ~booking (model : Model.t Incr.t) ~inject ~customer =
   let open Vdom in
   let _ = invoice in
-  let%map form =
-    let sync = model >>| Model.sync in
-    view_booking
-      ~form:booking
-      ~sync
-      ~inject
-      ~customer
-      ~booking:(model >>| Model.last_valid)
-  in
-  let save _evt = inject Action.(Save) in
-  Node.create "form" [ Attr.on "submit" save ] form
+  let sync = model >>| Model.sync
+  and last_valid = model >>| Model.last_valid in
+  let%bind booking =
+    view_booking ~form:booking ~sync ~inject ~customer ~booking:last_valid
+  and invoice = view_invoice ~sync ~form:invoice ~inject ~booking:last_valid in
+  let%map nav = model >>| Model.nav in
+  match nav with
+  | _, BData -> Node.create "form" [] booking
+  | _, Invoice -> Node.create "form" [] invoice
 ;;
 
 let view ~customer ~inject ~booking ~invoice model =
@@ -244,7 +275,16 @@ let view ~customer ~inject ~booking ~invoice model =
     ~else_:(view ~customer ~booking ~invoice ~inject model)
 ;;
 
-let menu (_m : Model.t) : Menu.t = []
+let menu ~customer_id (m : Model.t) : Menu.t =
+  let open Menu in
+  let abs rel = Nav.Customer (customer_id, Booking (fst m.nav, rel)) in
+  let entry name rel =
+    let href = Href (abs rel |> Nav.href)
+    and active = snd m.nav = rel in
+    entry name href active
+  in
+  [ entry "Buchungsdaten" BData; entry "Rechnung" Invoice ]
+;;
 
 let create ~(env : env) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let booking =
@@ -256,12 +296,13 @@ let create ~(env : env) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t In
   in
   let%map model = model
   and customer_id = env.customer_id
+  and customer = env.customer
   and view =
     let customer = env.customer in
     view ~customer ~inject ~booking ~invoice model
   and booking = booking
   and invoice = invoice in
-  let apply_action = apply_action ~booking ~invoice ~customer_id model
-  and extra : Menu.t = menu model in
+  let apply_action = apply_action ~customer ~booking ~invoice ~customer_id model
+  and extra : Menu.t = menu ~customer_id model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

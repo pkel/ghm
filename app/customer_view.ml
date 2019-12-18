@@ -267,18 +267,35 @@ let view ~inject ~form ~booking model =
     Component.view booking
 ;;
 
-let menu (m : Model.t) : Menu.t =
+(* TODO: this feels super clumsy. *)
+let menu ~booking_sub (m : Model.t) : Menu.t =
   let open Menu in
   let open Nav in
-  let href nav = Href (Nav.href (Customer (fst m.nav, nav))) in
+  let abs rel = Customer (fst m.nav, rel) in
+  let entry ?children name rel =
+    let href = Href (abs rel |> Nav.href)
+    and active = snd m.nav = rel in
+    entry ?children name href active
+  in
   let children =
-    entry "Stammdaten" (href CData) (snd m.nav = CData)
-    :: entry "Neue Buchung" (href (Booking (New, BData))) false
-    :: List.map m.remote.bookings ~f:(fun { arrival; departure; id } ->
-           entry
-             Period.(to_string_hum (of_dates arrival departure))
-             (href (Booking (Id id, BData)))
-             false)
+    entry "Stammdaten" CData
+    ::
+    (let children =
+       match snd m.nav with
+       | Booking (New, _) -> booking_sub
+       | _ -> []
+     in
+     entry ~children "Neue Buchung" (Booking (New, BData))
+     :: List.map m.remote.bookings ~f:(fun { arrival; departure; id } ->
+            let children =
+              match snd m.nav with
+              | Booking (Id id', _) when id' = id -> booking_sub
+              | _ -> []
+            in
+            entry
+              ~children
+              Period.(to_string_hum (of_dates arrival departure))
+              (Booking (Id id, BData))))
   in
   let title =
     if m.is_loading
@@ -288,7 +305,7 @@ let menu (m : Model.t) : Menu.t =
       | "" -> "Kunde: n/a"
       | s -> "Kunde: " ^ s)
   in
-  [ entry ~children title (href CData) false ]
+  [ entry ~children title CData ]
 ;;
 
 let create ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
@@ -309,6 +326,6 @@ let create ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   and form = form
   and booking = booking in
   let apply_action = apply_action ~booking ~form model
-  and extra : Menu.t = menu model in
+  and extra : Menu.t = menu ~booking_sub:(Component.extra booking) model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;
