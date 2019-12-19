@@ -1,5 +1,5 @@
-upstream postgrest {
-  server localhost:3000;
+upstream api {
+  server $API_HOST:3000;
   keepalive 64;
 }
 
@@ -23,7 +23,7 @@ server {
         return 404;
     }
 
-    fastcgi_pass localhost:9000;
+    fastcgi_pass $PHP_HOST:9000;
     fastcgi_index index.php;
 
     # Default params
@@ -65,7 +65,7 @@ server {
     add_header Content-Location  /api/$upstream_http_content_location;
     proxy_set_header  Connection "";
     proxy_http_version 1.1;
-    proxy_pass http://postgrest/;
+    proxy_pass http://api/;
     proxy_pass_request_headers on;
 
     # import request might be huge
