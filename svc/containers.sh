@@ -17,6 +17,9 @@ container () {
   echo "$prefix-container-$1"
 }
 
+net="$prefix-net"
+pod="$prefix-pod"
+
 link () {
   if [[ -v ROOT ]]
   then
@@ -26,41 +29,42 @@ link () {
   fi
 }
 
+rm_container () {
+  $docker rm "$(container "$1")" -f -v || true
+}
+rm_container db
+rm_container api
+rm_container php
+rm_container nginx
+
 if [[ -v ROOT ]]
 then
-  pod_options=()
+  $docker network rm "$net" || true
+  $docker network create "$net"
+  net_options=(--network "$net")
 else
-  if $docker pod exists "$prefix-pod"
+  if $docker pod exists "$pod"
   then
-    $docker pod rm -f "$prefix-pod"
+    $docker pod rm -f "$pod"
   fi
-  $docker pod create --name "$prefix-pod" -p 8080:80
-  pod_options=(--pod "$prefix-pod")
+  $docker pod create --name "$pod" -p 8080:80
+  net_options=(--pod "$pod")
 fi
 
-$docker build -f Dockerfile-for-php -t "$(image php)"
-$docker build -f Dockerfile-for-nginx -t "$(image nginx)"
+$docker build -f Dockerfile-for-php -t "$(image php)" .
+$docker build -f Dockerfile-for-nginx -t "$(image nginx)" .
 
-rm_container () {
-  if $docker container exists "$(container "$1")"
-  then
-    $docker rm "$(container "$1")" -f
-  fi
-}
-
-rm_container db
 $docker run -d --name "$(container db)" \
-  "${pod_options[@]}" \
+  "${net_options[@]}" \
   -e POSTGRES_DB_FILE=/secrets/db-cfg/db-name \
   -e POSTGRES_USER_FILE=/secrets/db-user-root/username \
   -e POSTGRES_PASSWORD_FILE=/secrets/db-user-root/password \
-  -v ./secrets:/secrets:z \
-  -v ./initdb.d:/docker-entrypoint-initdb.d:z \
+  -v "$(pwd)/secrets:/secrets:z" \
+  -v "$(pwd)/initdb.d:/docker-entrypoint-initdb.d:z" \
   postgres:12
 
-rm_container api
 $docker run -d --name "$(container api)" \
-  "${pod_options[@]}" \
+  "${net_options[@]}" \
   -e PGRST_SERVER_HOST='*4' \
   -e PGRST_SERVER_PORT="3000" \
   -e PGRST_DB_ANON_ROLE="anonymous" \
@@ -72,14 +76,13 @@ $docker run -d --name "$(container api)" \
 
 if [[ -v MOUNT_WEBROOT ]]
 then
-  mount_options=(-v ./webroot:/var/www/html:z)
+  mount_options=(-v "$(pwd)/webroot:/var/www/html:z")
 else
   mount_options=()
 fi
 
-rm_container php
-podman run -d --name "$(container php)" \
-  "${pod_options[@]}" \
+$docker run -d --name "$(container php)" \
+  "${net_options[@]}" \
   -e DB_HOST="$(link db)" \
   -e DB_PORT=5432 \
   -e DB_NAME="$(secret db-cfg/db-name)" \
@@ -89,9 +92,16 @@ podman run -d --name "$(container php)" \
   "${mount_options[@]}" \
   "$(image php)"
 
-rm_container nginx
-podman run -d --name "$(container nginx)" \
-  "${pod_options[@]}" \
+if [[ -v ROOT ]]
+then
+  port_options=(-p 80:80)
+else
+  port_options=()
+fi
+
+$docker run -d --name "$(container nginx)" \
+  "${net_options[@]}" \
+  "${port_options[@]}" \
   -e PHP_HOST="$(link php)" \
   -e API_HOST="$(link api)" \
   "${mount_options[@]}" \
