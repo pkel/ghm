@@ -8,7 +8,7 @@ Guesthouse management using [incr_dom](gh:incr_dom) (work in progress).
 
 Migration from old production api (single table) to new schema:
 ```bash
-jq 'map({ id:.customer_id} + . + {bookings:[{created: .created, modified: .modified} + .data.bookings[]]} | del(.customer_id, .data.bookings))' < data/some.json > data/some.migrated.json
+jq 'map({ id:.customer_id} + . + {bookings:[{customer:.customer_id, id:-1, created: .created, modified: .modified, data: .data.bookings[]}]} | del(.customer_id, .data.bookings)) | {customers: [.[] | del(.bookings)], bookings: [.[].bookings[]]}' < data/some.json > data/some.migrated.json
 ```
 
 ## ToDo
