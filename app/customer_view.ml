@@ -5,7 +5,7 @@ open Incr.Let_syntax
 
 module Model = struct
   type t =
-    { remote : Pg.Customers.return
+    { remote : Pg.Customers.return option
     ; form : Customer_form.Model.t
     ; booking : Booking_view.Model.t
     ; last_valid : Customer.t
@@ -16,16 +16,11 @@ module Model = struct
     }
   [@@deriving compare, fields]
 
-  let t
-      ?(nav = Nav.(New, CData))
-      ?(is_loading = false)
-      ?(c = { Pg.Customers.id = -1; data = Customer.empty; bookings = [] })
-      ()
-    =
-    { remote = c
-    ; form = Customer_form.init c.data
+  let t ?(nav = Nav.(New, CData)) ?(is_loading = false) ?(c = Customer.empty) () =
+    { remote = None
+    ; form = Customer_form.init c
     ; booking = Booking_view.Model.create ()
-    ; last_valid = c.data
+    ; last_valid = c
     ; is_valid = true
     ; last_input_at = Int.max_value
     ; nav
@@ -34,12 +29,20 @@ module Model = struct
   ;;
 
   let loading nav = t ~is_loading:true ~nav ()
-  let loaded m c = t ~nav:m.nav ~is_loading:false ~c ()
+
+  let loaded m (remote : Pg.Customers.return) =
+    let m = t ~nav:m.nav ~is_loading:false ~c:remote.data () in
+    { m with remote = Some remote }
+  ;;
+
   let create () = t ()
 
   let sync m =
     if m.is_valid
-    then if Customer.compare m.last_valid m.remote.data = 0 then `Sync else `Async
+    then (
+      match m.remote with
+      | None -> `Async
+      | Some x -> if Customer.compare m.last_valid x.data = 0 then `Sync else `Async)
     else `Invalid_input
   ;;
 end
@@ -100,28 +103,28 @@ let apply_action
     model
   | Save ->
     let () =
-      let body = model.last_valid in
-      if body <> model.remote.data
+      if Some model.last_valid <> Option.map ~f:(fun x -> x.data) model.remote
       then (
+        let body = model.last_valid in
         let c = state.connection in
-        if model.remote.id < 0
-        then (
+        match model.remote with
+        | None ->
           let handler = Fn.compose schedule_action Action.postedcustomer in
-          Xhr.send ~c ~body ~handler Pg.(create Customers.t))
-        else (
+          Xhr.send ~c ~body ~handler Pg.(create Customers.t)
+        | Some remote ->
           let handler = Fn.compose schedule_action Action.patchedcustomer in
           Xhr.send
             ~c
             ~body
             ~handler
-            Pg.(update' Int.(Customers.id' == model.remote.id) Customers.t)))
+            Pg.(update' Int.(Customers.id' == remote.id) Customers.t))
     in
     model
-  | PatchedCustomer (Ok remote) -> { model with remote }
+  | PatchedCustomer (Ok x) -> { model with remote = Some x }
   | PostedCustomer (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
     let () = Nav.set (Customer nav) in
-    { model with remote; nav }
+    { model with remote = Some remote; nav }
   | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
     model
@@ -277,6 +280,9 @@ let menu ~booking_sub (m : Model.t) : Menu.t =
     and active = snd m.nav = rel in
     entry ?children name href active
   in
+  let bookings =
+    Option.map m.remote ~f:(fun x -> x.bookings) |> Option.value ~default:[]
+  in
   let children =
     entry "Stammdaten" CData
     ::
@@ -286,7 +292,7 @@ let menu ~booking_sub (m : Model.t) : Menu.t =
        | _ -> []
      in
      entry ~children "Neue Buchung" (Booking (New, BData))
-     :: List.map m.remote.bookings ~f:(fun { arrival; departure; id } ->
+     :: List.map bookings ~f:(fun { arrival; departure; id } ->
             let children =
               match snd m.nav with
               | Booking (Id id', _) when id' = id -> booking_sub

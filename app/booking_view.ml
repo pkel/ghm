@@ -10,7 +10,7 @@ type env =
 
 module Model = struct
   type t =
-    { remote : Pg.Bookings.return
+    { remote : Pg.Bookings.return option
     ; booking : Booking_form.Model.t
     ; invoice : Invoice_form.Model.t
     ; last_valid : Booking.t
@@ -28,16 +28,11 @@ module Model = struct
     Booking.empty ~period
   ;;
 
-  let dummy_return () =
-    let customer : Pg.Bookings.return_customer = { id = -1; keyword = "n/a" } in
-    { Pg.Bookings.id = -1; data = fresh_booking (); customer }
-  ;;
-
-  let t ?(nav = Nav.(New, BData)) ?(is_loading = false) ?(b = dummy_return ()) () =
-    { remote = b
-    ; booking = Booking_form.init b.data
-    ; invoice = Invoice_form.init (Option.value ~default:Invoice.empty b.data.invoice)
-    ; last_valid = b.data
+  let t ?(nav = Nav.(New, BData)) ?(is_loading = false) ?(b = fresh_booking ()) () =
+    { remote = None
+    ; booking = Booking_form.init b
+    ; invoice = Invoice_form.init (Option.value ~default:Invoice.empty b.invoice)
+    ; last_valid = b
     ; is_valid = true
     ; last_input_at = Int.max_value
     ; nav
@@ -46,12 +41,21 @@ module Model = struct
   ;;
 
   let loading nav = t ~is_loading:true ~nav ()
-  let loaded m b = t ~nav:m.nav ~is_loading:false ~b ()
+
+  let loaded m (remote : Pg.Bookings.return) =
+    let m = t ~nav:m.nav ~is_loading:false ~b:remote.data () in
+    { m with remote = Some remote }
+  ;;
+
   let create () = t ()
 
   let sync m =
     if m.is_valid
-    then if Booking.compare m.last_valid m.remote.data = 0 then `Sync else `Async
+    then (
+      match m.remote with
+      | None -> `Async
+      | Some remote ->
+        if Booking.compare m.last_valid remote.data = 0 then `Sync else `Async)
     else `Invalid_input
   ;;
 end
@@ -126,21 +130,21 @@ let apply_action
       match customer_id with
       | Nav.New -> ()
       | Id customer ->
-        let body = { Pg.Bookings.data = model.last_valid; customer } in
-        if body.data <> model.remote.data
+        if Some model.last_valid <> Option.map ~f:(fun x -> x.data) model.remote
         then (
+          let body = { Pg.Bookings.data = model.last_valid; customer } in
           let c = state.connection in
-          if model.remote.id < 0
-          then (
+          match model.remote with
+          | None ->
             let handler = Fn.compose schedule_action Action.pg_posted in
-            Xhr.send ~c ~body ~handler Pg.(create Bookings.t))
-          else (
+            Xhr.send ~c ~body ~handler Pg.(create Bookings.t)
+          | Some remote ->
             let handler = Fn.compose schedule_action Action.pg_patched in
             Xhr.send
               ~c
               ~body
               ~handler
-              Pg.(update' Int.(Bookings.id' == model.remote.id) Bookings.t)))
+              Pg.(update' Int.(Bookings.id' == remote.id) Bookings.t))
     in
     model
   | Reload_invoice ->
@@ -149,11 +153,11 @@ let apply_action
         (Invoice_gen.gen ~date:(Ext_date.today ()) customer model.last_valid)
     in
     { model with invoice }
-  | Pg_patched (Ok remote) -> { model with remote }
+  | Pg_patched (Ok remote) -> { model with remote = Some remote }
   | Pg_posted (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
     let () = Nav.set (Nav.Customer (customer_id, Nav.Booking nav)) in
-    { model with remote; nav }
+    { model with remote = Some remote; nav }
   | Pg_got (Ok return) -> Model.loaded model return
   | Pg_posted (Error detail) | Pg_patched (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
