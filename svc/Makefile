@@ -1,35 +1,45 @@
-SHELL=/bin/bash
+SHELL := bash
+.ONESHELL:
+.SHELLFLAGS := -eu -o pipefail -c
+.DELETE_ON_ERROR:
+MAKEFLAGS += --warn-undefined-variables
+MAKEFLAGS += --no-builtin-rules
+
+DOCKER ?= podman
+CONTAINERS = ghm-container-db ghm-container-api ghm-container-php ghm-container-nginx
 
 .PHONY: up
 up:
-	podman pod start ghm-pod
+	if [[ -v ROOT ]]
+	then ${DOCKER} container start $(CONTAINERS) || true
+	else ${DOCKER} pod start ghm-pod || true
+	fi
 
 .PHONY: down
 down:
-	podman pod stop ghm-pod
+	if [[ -v ROOT ]]
+	then ${DOCKER} container stop $(CONTAINERS) || true
+	else ${DOCKER} pod start ghm-pod || true
+	fi
 
 .PHONY: containers
 containers:
-	./containers.sh
-
-.PHONY: containers-mount-webroot
-containers-mount-webroot:
 	MOUNT_WEBROOT=1 ./containers.sh
 
 .PHONY: dump.sql
 dump.sql:
 	touch $@
 	chmod 600 $@
-	podman exec ghm-container-db pg_dump -U $(shell cat secrets/db-user-root/username) $(shell cat secrets/db-cfg/db-name) > $@
+	${DOCKER} exec ghm-container-db pg_dump -U $(shell cat secrets/db-user-root/username) $(shell cat secrets/db-cfg/db-name) > $@
 
 .PHONY: psql
 psql:
-	podman exec -it ghm-container-db psql -U $(shell cat secrets/db-user-root/username) $(shell cat secrets/db-cfg/db-name)
+	${DOCKER} exec -it ghm-container-db psql -U $(shell cat secrets/db-user-root/username) $(shell cat secrets/db-cfg/db-name)
 
 .PHONY: purge
 purge:
-	podman rm ghm-container-nginx -fv || true
-	podman rm ghm-container-api -fv || true
-	podman rm ghm-container-php -fv || true
-	podman rm ghm-container-db -fv || true
-	podman pod rm -f ghm-pod || true
+	${DOCKER} rm $(CONTAINERS) -fv || true
+	if [[ -v ROOT ]]
+	then ${DOCKER} network rm ghm-net || true
+	else ${DOCKER} pod rm -f ghm-pod || true
+	fi
