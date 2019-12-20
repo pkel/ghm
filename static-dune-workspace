@@ -1,0 +1,5 @@
+(lang dune 1.10)
+(context (opam (switch 4.07)
+               (name static)
+               (env (_ (flags (:standard -ccopt -static))))
+               ))

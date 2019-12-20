@@ -1,0 +1,12 @@
+FROM ocaml/opam2:alpine-3.10-ocaml-4.07
+
+USER root
+RUN apk add m4
+RUN mkdir /src && chown opam /src
+
+USER opam
+WORKDIR /src
+COPY postgrest.opam ghm.opam ./
+RUN opam install . -y --deps-only
+
+CMD dune build --workspace static-dune-workspace @install

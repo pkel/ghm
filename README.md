@@ -24,3 +24,5 @@ jq 'map({ id:.customer_id} + . + {bookings:[{customer:.customer_id, id:-1, creat
 * Lock new booking and similar unsaveable views for unsaved new customer.
 * It seems like `customer/<cid>/booking/<bid>` opens booking bid under
   customer cid. This might move booking bid to cid on next save.
+* Avoid janestreet core_kernel dependency. The only thing we use
+  currently is Date.t

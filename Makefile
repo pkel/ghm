@@ -1,53 +1,46 @@
-# deprecated
-# base_uri := $(shell source svc/.env; echo $$base_uri)
+DOCKER ?= podman
 
-.PHONY: all watch format serve svc-up svc-init svc-psql import pwd clean-db clean
-
+.PHONY: all
 all:
 	dune build @default
 	cp _build/install/default/share/ghm/app.js webroot/app.js
 
+.PHONY: opt
 opt:
 	dune build --profile release @app/install
 	cp _build/install/default/share/ghm/app.js webroot/app.js
 
+.PHONY: watch
 watch:
 	fd 'ml|dune' | entr -s 'make all'
 
+.PHONY: static
+static:
+	${DOCKER} pull ocaml/opam2:alpine-3.10-ocaml-4.07
+	${DOCKER} build -t ghm-image-ocaml -f static-Dockerfile .
+	${DOCKER} run -it --userns=keep-id -v $(shell pwd):/src:z ghm-image-ocaml
+
+.PHONY: format
 format:
 	# do not auto promote test output
 	dune runtest && dune build @fmt --auto-promote
 
+.PHONY: up
 up:
 	cd svc; make up
 
+.PHONY: down
 down:
 	cd svc; make down
 
+.PHONY: psql
 psql:
 	cd svc; make psql
 
-clean-db:
-	# deprecated
-	false
-	curl \
-		-X DELETE "$(base_uri)/api/customers" \
-		-H "Authorization: Bearer $(shell scripts/get-token.sh)" \
-		-H "Accept: application/json"
-
-import: clean-db
-	# deprecated
-	false
-	dune exec tools/combit.exe data/combit.csv | \
-		curl \
-		"${base_uri}/api/customers" \
-		-H "Accept: application/json" -H  "Prefer: return=none" \
-		-H "Content-Type: application/json" \
-		-H "Authorization: Bearer $(shell scripts/get-token.sh)" \
-		-d @-
-
+.PHONY: psql
 clean:
 	dune clean
 
+.PHONY: psql
 deploy-webroot: opt
-	rsync -a --delete --info=progress2 webroot/ hestia:ghm/webroot/
+	rsync -a --delete --info=progress2 svc/webroot/ hestia:ghm/webroot/
