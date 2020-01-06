@@ -16,7 +16,7 @@ jq 'map({ id:.customer_id} + . + {bookings:[{customer:.customer_id, id:-1, creat
 * Booking_view
   - Initialize new booking from current or last booking
   - Json Export for jMeldeschein
-  - Invoice positions
+  - Invoice positions add/delete/reorder
 * Visually lock new booking and similar unsaveable views for unsaved new
   customer. Currently saving is silently deferred.
 * Avoid janestreet core_kernel dependency. The only thing we use
