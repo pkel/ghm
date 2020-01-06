@@ -148,11 +148,13 @@ let apply_action
     in
     model
   | Reload_invoice ->
-    let invoice =
-      Invoice_form.init
-        (Invoice_gen.gen ~date:(Ext_date.today ()) customer model.last_valid)
+    let invoice = Invoice_gen.gen ~date:(Ext_date.today ()) customer model.last_valid in
+    let invoice = Invoice_form.init invoice
+    and last_valid =
+      let x = model.last_valid in
+      { x with invoice = Some invoice }
     in
-    { model with invoice }
+    delay_after_input { model with invoice; last_valid }
   | Pg_patched (Ok remote) -> { model with remote = Some remote }
   | Pg_posted (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
