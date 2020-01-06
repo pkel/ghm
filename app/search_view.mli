@@ -10,7 +10,6 @@ end
 module Action : sig
   type t [@@deriving sexp_of]
 
-  val on_startup : t
   val refresh : t
 end
 

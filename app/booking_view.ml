@@ -14,7 +14,7 @@ module Model = struct
     ; booking : Booking_form.Model.t
     ; invoice : Invoice_form.Model.t
     ; last_valid : Booking.t
-    ; last_input_at : int
+    ; last_input_at : int (* TODO: make nav read only incremental argument *)
     ; nav : Nav.noi * Nav.booking
     ; is_loading : bool
     ; is_valid : bool
@@ -28,7 +28,7 @@ module Model = struct
     Booking.empty ~period
   ;;
 
-  let t ?(nav = Nav.(New, BData)) ?(is_loading = false) ?(b = fresh_booking ()) () =
+  let t ?(is_loading = false) ?(b = fresh_booking ()) nav =
     { remote = None
     ; booking = Booking_form.init b
     ; invoice = Invoice_form.init (Option.value ~default:Invoice.empty b.invoice)
@@ -40,14 +40,14 @@ module Model = struct
     }
   ;;
 
-  let loading nav = t ~is_loading:true ~nav ()
+  let loading nav = t ~is_loading:true nav
 
-  let loaded m (remote : Pg.Bookings.return) =
-    let m = t ~nav:m.nav ~is_loading:false ~b:remote.data () in
+  let loaded (remote : Pg.Bookings.return) nav =
+    let m = t ~is_loading:false ~b:remote.data nav in
     { m with remote = Some remote }
   ;;
 
-  let create () = t ()
+  let create () = t (Nav.New, Nav.BData)
 
   let sync m =
     if m.is_valid
@@ -158,7 +158,7 @@ let apply_action
     let nav = Nav.Id remote.id, snd model.nav in
     let () = Nav.set (Nav.Customer (customer_id, Nav.Booking nav)) in
     { model with remote = Some remote; nav }
-  | Pg_got (Ok return) -> Model.loaded model return
+  | Pg_got (Ok return) -> Model.loaded return model.nav
   | Pg_posted (Error detail) | Pg_patched (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
     model
@@ -179,14 +179,18 @@ let apply_action
         Xhr.send' ~c ~handler Pg.(delete Int.(Bookings.id = i) Bookings.t)
     in
     model
-  | NavChange (New, _) -> Model.create ()
-  | NavChange ((Id i, _) as nav) when Nav.Id i <> fst model.nav ->
-    let rq = Pg.(read' Int.(Bookings.id' == i) Bookings.t) in
-    let handler = Fn.compose schedule_action Action.pg_got in
-    let c = state.connection in
-    Xhr.send' ~c ~handler rq;
-    Model.loading nav
-  | NavChange nav -> { model with nav }
+  | NavChange nav ->
+    if model.nav <> nav
+    then (
+      match fst nav with
+      | Nav.New -> Model.t nav
+      | Id i ->
+        let rq = Pg.(read' Int.(Bookings.id' == i) Bookings.t) in
+        let handler = Fn.compose schedule_action Action.pg_got in
+        let c = state.connection in
+        Xhr.send' ~c ~handler rq;
+        Model.loading nav)
+    else { model with nav }
 ;;
 
 let danger_btn action title =
@@ -259,7 +263,6 @@ let view_invoice ~sync ~inject ~form ~booking =
 
 let view ~invoice ~booking (model : Model.t Incr.t) ~inject ~customer =
   let open Vdom in
-  let _ = invoice in
   let sync = model >>| Model.sync
   and last_valid = model >>| Model.last_valid in
   let%bind booking =

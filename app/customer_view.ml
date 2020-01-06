@@ -16,10 +16,15 @@ module Model = struct
     }
   [@@deriving compare, fields]
 
-  let t ?(nav = Nav.(New, CData)) ?(is_loading = false) ?(c = Customer.empty) () =
+  let t
+      ?(old_booking = Booking_view.Model.create ())
+      ?(is_loading = false)
+      ?(c = Customer.empty)
+      nav
+    =
     { remote = None
     ; form = Customer_form.init c
-    ; booking = Booking_view.Model.create ()
+    ; booking = old_booking
     ; last_valid = c
     ; is_valid = true
     ; last_input_at = Int.max_value
@@ -28,14 +33,14 @@ module Model = struct
     }
   ;;
 
-  let loading nav = t ~is_loading:true ~nav ()
+  let loading nav = t ~is_loading:true nav
 
   let loaded m (remote : Pg.Customers.return) =
-    let m = t ~nav:m.nav ~is_loading:false ~c:remote.data () in
+    let m = t ~old_booking:m.booking ~is_loading:false ~c:remote.data m.nav in
     { m with remote = Some remote }
   ;;
 
-  let create () = t ()
+  let create () = t Nav.(New, CData)
 
   let sync m =
     if m.is_valid
@@ -120,6 +125,10 @@ let apply_action
             Pg.(update' Int.(Customers.id' == remote.id) Customers.t))
     in
     model
+  | GotCustomer (Ok return) -> Model.loaded model return
+  | GotCustomer (Error detail) ->
+    state.handle_error { gist = "Laden fehlgeschlagen"; detail };
+    model
   | PatchedCustomer (Ok x) -> { model with remote = Some x }
   | PostedCustomer (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
@@ -148,24 +157,17 @@ let apply_action
       | Booking bnav -> schedule_action (Booking (Booking_view.Action.navchange bnav))
       | CData -> ()
     in
-    let model =
-      if fst model.nav <> fst nav
-      then (
-        match fst nav with
-        | Nav.New -> Model.create ()
-        | Id i ->
-          let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
-          let handler = Fn.compose schedule_action Action.gotcustomer in
-          let c = state.connection in
-          Xhr.send' ~c ~handler rq;
-          Model.loading nav)
-      else model
-    in
-    { model with nav }
-  | GotCustomer (Ok return) -> Model.loaded model return
-  | GotCustomer (Error detail) ->
-    state.handle_error { gist = "Laden fehlgeschlagen"; detail };
-    model
+    if fst model.nav <> fst nav
+    then (
+      match fst nav with
+      | Nav.New -> Model.t nav
+      | Id i ->
+        let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
+        let handler = Fn.compose schedule_action Action.gotcustomer in
+        let c = state.connection in
+        Xhr.send' ~c ~handler rq;
+        Model.loading nav)
+    else { model with nav }
 ;;
 
 open Vdom

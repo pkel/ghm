@@ -84,37 +84,32 @@ let create model ~old_model ~inject =
     Errors.create ~inject model
   in
   let apply_action (a : Action.t) (s : State.t) ~schedule_action =
-    let old_nav = model.nav in
-    let model =
-      match a with
-      | Agenda_view a ->
-        let schedule_action = Fn.compose schedule_action Action.agenda_view in
-        let agenda_view = Component.apply_action ~schedule_action agenda a s in
-        { model with agenda_view }
-      | Search_view a ->
-        let schedule_action = Fn.compose schedule_action Action.search_view in
-        let search_view = Component.apply_action ~schedule_action search a s in
-        { model with search_view }
-      | Customer_view a ->
-        let schedule_action = Fn.compose schedule_action Action.customer_view in
-        let customer_view = Component.apply_action ~schedule_action customer a s in
-        { model with customer_view }
-      | Errors a ->
-        let schedule_action = Fn.compose schedule_action Action.errors in
-        let errors = Component.apply_action ~schedule_action errors a s in
-        { model with errors }
-      | NavChange nav ->
-        let () =
-          match nav with
-          | Customer x ->
-            schedule_action (Action.customer_view (Customer_view.Action.navchange x))
-          | Overview -> schedule_action (Action.agenda_view Agenda_view.Action.refresh)
-          | Search -> schedule_action (Action.search_view Search_view.Action.refresh)
-        in
-        { model with nav }
-    in
-    let () = if old_nav <> model.nav then Nav.set model.nav in
-    model
+    match a with
+    | Agenda_view a ->
+      let schedule_action = Fn.compose schedule_action Action.agenda_view in
+      let agenda_view = Component.apply_action ~schedule_action agenda a s in
+      { model with agenda_view }
+    | Search_view a ->
+      let schedule_action = Fn.compose schedule_action Action.search_view in
+      let search_view = Component.apply_action ~schedule_action search a s in
+      { model with search_view }
+    | Customer_view a ->
+      let schedule_action = Fn.compose schedule_action Action.customer_view in
+      let customer_view = Component.apply_action ~schedule_action customer a s in
+      { model with customer_view }
+    | Errors a ->
+      let schedule_action = Fn.compose schedule_action Action.errors in
+      let errors = Component.apply_action ~schedule_action errors a s in
+      { model with errors }
+    | NavChange nav ->
+      let () =
+        match nav with
+        | Customer x ->
+          schedule_action (Action.customer_view (Customer_view.Action.navchange x))
+        | Overview -> schedule_action (Action.agenda_view Agenda_view.Action.refresh)
+        | Search -> schedule_action (Action.search_view Search_view.Action.refresh)
+      in
+      { model with nav }
   and view =
     let open Vdom in
     let attr, page, submenu =
@@ -170,6 +165,5 @@ let on_startup ~schedule_action _model =
     assert false
   | Some connection ->
     schedule_action (Action.NavChange (Nav.get ()));
-    schedule_action (Action.search_view Search_view.Action.on_startup);
     State.{ handle_error; connection }
 ;;

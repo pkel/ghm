@@ -13,16 +13,20 @@ jq 'map({ id:.customer_id} + . + {bookings:[{customer:.customer_id, id:-1, creat
 
 ## ToDo
 
-* PHP puts cleartext password to error log / client on database
-  connection failure. Either wrap usage of password into try catch
-  or avoid PHP altogether.
-* Communicate with letter js via local storage. CORS should then avoid XSS.
 * Booking_view
   - Initialize new booking from current or last booking
   - Json Export for jMeldeschein
-  - Highlight current location in menu
-* Lock new booking and similar unsaveable views for unsaved new customer.
-* It seems like `customer/<cid>/booking/<bid>` opens booking bid under
-  customer cid. This might move booking bid to cid on next save.
+  - Invoice positions
+* Visually lock new booking and similar unsaveable views for unsaved new
+  customer. Currently saving is silently deferred.
 * Avoid janestreet core_kernel dependency. The only thing we use
   currently is Date.t
+* Refactor nav fields of component models into incremental argument. Use
+  this for view. We achieve nav being read-only input for component.
+  Mutable nav makes no sense.
+* BUG: URL `customer/<cid>/booking/<bid>` opens booking bid under
+  customer cid. This moves booking bid to customer cid on next save.
+* SEC: Communicate with letter js via local storage. CORS should then avoid XSS.
+* SEC: PHP puts cleartext password to error log / client on database
+  connection failure. Either wrap usage of password into try catch
+  or avoid PHP altogether.

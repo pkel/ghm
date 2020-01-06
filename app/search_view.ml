@@ -38,7 +38,6 @@ module Action = struct
   [@@deriving sexp_of, variants]
 
   let refresh = Search
-  let on_startup = refresh
 end
 
 let get_customers ~conn ~schedule_action ?(page = 0) ?filter () =
