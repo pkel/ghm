@@ -7,7 +7,7 @@ all:
 
 .PHONY: opt
 opt:
-	dune build --profile release @app/install
+	dune build --profile release @default
 	cp _build/install/default/share/ghm/app.js webroot/app.js
 
 .PHONY: watch
