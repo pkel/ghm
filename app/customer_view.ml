@@ -294,7 +294,7 @@ let menu ~booking_sub (m : Model.t) : Menu.t =
        | _ -> []
      in
      entry ~children "Neue Buchung" (Booking (New, BData))
-     :: List.map bookings ~f:(fun { arrival; departure; id } ->
+     :: List.rev_map bookings ~f:(fun { arrival; departure; id } ->
             let children =
               match snd m.nav with
               | Booking (Id id', _) when id' = id -> booking_sub
