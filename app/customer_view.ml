@@ -292,6 +292,11 @@ let menu ~booking_sub (m : Model.t) : Menu.t =
        match snd m.nav with
        | Booking (New, _) -> booking_sub
        | _ -> []
+     and bookings =
+       List.sort
+         ~compare:(fun a b ->
+           compare (a.arrival, a.departure, a.id) (b.arrival, b.departure, b.id))
+         bookings
      in
      entry ~children "Neue Buchung" (Booking (New, BData))
      :: List.rev_map bookings ~f:(fun { arrival; departure; id } ->
