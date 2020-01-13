@@ -65,7 +65,7 @@ let send ~c ~body t =
     header ~key ~value t
   in
   let body = t.body body |> Body.of_string
-  and url = Uri.of_string (c.base_url ^ Url.to_string t.url)
+  and url = Uri.of_string (c.base_url ^ Url.to_string ~url_encode:Uri.pct_encode t.url)
   and headers = t.headers in
   (match t.verb with
   | GET -> Client.get ~headers url

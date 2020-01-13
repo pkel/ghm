@@ -75,7 +75,9 @@ let send ?c ~body ~handler t =
     | None -> t
   in
   let xhr = create () in
-  let url_with_params = Url.to_string t.url in
+  let url_with_params =
+    Url.to_string ~url_encode:Browser.Misc.encode_uri_component t.url
+  in
   open_ xhr (string_of_verb t.verb) url_with_params;
   String.Map.iteri t.headers ~f:(fun ~key ~data -> set_request_header xhr key data);
   set_onreadystatechange xhr (fun () ->

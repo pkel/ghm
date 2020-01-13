@@ -7,15 +7,22 @@ module Url : sig
   val param : string -> string -> param
   val param' : string -> param
   val url : string -> param list -> t
-  val to_string : t -> string
+  val to_string_hum : t -> string
+  val to_string : url_encode:(string -> string) -> t -> string
 end = struct
-  type t = string
   type param = string * string option
+
+  type t =
+    { url : string
+    ; params : param list
+    }
 
   let param key value = key, Some value
   let param' key = key, None
+  let url url params = { url; params }
 
-  let url url = function
+  let to_string ~url_encode { url; params } =
+    match params with
     | [] -> url
     | params ->
       url
@@ -24,11 +31,11 @@ end = struct
           ~sep:"&"
           (List.map params ~f:(fun (key, value) ->
                match value with
-               | Some value -> key ^ "=" ^ value
+               | Some value -> key ^ "=" ^ url_encode value
                | None -> key))
   ;;
 
-  let to_string s = s
+  let to_string_hum = to_string ~url_encode:(fun x -> x)
 end
 
 type verb =
