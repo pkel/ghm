@@ -62,7 +62,8 @@ module Action = struct
     | PostedCustomer of Pg.Customers.return sexp_opaque Or_error.t
     | PatchedCustomer of Pg.Customers.return sexp_opaque Or_error.t
     | NavChange of (Nav.noi * Nav.customer) sexp_opaque
-    | GotCustomer of Pg.Customers.return sexp_opaque Or_error.t
+    | GotCustomerRefresh of Pg.Customers.return sexp_opaque Or_error.t
+    | GotCustomerLoad of Pg.Customers.return sexp_opaque Or_error.t
   [@@deriving sexp_of, variants]
 end
 
@@ -96,8 +97,25 @@ let apply_action
     in
     delay_after_input { model with form; last_valid; is_valid }
   | Booking action ->
-    let schedule_action = Fn.compose schedule_action Action.booking in
-    let booking = Component.apply_action ~schedule_action booking action state in
+    let booking =
+      let schedule_action = Fn.compose schedule_action Action.booking in
+      Component.apply_action ~schedule_action booking action state
+    in
+    let () =
+      let open Booking_view.Model in
+      (* This indicates that a new booking was created, or the booking was deleted. *)
+      if booking_id model.booking <> booking_id booking
+      then (
+        match fst model.nav with
+        | Nav.New -> ()
+        | Id i ->
+          let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
+          let handler = Fn.compose schedule_action Action.gotcustomerrefresh in
+          let c = state.connection in
+          Async_kernel.(
+            don't_wait_for
+              (after (Time_ns.Span.of_sec 0.3) >>| fun () -> Xhr.send' ~c ~handler rq)))
+    in
     { model with booking }
   | Delayed_after_input ->
     let () =
@@ -125,10 +143,11 @@ let apply_action
             Pg.(update' Int.(Customers.id' == remote.id) Customers.t))
     in
     model
-  | GotCustomer (Ok return) -> Model.loaded model return
-  | GotCustomer (Error detail) ->
+  | GotCustomerLoad (Ok return) -> Model.loaded model return
+  | GotCustomerRefresh (Error detail) | GotCustomerLoad (Error detail) ->
     state.handle_error { gist = "Laden fehlgeschlagen"; detail };
     model
+  | GotCustomerRefresh (Ok x) -> { model with remote = Some x }
   | PatchedCustomer (Ok x) -> { model with remote = Some x }
   | PostedCustomer (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
@@ -163,7 +182,7 @@ let apply_action
       | Nav.New -> Model.t nav
       | Id i ->
         let rq = Pg.(read' Int.(Customers.id' == i) Customers.t) in
-        let handler = Fn.compose schedule_action Action.gotcustomer in
+        let handler = Fn.compose schedule_action Action.gotcustomerload in
         let c = state.connection in
         Xhr.send' ~c ~handler rq;
         Model.loading nav)
@@ -273,7 +292,7 @@ let view ~inject ~form ~booking model =
 ;;
 
 (* TODO: this feels super clumsy. *)
-let menu ~booking_sub (m : Model.t) : Menu.t =
+let menu ~booking (m : Model.t) : Menu.t =
   let open Menu in
   let open Nav in
   let abs rel = Customer (fst m.nav, rel) in
@@ -290,7 +309,7 @@ let menu ~booking_sub (m : Model.t) : Menu.t =
     ::
     (let children =
        match snd m.nav with
-       | Booking (New, _) -> booking_sub
+       | Booking (New, _) -> fst booking
        | _ -> []
      and bookings =
        List.sort
@@ -300,15 +319,14 @@ let menu ~booking_sub (m : Model.t) : Menu.t =
      in
      entry ~children "Neue Buchung" (Booking (New, BData))
      :: List.rev_map bookings ~f:(fun { arrival; departure; id } ->
-            let children =
-              match snd m.nav with
-              | Booking (Id id', _) when id' = id -> booking_sub
-              | _ -> []
+            let children, period =
+              let fb = Period.of_dates arrival departure in
+              match snd m.nav, booking with
+              | Booking (Id id', _), (sub, period) when id' = id ->
+                sub, Option.value ~default:fb period
+              | _ -> [], fb
             in
-            entry
-              ~children
-              Period.(to_string_hum (of_dates arrival departure))
-              (Booking (Id id, BData))))
+            entry ~children Period.(to_string_hum period) (Booking (Id id, BData))))
   in
   let title =
     if m.is_loading
@@ -339,6 +357,6 @@ let create ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   and form = form
   and booking = booking in
   let apply_action = apply_action ~booking ~form model
-  and extra : Menu.t = menu ~booking_sub:(Component.extra booking) model in
+  and extra : Menu.t = menu ~booking:(Component.extra booking) model in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

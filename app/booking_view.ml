@@ -28,6 +28,8 @@ module Model = struct
     Booking.empty ~period
   ;;
 
+  let booking_id { nav; _ } = fst nav
+
   let t ?(is_loading = false) ?(b = fresh_booking ()) nav =
     { remote = None
     ; booking = Booking_form.init b
@@ -180,7 +182,8 @@ let apply_action
         let c = state.connection in
         Xhr.send' ~c ~handler Pg.(delete Int.(Bookings.id = i) Bookings.t)
     in
-    model
+    (* This hack makes the parent component reload. *)
+    { model with nav = Nav.(Id Int.min_value, BData) }
   | NavChange nav ->
     if model.nav <> nav
     then (
@@ -312,6 +315,8 @@ let create ~(env : env) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t In
   and booking = booking
   and invoice = invoice in
   let apply_action = apply_action ~customer ~booking ~invoice ~customer_id model
-  and extra : Menu.t = menu ~customer_id model in
+  and extra : Menu.t * Period.t option =
+    menu ~customer_id model, Option.map model.remote ~f:(fun x -> x.data.period)
+  in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

@@ -11,6 +11,7 @@ module Model : sig
   type t [@@deriving compare]
 
   val create : unit -> t
+  val booking_id : t -> Nav.noi
 end
 
 module Action : sig
@@ -23,4 +24,4 @@ val create
   :  env:env
   -> inject:(Action.t -> Vdom.Event.t)
   -> Model.t Incr.t
-  -> (Action.t, Model.t, State.t, Menu.t) Component.with_extra Incr.t
+  -> (Action.t, Model.t, State.t, Menu.t * Period.t option) Component.with_extra Incr.t
