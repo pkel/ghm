@@ -111,7 +111,8 @@ let alloc ~inject ~nth ~(init : Booking.alloc) =
   in
   let%map room = input room (string ~init:x.room ~label:"Nr." ())
   and description =
-    input description (string ~init:x.description ~label:"Beschreibung" ())
+    let datalist = Booking.room_descriptions in
+    input description (string ~init:x.description ~datalist ~label:"Beschreibung" ())
   and beds = input beds (int ~init:x.beds ~label:"Betten" ())
   and price_per_bed =
     input price_per_bed (monetary ~init:x.price_per_bed ~label:"Preis" ())

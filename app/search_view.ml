@@ -141,7 +141,7 @@ let view_search ~inject ~init =
     Incr_dom_widgets.Interactive.render
       ~on_input:Action.search_input
       ~inject
-      (Bs.Form.input ~prepend ~append ~placeholder ~init ())
+      (Bs.Form.string ~prepend ~append ~placeholder ~init ())
   in
   Node.create
     "form"

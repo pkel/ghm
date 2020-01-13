@@ -168,9 +168,9 @@ module Form = struct
                 | Ok x -> inject x
                 | Error _ -> Event.Ignore)
           in
-          let attrs = [ Attr.id id; on_input ]
+          let attrs = List.filter_opt [ Some (Attr.id id); Some on_input ]
           and value = to_string value in
-          render ~key ~attrs ~value)
+          render ~key ~id ~attrs ~value)
     ;;
   end
 
@@ -197,6 +197,7 @@ module Form = struct
       ~init
       ?(prepend = [])
       ?(append = [])
+      ?datalist
       ?placeholder
       ?label
       ?(disabled = false)
@@ -221,27 +222,39 @@ module Form = struct
                | l -> [ Node.div [ Attr.class_ "input-group-append" ] l ])
              ])
     in
-    let render ~key ~attrs ~value =
+    let render ~key ~id ~attrs ~value =
+      let dl_id, dl =
+        match datalist with
+        | Some l ->
+          let id = id ^ "_datalist" in
+          ( Some id
+          , Some
+              (Node.create
+                 "datalist"
+                 [ Attr.id id ]
+                 (List.map l ~f:(fun x -> Node.option [ Attr.value x ] []))) )
+        | None -> None, None
+      in
       let attrs classes =
-        let tl =
-          (Attr.classes ("form-control" :: classes)
-          :: Attr.type_ "text"
-          :: Attr.value value
-          :: attrs)
-          @
-          if disabled then [ Attr.create "disabled" "true" ] else [] @ attrs_of_type type_
-        in
-        match placeholder with
-        | None -> tl
-        | Some p -> Attr.placeholder p :: tl
+        List.filter_opt
+          [ Some (Attr.classes ("form-control" :: classes))
+          ; Some (Attr.type_ "text")
+          ; Some (Attr.value value)
+          ; (if disabled then Some (Attr.create "disabled" "true") else None)
+          ; Option.map dl_id ~f:(Attr.create "list")
+          ; Option.map placeholder ~f:Attr.placeholder
+          ]
+        @ attrs_of_type type_
+        @ attrs
       in
       let nodes =
         match of_string value with
-        | Ok _ -> [ label; Some (Node.input ~key (attrs []) [] |> group) ]
+        | Ok _ -> [ label; Some (Node.input ~key (attrs []) [] |> group); dl ]
         | Error msg ->
           [ label
           ; Some (Node.input ~key (attrs [ "is-invalid" ]) [] |> group)
           ; Some (err msg)
+          ; dl
           ]
       in
       [ Node.div [ Attr.class_ "form-group" ] (List.filter_opt nodes) ]
@@ -249,21 +262,11 @@ module Form = struct
     Primitives.generic ~to_string ~of_string ~init ~render ()
   ;;
 
-  (* TODO: this should be obsolete by now *)
-  let input ?(validator = fun _ -> None) ?(init = "") =
-    let of_string s =
-      match validator s with
-      | Some msg -> Error msg
-      | None -> Ok s
-    and to_string = Fn.id in
-    input_conv ~of_string ~to_string ~init
-  ;;
-
   (* TODO: Make this similar to string input field (ideally reuse) *)
   let textarea ?(validator = fun _ -> None) ~nrows ~init ?placeholder ?label () =
     let label = Option.map ~f:(fun l -> Node.label [] [ Node.text l ]) label in
     let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
-    let render ~key ~attrs ~value =
+    let render ~key ~id:_ ~attrs ~value =
       let attrs classes =
         let tl =
           Attr.classes ("form-control" :: classes)
