@@ -63,13 +63,41 @@ open Vdom
 open Incr.Let_syntax
 open Ghm
 
-let card (booking : Pg.Bookings.return) =
-  let rooms =
-    String.concat ~sep:", " (List.map booking.data.allocs ~f:(fun x -> x.room))
-    |> String.strip
+module Rooms = struct
+  type el =
+    | Num of int
+    | Txt of string
+  [@@deriving compare]
+
+  type t = el list [@@deriving compare]
+
+  let parse_el s : el =
+    match Int.of_string (String.strip s) with
+    | i -> Num i
+    | exception _ -> Txt s
+  ;;
+
+  let parse b : t =
+    let open Booking in
+    List.map b.allocs ~f:(fun a -> parse_el a.room)
+    |> ListLabels.sort_uniq ~cmp:compare_el
+  ;;
+
+  let el_to_string = function
+    | Num i -> string_of_int i
+    | Txt s -> s
+  ;;
+
+  let to_string l : string =
+    List.map l ~f:el_to_string
     |> function
-    | "" -> "n/a"
-    | s -> s
+    | [] -> "n/a"
+    | l -> String.concat ~sep:", " l
+  ;;
+end
+
+let card ~rooms (booking : Pg.Bookings.return) =
+  let rooms = Rooms.to_string rooms
   and n_guests = List.length booking.data.guests
   and till = Localize.date (Period.till booking.data.period)
   and link =
@@ -101,16 +129,14 @@ let agenda ~date ~bookings =
         else l, a, b :: s)
   in
   let cards head bookings =
-    let bookings =
-      let compare a b =
-        let r x = String.lowercase x.customer.keyword in
-        compare (r a) (r b)
-      in
-      List.sort bookings ~compare
+    let bookings_by_rooms = List.map ~f:(fun b -> Rooms.parse b.data, b) bookings in
+    let bookings_by_rooms =
+      let compare a b = Rooms.compare (fst a) (fst b) in
+      List.sort bookings_by_rooms ~compare
     in
     Node.h4 [ Attr.style Css_gen.(text_align `Center) ] [ Node.text head ]
     :: Node.hr []
-    :: List.map ~f:card bookings
+    :: List.map ~f:(fun (rooms, b) -> card ~rooms b) bookings_by_rooms
   in
   let open Bs.Grid in
   row
