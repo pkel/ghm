@@ -311,14 +311,9 @@ let menu ~booking (m : Model.t) : Menu.t =
        match snd m.nav with
        | Booking (New, _) -> fst booking
        | _ -> []
-     and bookings =
-       List.sort
-         ~compare:(fun a b ->
-           compare (a.arrival, a.departure, a.id) (b.arrival, b.departure, b.id))
-         bookings
      in
      entry ~children "Neue Buchung" (Booking (New, BData))
-     :: List.rev_map bookings ~f:(fun { arrival; departure; id } ->
+     :: List.map bookings ~f:(fun { arrival; departure; id } ->
             let children, period =
               let fb = Period.of_dates arrival departure in
               match snd m.nav, booking with
