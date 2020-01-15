@@ -13,9 +13,20 @@ let id x =
 
 let gen ?date (c : Customer.t) (b : Booking.t) =
   let nights = Period.nights b.period
-  and s = Booking.summarize b
+  and s = Booking.Summary.of_booking b
   and describe (a : Booking.alloc) = Printf.sprintf "Übernachtung im %s" a.description in
   let title = "Rechnung"
+  and id =
+    match Booking.Rooms.first s.rooms with
+    | Some room ->
+      let date = Period.till b.period in
+      let open Date in
+      let d = day date
+      and m = month date |> Core_kernel.Month.to_int
+      and y = year date % 1000 in
+      let s = sprintf "%02i%02i%02i-%s" y m d room in
+      Some s
+    | _ -> None
   and intro =
     Printf.sprintf
       "Für Ihren Aufenthalt vom %s stellen wir die folgenden Positionen in Rechnung."
@@ -65,5 +76,5 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
   and closing =
     "Wir danken für Ihren Besuch und freuen uns auf Ihren nächsten Aufenthalt."
   in
-  { recipient; title; id = None; date; positions; deposit; intro; closing }
+  { recipient; title; id; date; positions; deposit; intro; closing }
 ;;

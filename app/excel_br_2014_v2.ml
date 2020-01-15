@@ -68,7 +68,7 @@ let of_customer_and_booking (c : Customer.t) (b : Booking.t) =
     | Some r -> f r
     | None -> ""
   in
-  let s = Booking.summarize b in
+  let s = Booking.Summary.of_booking b in
   let items =
     let compare = Booking.compare_alloc in
     List.map b.allocs ~f:(fun r -> { r with Booking.room = "" })

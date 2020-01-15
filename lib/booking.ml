@@ -48,31 +48,78 @@ let empty_alloc =
   }
 ;;
 
+type _booking = t
+
+module Rooms : sig
+  type t [@@deriving compare]
+
+  val of_booking : _booking -> t
+  val to_string : t -> string
+  val first : t -> string option
+end = struct
+  type el =
+    | Num of int
+    | Txt of string
+    | Nil
+  [@@deriving compare]
+
+  type t = el list [@@deriving compare]
+
+  let parse_el s : el =
+    let s = String.strip s in
+    if String.is_empty s
+    then Nil
+    else (
+      match Int.of_string s with
+      | i -> Num i
+      | exception _ -> Txt s)
+  ;;
+
+  let of_booking b : t =
+    List.map b.allocs ~f:(fun a -> parse_el a.room)
+    |> List.dedup_and_sort ~compare:compare_el
+  ;;
+
+  let el_to_string = function
+    | Num i -> Some (string_of_int i)
+    | Txt s -> Some s
+    | Nil -> None
+  ;;
+
+  let to_string l : string =
+    List.filter_map l ~f:el_to_string
+    |> function
+    | [] -> "n/a"
+    | l -> String.concat ~sep:", " l
+  ;;
+
+  let first = function
+    | [] -> None
+    | hd :: _ -> el_to_string hd
+  ;;
+end
+
 module Summary = struct
   type t =
-    { rooms : string list
+    { rooms : Rooms.t
     ; guests : int
     ; tax_payers : int
     }
   [@@deriving fields]
-end
 
-let summarize (t : t) : Summary.t =
-  (* Age on arrival >= 15 makes you a tax payer *)
-  let tax_cutoff = Date.add_years (Period.till t.period) (-15) in
-  let guests = List.length t.guests
-  and tax_payers =
-    List.count t.guests ~f:(fun g ->
-        match g.born with
-        | None -> true
-        | Some d -> Date.compare tax_cutoff d > 0)
-  and rooms =
-    List.map t.allocs ~f:room
-    |> List.filter ~f:(Fn.compose not String.is_empty)
-    |> String.(List.dedup_and_sort ~compare)
-  in
-  { rooms; guests; tax_payers }
-;;
+  let of_booking b : t =
+    (* Age on arrival >= 15 makes you a tax payer *)
+    let tax_cutoff = Date.add_years (Period.till b.period) (-15) in
+    let guests = List.length b.guests
+    and tax_payers =
+      List.count b.guests ~f:(fun g ->
+          match g.born with
+          | None -> true
+          | Some d -> Date.compare tax_cutoff d > 0)
+    and rooms = Rooms.of_booking b in
+    { rooms; guests; tax_payers }
+  ;;
+end
 
 let room_descriptions =
   [ "Einzelzimmer"
