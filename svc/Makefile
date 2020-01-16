@@ -19,7 +19,7 @@ up:
 down:
 	if [[ -v ROOT ]]
 	then ${DOCKER} container stop $(CONTAINERS) || true
-	else ${DOCKER} pod start ghm-pod || true
+	else ${DOCKER} pod stop ghm-pod || true
 	fi
 
 .PHONY: containers
