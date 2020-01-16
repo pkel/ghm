@@ -199,15 +199,18 @@ let apply_action
 ;;
 
 let danger_btn action title =
-  Bs.button ~attr:[ Bs.tab_skip ] ~style:"outline-danger" ~action title
+  Bs.button ~tabskip:true ~color:`Outline_danger (Text title) (Action action)
 ;;
 
 let save_btn ~sync ~inject =
   let action _ = inject Action.(Save) in
   match sync with
-  | `Sync -> Bs.button ~action ~i:(S "check") ~style:"outline-success" "Gespeichert"
-  | `Async -> Bs.button ~action ~i:(S "save") ~style:"outline-warning" "Speichern"
-  | `Invalid_input -> Bs.button ~action ~i:(S "times") ~style:"outline-danger" "Speichern"
+  | `Sync ->
+    Bs.button ~color:`Outline_success (Icon (S "check", "Gespeichert")) (Action action)
+  | `Async ->
+    Bs.button ~color:`Outline_warning (Icon (S "save", "Speichern")) (Action action)
+  | `Invalid_input ->
+    Bs.button ~color:`Outline_danger (Icon (S "times", "Speichern")) (Action action)
 ;;
 
 let view_booking ~sync ~inject ~form ~customer ~booking =
@@ -224,17 +227,14 @@ let view_booking ~sync ~inject ~form ~customer ~booking =
   Bs.Grid.
     [ Component.view form
     ; frow
-        [ col_auto
-            ~c:[ "mb-2"; "mt-2" ]
-            [ Bs.button' ~href:confirmation ~blank:true "Bestätigung" ]
-        ; col_auto ~c:[ "mb-2"; "mt-2" ] [ Bs.button_clipboard ~value:excel "Excel" ]
+        ~c:[ "mt-5"; "pb-3" ]
+        [ col_auto [ Bs.button (Text "Bestätigung") (Href_blank confirmation) ]
+        ; col_auto [ Bs.button (Text "Excel") (Clipboard excel) ]
         ; col
             [ frow
                 ~c:[ "justify-content-end" ]
-                [ col_auto
-                    ~c:[ "mb-2"; "mt-2" ]
-                    [ danger_btn delete_c "Buchung löschen" ]
-                ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
+                [ col_auto [ danger_btn delete_c "Buchung löschen" ]
+                ; col_auto [ save_btn ~sync ~inject ]
                 ]
             ]
         ]
@@ -252,14 +252,13 @@ let view_invoice ~sync ~inject ~form ~booking =
   Bs.Grid.
     [ Component.view form
     ; frow
-        [ col_auto
-            ~c:[ "mb-2"; "mt-2" ]
-            [ Bs.button' ~href:confirmation ~blank:true "Drucken" ]
+        ~c:[ "mt-5"; "pb-3" ]
+        [ col_auto [ Bs.button (Text "Drucken") (Href_blank confirmation) ]
         ; col
             [ frow
                 ~c:[ "justify-content-end" ]
-                [ col_auto ~c:[ "mb-2"; "mt-2" ] [ danger_btn reload_c "Neu Laden" ]
-                ; col_auto ~c:[ "mb-2"; "mt-2" ] [ save_btn ~sync ~inject ]
+                [ col_auto [ danger_btn reload_c "Neu Laden" ]
+                ; col_auto [ save_btn ~sync ~inject ]
                 ]
             ]
         ]

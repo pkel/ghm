@@ -1,8 +1,6 @@
 open Incr_dom.Vdom
 open Core_kernel
 
-let tab_skip = Attr.create "tabindex" "-1"
-
 type icon =
   | B of string
   | R of string
@@ -16,81 +14,101 @@ let classes_of_icon = function
   | L s -> [ "fal"; sprintf "fa-%s" s ]
 ;;
 
-let icon i = Node.create "i" [ Attr.classes (classes_of_icon i) ] []
+let icon ?(c = []) i = Node.create "i" [ Attr.classes (classes_of_icon i @ c) ] []
 
-let button ?i ?(attr = []) ?(style = "secondary") ~action label =
-  let style = sprintf "btn-%s" style in
-  Node.button
-    (attr
-    @ [ Attr.on_click action; Attr.classes [ "btn"; style ]; Attr.type_ "button" ]
-    @
-    match i with
-    | None -> []
-    | Some _ -> [ Attr.create "title" label ])
-    [ (match i with
-      | None -> Node.text label
-      | Some i -> icon i)
-    ]
-;;
+type button_action =
+  | Href of string
+  | Href_blank of string
+  | Action of (unit -> Event.t)
+  | Clipboard of string
+  | Submit
+  | No_action
 
-let button' ?i ?(attr = []) ?(style = "secondary") ?(blank = false) ~href label =
-  let style = sprintf "btn-%s" style in
-  Node.a
-    (attr
-    @ [ Attr.href href; Attr.classes [ "btn"; style ]; Attr.create "role" "button" ]
-    @ (match i with
-      | None -> []
-      | Some _ -> [ Attr.create "title" label ])
-    @
-    if blank
-    then [ Attr.create "target" "_blank"; Attr.create "rel" "noopener norefferer" ]
-    else [])
-    [ (match i with
-      | None -> Node.text label
-      | Some i -> icon i)
-    ]
-;;
+type button_view =
+  | Icon of (icon * string)
+  | Text of string
 
-let button_clipboard ?i ?(attr = []) ?(style = "secondary") ~value label =
-  let style = sprintf "btn-%s" style in
-  let id = Base.(sprintf "clipboard-%i" (Hash.Builtin.hash_string value)) in
-  Node.div
-    []
-    [ Node.button
-        (attr
-        @ [ Attr.create "data-clipboard-target" ("#" ^ id)
-          ; Attr.classes [ "btn"; "clipboard-js"; style ]
+(* | Generic of {title: string option; children: Node.t list} *)
+
+let button
+    ?(tabskip = false)
+    ?(disabled = false)
+    ?(color = `Secondary)
+    ?(size = `Normal)
+    view
+    action
+  =
+  let cls =
+    let h s = Some ("btn-" ^ s) in
+    let color =
+      match color with
+      | `None -> None
+      | `Primary -> h "primary"
+      | `Secondary -> h "secondary"
+      | `Light -> h "light"
+      | `Outline_danger -> h "outline-danger"
+      | `Outline_warning -> h "outline-warning"
+      | `Outline_success -> h "outline-success"
+    and size =
+      match size with
+      | `Normal -> None
+      | `Small -> h "sm"
+      | `Large -> h "lg"
+      | `Block -> h "block"
+    in
+    List.filter_opt [ color; size; Some "btn" ]
+  and attrs =
+    List.filter_opt
+      [ (if disabled then Some Attr.disabled else None)
+      ; (if tabskip then Some (Attr.create "tabindex" "-1") else None)
+      ]
+  and node, action_attrs, action_cls =
+    match action with
+    | Href s -> Node.a, Attr.[ href s; create "role" "button" ], []
+    | Href_blank s ->
+      ( Node.a
+      , Attr.
+          [ href s
+          ; create "role" "button"
+          ; create "target" "blank"
+          ; create "rel" "noopener norefferer"
           ]
-        @
-        match i with
-        | None -> []
-        | Some _ -> [ Attr.create "title" label ])
-        [ (match i with
-          | None -> Node.text label
-          | Some i -> icon i)
-        ]
-    ; Node.textarea
-        [ Attr.id id
-        ; Attr.style
-            Css_gen.(
-              concat
-                [ opacity 0.
-                ; position ~left:(`Px 0) ~top:(`Px 0) `Absolute
-                ; z_index (-1)
-                ; height (`Px 0)
-                ; width (`Px 0)
-                ; overflow `Hidden
-                ; border ~style:`None ()
-                ])
-        ]
-        [ Node.text value ]
-    ]
-;;
-
-let button_submit label =
-  Node.button
-    [ Attr.classes [ "btn"; "btn-secondary" ]; Attr.type_ "submit" ]
-    [ Node.text label ]
+      , [] )
+    | Action f -> Node.button, Attr.[ on_click (fun _ -> f ()) ], []
+    | No_action -> Node.button, [], []
+    | Submit -> Node.button, [ Attr.type_ "submit" ], []
+    | Clipboard value ->
+      let id = Base.(sprintf "clipboard-%i" (Hash.Builtin.hash_string value)) in
+      let node ?key attr children =
+        Node.div
+          []
+          [ Node.button ?key attr children
+          ; Node.textarea
+              [ Attr.id id
+              ; Attr.style
+                  Css_gen.(
+                    concat
+                      [ opacity 0.
+                      ; position ~left:(`Px 0) ~top:(`Px 0) `Absolute
+                      ; z_index (-1)
+                      ; height (`Px 0)
+                      ; width (`Px 0)
+                      ; overflow `Hidden
+                      ; border ~style:`None ()
+                      ])
+              ]
+              [ Node.text value ]
+          ]
+      and attrs = [ Attr.create "data-clipboard-target" ("#" ^ id) ]
+      and cls = [ "clipboard-js" ] in
+      node, attrs, cls
+  and content, view_attrs =
+    match view with
+    | Icon (i, label) -> [ icon i ], [ Attr.create "title" label ]
+    | Text s -> [ Node.text s ], []
+  in
+  let attrs = (Attr.classes (action_cls @ cls) :: attrs) @ action_attrs @ view_attrs in
+  node attrs content
 ;;
 
 module Grid = struct

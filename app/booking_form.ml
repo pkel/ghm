@@ -6,14 +6,16 @@ open Ghm
 
 module Model = struct
   type t =
-    { init : int * Booking.t
+    { initital : int * Booking.t
     ; cache : Booking.t
     }
   [@@deriving compare, fields]
+
+  (* TODO: do we need this nonce? *)
+  let init cache = { initital = Nonce.int (), cache; cache }
 end
 
-(* TODO: Do we need this nonce? *)
-let init cache = { Model.init = Nonce.int (), cache; cache }
+let init = Model.init
 
 let eval model =
   let open Model in
@@ -35,6 +37,11 @@ module Action = struct
     | Born of Date.t option
   [@@deriving sexp_of, variants]
 
+  type 'a list_element =
+    | Field of 'a
+    | Tool of List_tools.action
+  [@@deriving sexp_of, variants]
+
   type t =
     | PeriodA of Date.t
     | PeriodB of Date.t
@@ -42,11 +49,9 @@ module Action = struct
     | Deposit_got of Monetary.t option
     | Tax_free of bool
     | Note of string
-    | Guest of int * guest
-    | Alloc of int * alloc
-    | DeleteGuest of int
-    | DeleteAlloc of int
+    | Guest of int * guest list_element
     | NewGuest
+    | Alloc of int * alloc list_element
     | NewAlloc
   [@@deriving sexp_of, variants]
 end
@@ -56,8 +61,7 @@ let apply_action model =
   let open Action in
   let open Booking in
   let x = model.cache in
-  let init cache = { cache; init = fst model.init, cache }
-  and cache cache = { model with cache } in
+  let cache cache = { model with cache } in
   function
   | PeriodA a -> cache { x with period = Period.update ~a x.period }
   | PeriodB b -> cache { x with period = Period.update ~b x.period }
@@ -65,7 +69,7 @@ let apply_action model =
   | Deposit_got deposit_got -> cache { x with deposit_got }
   | Tax_free tax_free -> cache { x with tax_free }
   | Note note -> cache { x with note }
-  | Alloc (i, action) ->
+  | Alloc (i, Field action) ->
     let f x =
       match action with
       | Room room -> { x with room }
@@ -74,7 +78,7 @@ let apply_action model =
       | Description description -> { x with description }
     in
     cache { x with allocs = List.mapi ~f:(fun j x -> if i = j then f x else x) x.allocs }
-  | Guest (i, action) ->
+  | Guest (i, Field action) ->
     let f x =
       match action with
       | Given given -> { x with given }
@@ -82,10 +86,10 @@ let apply_action model =
       | Born born -> { x with born }
     in
     cache { x with guests = List.mapi ~f:(fun j x -> if i = j then f x else x) x.guests }
-  | DeleteGuest i -> init { x with guests = List.filteri ~f:(fun j _ -> i <> j) x.guests }
-  | DeleteAlloc i -> init { x with allocs = List.filteri ~f:(fun j _ -> i <> j) x.allocs }
-  | NewGuest -> init { x with guests = x.guests @ [ Booking.empty_guest ] }
+  | Alloc (i, Tool a) -> init { x with allocs = List_tools.apply_action x.allocs i a }
+  | Guest (i, Tool a) -> init { x with guests = List_tools.apply_action x.guests i a }
   | NewAlloc -> init { x with allocs = x.allocs @ [ Booking.empty_alloc ] }
+  | NewGuest -> init { x with guests = x.guests @ [ Booking.empty_guest ] }
 ;;
 
 let apply_action model action _state ~schedule_action:_ = apply_action model action
@@ -97,17 +101,14 @@ open Bs.Form
 open Incr_dom_widgets.Interactive
 open Incr.Let_syntax
 
-let delete_button action title =
-  Bs.button ~i:(R "trash-alt") ~style:"outline-danger" ~attr:[ Bs.tab_skip ] ~action title
-;;
-
 let alloc ~inject ~nth ~(init : Booking.alloc) =
   let x = init in
   let input on_input =
-    let inject a = inject (Alloc (nth, a)) in
+    let inject a = inject (Action.alloc nth (Field a)) in
     render ~inject ~on_input
-  and delete =
-    delete_button (fun _ -> inject (Action.deletealloc nth)) "Zimmer löschen"
+  and el_tools =
+    let inject a = inject (Action.alloc nth (Tool a)) in
+    List_tools.view ~inject "Zimmer"
   in
   let%map room = input room (string ~init:x.room ~label:"Nr." ())
   and description =
@@ -122,7 +123,7 @@ let alloc ~inject ~nth ~(init : Booking.alloc) =
     ; frow
         [ col4 [ beds ]
         ; col4 [ price_per_bed ]
-        ; col4 ~c:[ "align-self-end"; "text-right" ] [ delete ]
+        ; col4 ~c:[ "align-self-end"; "text-right" ] el_tools
         ]
     ]
 ;;
@@ -130,15 +131,18 @@ let alloc ~inject ~nth ~(init : Booking.alloc) =
 let guest ~inject ~nth ~(init : Booking.guest) =
   let x = init in
   let input on_input =
-    let inject a = inject (Guest (nth, a)) in
+    let inject a = inject (Action.guest nth (Field a)) in
     render ~inject ~on_input
-  and delete = delete_button (fun _ -> inject (Action.deleteguest nth)) "Gast löschen" in
+  and el_tools =
+    let inject a = inject (Action.guest nth (Tool a)) in
+    List_tools.view ~inject "Gast"
+  in
   let%map given = input given (string ~init:x.given ~label:"Vorname" ())
   and family = input family (string ~init:x.family ~label:"Nachname" ())
   and born = input born (date_opt ~init:x.born ~label:"Geburtsdatum" ()) in
   Bs.Grid.
     [ frow [ col [ given ]; col [ family ] ]
-    ; frow [ col [ born ]; col ~c:[ "align-self-end"; "text-right" ] [ delete ] ]
+    ; frow [ col [ born ]; col ~c:[ "align-self-end"; "text-right" ] el_tools ]
     ]
 ;;
 
@@ -174,12 +178,14 @@ let booking ~inject ~(init : Booking.t) =
     (Node.h4 [] [ Node.text "Gäste" ]
     :: List.concat_map raw ~f:(fun nodes -> Node.hr [] :: nodes))
     @ [ Node.hr []
-      ; Node.div (* TODO: div seems weird. Use frow instead? *)
-          []
-          [ Bs.button
-              ~i:(S "plus")
-              ~action:(act Action.newguest)
-              "Weiteren Gast hinzufügen"
+      ; Bs.Grid.frow
+          ~c:[ "justify-content-end" ]
+          [ Bs.Grid.col_auto
+              [ Bs.button
+                  ~size:`Small
+                  (Icon (S "plus", "Weiteren Gast hinzufügen"))
+                  (Action (act Action.newguest))
+              ]
           ]
       ]
   and allocs =
@@ -189,12 +195,14 @@ let booking ~inject ~(init : Booking.t) =
     (Node.h4 [] [ Node.text "Positionen" ]
     :: List.concat_map raw ~f:(fun nodes -> Node.hr [] :: nodes))
     @ [ Node.hr []
-      ; Node.div (* TODO: div seems weird. Use frow instead? *)
-          []
-          [ Bs.button
-              ~i:(S "plus")
-              ~action:(act Action.newalloc)
-              "Weitere Position hinzufügen"
+      ; Bs.Grid.frow
+          ~c:[ "justify-content-end" ]
+          [ Bs.Grid.col_auto
+              [ Bs.button
+                  ~size:`Small
+                  (Icon (S "plus", "Weitere Position hinzufügen"))
+                  (Action (act Action.newalloc))
+              ]
           ]
       ]
   and main = main ~inject ~init in
@@ -203,7 +211,7 @@ let booking ~inject ~(init : Booking.t) =
 
 let create ~env:() ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let%map form =
-    let%bind init = model >>| Model.init in
+    let%bind init = model >>| Model.initital in
     let init = snd init in
     booking ~inject ~init
   and model = model in

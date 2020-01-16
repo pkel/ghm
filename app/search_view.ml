@@ -132,11 +132,10 @@ let view_search ~inject ~init =
   let%map input =
     let prepend =
       [ Bs.button
-          ~i:(S "undo")
-          ~action:(fun _ -> inject Action.search_reset)
-          "Zurücksetzen"
+          (Icon (S "undo", "Zurücksetzen"))
+          (Action (fun () -> inject Action.search_reset))
       ]
-    and append = [ Bs.button_submit "Suchen" ]
+    and append = [ Bs.button (Text "Suchen") Submit ]
     and placeholder = "Schlüsselwort" in
     Incr_dom_widgets.Interactive.render
       ~on_input:Action.search_input
@@ -156,7 +155,7 @@ let view ~inject ~table (model : Model.t Incr.t) =
         ~c:[ "justify-content-center" ]
         [ col_auto
             ~c:[ "mb-2" ]
-            [ Bs.button ~action:(fun _ -> inject Action.get_more) "Mehr" ]
+            [ Bs.button (Text "Mehr") (Action (fun _ -> inject Action.get_more)) ]
         ]
     ]
   in

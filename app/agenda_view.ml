@@ -119,15 +119,13 @@ let datepicker ~inject ~init =
   let interactive =
     let prepend =
       [ Bs.button
-          ~i:(S "step-backward")
-          ~action:(fun _ -> inject Action.prev_day)
-          "Vorheriger Tag"
+          (Icon (S "step-backward", "Vorheriger Tag"))
+          (Action (fun _ -> inject Action.prev_day))
       ]
     and append =
       [ Bs.button
-          ~i:(S "step-forward")
-          ~action:(fun _ -> inject Action.next_day)
-          "Nächster Tag"
+          (Icon (S "step-forward", "Nächster Tag"))
+          (Action (fun _ -> inject Action.next_day))
       ]
     in
     Bs.Form.date ~init ~prepend ~append ()

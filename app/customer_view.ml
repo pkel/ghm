@@ -192,15 +192,18 @@ let apply_action
 open Vdom
 
 let danger_btn action title =
-  Bs.button ~attr:[ Bs.tab_skip ] ~style:"outline-danger" ~action title
+  Bs.button ~color:`Outline_danger ~tabskip:true (Text title) (Action action)
 ;;
 
 let save_btn ~sync ~inject =
   let action _ = inject Action.(Save) in
   match sync with
-  | `Sync -> Bs.button ~action ~i:(S "check") ~style:"outline-success" "Gespeichert"
-  | `Async -> Bs.button ~action ~i:(S "save") ~style:"outline-warning" "Speichern"
-  | `Invalid_input -> Bs.button ~action ~i:(S "times") ~style:"outline-danger" "Speichern"
+  | `Sync ->
+    Bs.button ~color:`Outline_success (Icon (S "check", "Gespeichert")) (Action action)
+  | `Async ->
+    Bs.button ~color:`Outline_warning (Icon (S "save", "Speichern")) (Action action)
+  | `Invalid_input ->
+    Bs.button ~color:`Outline_danger (Icon (S "times", "Speichern")) (Action action)
 ;;
 
 let uri_of_letter customer t =
