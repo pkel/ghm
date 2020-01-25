@@ -54,7 +54,7 @@ function logout() {
   redirect_get('/', 'logout-success');
 }
 
-function login($username, $password, $headless=false){
+function login($username, $password, $fragment, $headless=false){
   $query = "SELECT auth.user_role(:id, :pass)";
   $stmt = pdo()->prepare($query);
   $stmt->execute(array(':id' => $username, ':pass' => $password));
@@ -71,7 +71,7 @@ function login($username, $password, $headless=false){
     if ($headless) {
       token();
     } else {
-      redirect_get('/');
+      redirect_get('/' . $fragment);
     }
   }
 }
@@ -174,7 +174,7 @@ window.history.replaceState({}, document.title, window.location.href.split('?')[
 <?php print_status($status) ?>
           <div class="card">
             <div class="card-body">
-              <form action="." method="POST" autocomplete="off">
+              <form id="login-form" action="." method="POST" autocomplete="off">
                 <div class="form-group">
                   <input type="text" class="form-control" name="username" placeholder="Nutzername" required>
                 </div>
@@ -189,6 +189,18 @@ window.history.replaceState({}, document.title, window.location.href.split('?')[
       </div>
     </div>
   </body>
+  <script type='text/javascript'>
+    // submit url fragment (with hash) to server
+    var form = document.getElementById('login-form');
+    form.addEventListener('submit',
+    function(){
+        var hidden = document.createElement("input");
+        hidden.setAttribute('type','hidden');
+        hidden.setAttribute('name','fragment');
+        hidden.setAttribute('value',window.location.hash);
+        this.appendChild(hidden);
+    });
+  </script>
 </html>
 <?php }
 
@@ -197,15 +209,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $filter_def = array(
     'action'   => FILTER_SANITIZE_STRING,
     'username' => FILTER_SANITIZE_STRING,
-    'password' => FILTER_DEFAULT);
+    'password' => FILTER_DEFAULT,
+    'fragment' => FILTER_DEFAULT);
   $post = filter_var_array($_POST, $filter_def);
   // act
   switch($post['action']){
   case 'login':
-    login(trim($post['username']), $post['password']);
+    login(trim($post['username']), $post['password'], $post['fragment'], false);
     break;
   case 'token':
-    login(trim($post['username']), $post['password'], true);
+    login(trim($post['username']), $post['password'], '', true);
     break;
   case 'logout':
     logout();
