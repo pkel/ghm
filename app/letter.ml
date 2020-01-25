@@ -218,14 +218,25 @@ let invoice (inv : Invoice.t) =
     ; p' inv.closing
     ]
     |> elts_to_string
+  and sidebar =
+    (match inv.id, inv.date with
+    | Some id, Some date ->
+      [ b [ txt "Rechnungsnummer" ]
+      ; br ()
+      ; txt id
+      ; br ()
+      ; b [ txt "Datum" ]
+      ; br ()
+      ; txt (Localize.date date)
+      ]
+    | Some id, None -> [ b [ txt "Rechnungsnummer" ]; br (); txt id ]
+    | None, Some date -> [ b [ txt "Datum" ]; br (); txt (Localize.date date) ]
+    | None, None -> [])
+    |> elts_to_string
   and attachments = [] |> elts_to_string in
   { sender = ""
   ; recipient = String.substr_replace_all inv.recipient ~pattern:"\n" ~with_:"<br>"
-  ; sidebar =
-      (let d = Option.(map ~f:Localize.date inv.date |> value ~default:"") in
-       match inv.id with
-       | Some id -> sprintf "%s<br>%s" id d
-       | None -> d)
+  ; sidebar
   ; attachments
   ; body
   ; subject = inv.title
