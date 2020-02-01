@@ -21,10 +21,14 @@ module Model = struct
     }
   [@@deriving compare, fields]
 
-  let fresh_booking () =
+  let default_period () =
     let from = Ext_date.today () in
     let till = Date.add_days from 7 in
-    let period = Period.of_dates from till in
+    Period.of_dates from till
+  ;;
+
+  let fresh_booking () =
+    let period = default_period () in
     Booking.empty ~period
   ;;
 
@@ -188,7 +192,18 @@ let apply_action
     if model.nav <> nav
     then (
       match fst nav with
-      | Nav.New -> Model.t nav
+      | Nav.New ->
+        let b =
+          let current = model.last_valid in
+          { current with
+            allocs = []
+          ; deposit_asked = None
+          ; deposit_got = None
+          ; note = ""
+          ; period = Model.default_period ()
+          }
+        in
+        Model.t ~b nav
       | Id i ->
         let rq = Pg.(read' Int.(Bookings.id' == i) Bookings.t) in
         let handler = Fn.compose schedule_action Action.pg_got in
