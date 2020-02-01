@@ -40,12 +40,27 @@ create function set_modified_now ()
 returns trigger as $$
 begin
    new.modified = now();
-   return new;
+   return null;
 end;
 $$ language 'plpgsql';
 
-create trigger customers_set_modified_now before update on customers
+create function set_customer_modified_now ()
+returns trigger as $$
+begin
+  if (TG_OP = 'DELETE') then
+    update customers set modified = now() where id = OLD.customer;
+  else
+    update customers set modified = now() where id = NEW.customer;
+  end if;
+  return null;
+end
+$$ language 'plpgsql';
+
+create trigger customers_set_modified_now after update on customers
 for each row execute procedure set_modified_now ();
 
-create trigger bookings_set_modified_now before update on bookings
+create trigger bookings_set_modified_now after update on bookings
 for each row execute procedure set_modified_now ();
+
+create trigger bookings_set_customer_modified_now after update or insert or delete on bookings
+for each row execute procedure set_customer_modified_now ();
