@@ -7,6 +7,7 @@ val times : int -> t -> t
 val of_int : int -> t
 val of_float : float -> t option
 val to_float : t -> float
+val cents : int -> t
 
 (** German notation, i.e. 3,49 *)
 val to_string : t -> string

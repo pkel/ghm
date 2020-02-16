@@ -9,6 +9,7 @@ type remote = float [@@deriving yojson]
 let of_int x = 100 * x
 let of_float x = Float.iround ~dir:`Nearest (x *. 100.)
 let to_float x = Float.of_int x /. 100.
+let cents x = x
 
 let of_yojson x =
   match remote_of_yojson x with
