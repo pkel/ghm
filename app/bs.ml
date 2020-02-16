@@ -21,6 +21,16 @@ type button_action =
   | Href_blank of string
   | Action of (unit -> Event.t)
   | Clipboard of string
+  | Download of
+      { filename : string
+      ; media_type : string
+      ; content : string
+      }
+  | Download_b64 of
+      { filename : string
+      ; media_type : string
+      ; b64 : string
+      }
   | Submit
   | No_action
 
@@ -77,6 +87,23 @@ let button
     | Action f -> Node.button, Attr.[ on_click (fun _ -> f ()) ], []
     | No_action -> Node.button, [], []
     | Submit -> Node.button, [ Attr.type_ "submit" ], []
+    | Download_b64 f ->
+      ( Node.a
+      , Attr.
+          [ href (sprintf "data:%s;base64,%s" f.media_type f.b64)
+          ; create "download" f.filename
+          ; create "role" "button"
+          ]
+      , [] )
+    | Download f ->
+      ( Node.a
+      , Attr.
+          [ href
+              (sprintf "data:%s;base64,%s" f.media_type (Base64.encode_string f.content))
+          ; create "download" f.filename
+          ; create "role" "button"
+          ]
+      , [] )
     | Clipboard value ->
       let id = Base.(sprintf "clipboard-%i" (Hash.Builtin.hash_string value)) in
       let node ?key attr children =

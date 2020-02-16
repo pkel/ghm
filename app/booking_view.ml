@@ -232,12 +232,26 @@ let view_booking ~sync ~inject ~form ~customer ~booking =
   let delete_c _evt = inject Action.Delete in
   let%map sync = sync
   and form = form
-  and confirmation, excel =
+  and confirmation, excel, meldeschein =
     let%map booking = booking
     and customer = customer in
+    let filename =
+      let open Browser.Date in
+      let now = now () in
+      let year = get_full_year now
+      and month = get_month now
+      and day = get_date now in
+      sprintf
+        "Meldeschein - %04i%02i%02i - %s.xml"
+        year
+        month
+        day
+        Customer.(customer.keyword)
+    and content = Ghm.Meldeschein.gen customer booking in
     let date = Browser.Date.(now () |> to_locale_date_string) in
     ( Letter.(confirm ~booking ~date customer |> href)
-    , Excel_br_2014_v2.of_customer_and_booking customer booking )
+    , Excel_br_2014_v2.of_customer_and_booking customer booking
+    , Bs.Download { filename; media_type = "application/xml"; content } )
   in
   Bs.Grid.
     [ Component.view form
@@ -245,6 +259,7 @@ let view_booking ~sync ~inject ~form ~customer ~booking =
         ~c:[ "mt-5"; "pb-3" ]
         [ col_auto [ Bs.button (Text "Bestätigung") (Href_blank confirmation) ]
         ; col_auto [ Bs.button (Text "Excel") (Clipboard excel) ]
+        ; col_auto [ Bs.button (Text "Meldeschein") meldeschein ]
         ; col
             [ frow
                 ~c:[ "justify-content-end" ]

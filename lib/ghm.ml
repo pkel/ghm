@@ -3,6 +3,7 @@ module Customer = Customer
 module Date = Date_yojson
 module Invoice = Invoice
 module Invoice_gen = Invoice_gen
+module Meldeschein = Meldeschein
 module Monetary = Monetary
 module Period = Period
 module Schema = Schema
