@@ -1,6 +1,3 @@
-(* TODO:
-   - (re)add no_tax checkbox
-*)
 open Base
 open Ghm
 
@@ -157,13 +154,15 @@ let main ~inject ~(init : Booking.t) =
     input
       deposit_asked
       (monetary_opt ~init:x.deposit_asked ~label:"Anzahlung gefordert" ())
+  and tax_free =
+    input tax_free (checkbox ~init:x.tax_free ~label:"befreit von Kurtaxe" ())
   and note = input note (textarea ~init:x.note ~label:"Notiz" ~nrows:8 ()) in
   Bs.Grid.
     [ Node.h4 [] [ Node.text "Aufenthalt" ]
     ; Node.hr []
     ; frow [ col [ perioda ]; col [ periodb ] ]
     ; frow [ col [ deposit_asked ]; col [ deposit_got ] ]
-      (* TODO: ; frow [ col ~c:[ "mb-2" ] [ input_bool state "befreit von Kurtaxe" tax_free ] ] *)
+    ; frow [ col ~c:[ "mb-2" ] [ tax_free ] ]
     ; frow [ col [ note ] ]
     ]
 ;;

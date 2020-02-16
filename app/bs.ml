@@ -207,6 +207,27 @@ module Form = struct
     | Int -> attrs_of_type (Number { step = 1. })
   ;;
 
+  let checkbox ~init ?label () =
+    let _key, id = Primitives.shared_setup ~id:None in
+    let open Incr_dom_widgets.Interactive in
+    let checkbox =
+      Primitives.checkbox ~attrs:[ Attr.class_ "form-check-input" ] ~id ~init ()
+    in
+    map_nodes checkbox ~f:(fun nodes ->
+        [ Node.div
+            [ Attr.classes [ "form-group"; "form-check" ] ]
+            (nodes
+            @
+            match label with
+            | Some s ->
+              [ Node.label
+                  [ Attr.class_ "form-check-label"; Attr.for_ id ]
+                  [ Node.text s ]
+              ]
+            | None -> [])
+        ])
+  ;;
+
   let input_conv
       (type a)
       ?(type_ = Text)
