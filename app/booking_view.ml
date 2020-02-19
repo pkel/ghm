@@ -247,7 +247,7 @@ let view_booking ~sync ~inject ~form ~customer ~booking =
         month
         day
         Customer.(customer.keyword)
-    and content = Ghm.Meldeschein.gen customer booking in
+    and content = Ghm.Meldeschein.xml customer booking in
     let date = Browser.Date.(now () |> to_locale_date_string) in
     ( Letter.(confirm ~booking ~date customer |> href)
     , Excel_br_2014_v2.of_customer_and_booking customer booking
