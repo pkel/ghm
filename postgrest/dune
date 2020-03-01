@@ -1,5 +1,0 @@
-(library
- (name postgrest)
- (public_name postgrest)
- (libraries core_kernel yojson ppx_deriving_yojson.runtime)
- (preprocess (pps ppx_deriving_yojson ppx_jane ppxlib.runner)))

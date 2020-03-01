@@ -1,3 +1,6 @@
 [submodule "vendor/incr_dom_widgets"]
 	path = vendor/incr_dom_widgets
 	url = git@github.com:pkel/incr_dom_widgets.git
+[submodule "ext/postgrest"]
+	path = ext/postgrest
+	url = ssh://denali/home/patrik/repo/ocaml-postgrest.git

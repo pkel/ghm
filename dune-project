@@ -8,19 +8,6 @@
 (maintainers "Patrik Keller")
 
 (package
-  (name postgrest)
-  (synopsis "An OCaml Postgrest adapter")
-  (description "A longer description")
-  (depends
-    (core_kernel :build)
-    (yojson :build)
-    (ppx_deriving_yojson :build)
-    (ppx_jane :build)
-    (ocamlformat :dev)
-    )
-)
-
-(package
   (name ghm)
   (synopsis "JSOO Booking Management")
   (description "A longer description")
