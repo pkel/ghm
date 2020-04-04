@@ -13,14 +13,8 @@ jq 'map({ id:.customer_id} + . + {bookings:[{customer:.customer_id, id:-1, creat
 
 ## ToDo
 
-* Booking_view
-  - Initialize new booking from current or last booking
-  - Json Export for jMeldeschein
-  - Invoice positions add/delete/reorder
 * Visually lock new booking and similar unsaveable views for unsaved new
   customer. Currently saving is silently deferred.
-* Avoid janestreet core_kernel dependency. The only thing we use
-  currently is Date.t
 * Refactor nav fields of component models into incremental argument. Use
   this for view. We achieve nav being read-only input for component.
   Mutable nav makes no sense.
