@@ -250,16 +250,25 @@ let letter_dropdown customer =
 ;;
 
 let view ~sync ~inject ~form customer =
+  (* We now observe the issue described in commit 1fad9f1a here too.
+   * This means, that when pressing the enter button on any form field,
+   * the delete action is triggered. EPIC BUG
+   *
+   * Firefox 76
+   *
+   * Workaround: Place buttons outside the form.
+   *)
   let delete_c _evt = inject Action.DeleteCustomer in
   let%map letter_dropdown = customer >>| letter_dropdown
   and sync = sync
   and form = form in
+  let form = Node.create "form" [] [ Component.view form ] in
   Bs.Grid.(
-    [ Node.h4 [] [ Node.text "Stammdaten" ]; Node.hr []; Component.view form ]
-    @ [ frow
+    [ Node.h4 [] [ Node.text "Stammdaten" ]; Node.hr []; form ]
+    @ [ row
           [ col_auto ~c:[ "mb-2"; "mt-2" ] [ letter_dropdown ]
           ; col
-              [ frow
+              [ row
                   ~c:[ "justify-content-end" ]
                   [ col_auto
                       ~c:[ "mb-2"; "mt-2" ]
@@ -277,8 +286,7 @@ let view ~form (model : Model.t Incr.t) ~inject =
     let sync = model >>| Model.sync in
     view ~form ~sync ~inject (model >>| Model.last_valid)
   in
-  let save _evt = inject Action.(Save) in
-  Node.create "form" [ Attr.on "submit" save ] form
+  Node.div [] form
 ;;
 
 let view ~inject ~form model =

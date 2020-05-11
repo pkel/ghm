@@ -138,6 +138,8 @@ let view_search ~inject ~init =
           (Icon (S "undo", "Zurücksetzen"))
           (Action (fun () -> inject Action.search_reset))
        ]
+
+       This now also shows up on the customer view.
     *)
     and append = [ Bs.button (Text "Suchen") Submit ]
     and placeholder = "Schlüsselwort" in
