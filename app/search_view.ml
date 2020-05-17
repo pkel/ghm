@@ -130,15 +130,11 @@ open Incr.Let_syntax
 let view_search ~inject ~init =
   let%bind init = init in
   let%map input =
-    let prepend = []
-    (* Somehow, Firefox fires submit and this button on ENTER.
-       I spent some time debugging, but it's not clear where this behaviour
-       comes from. Let's wait for newer firefox/bootstrap.
-       [ Bs.button ~tabskip:true
+    let prepend =
+      [ Bs.button
           (Icon (S "undo", "Zurücksetzen"))
           (Action (fun () -> inject Action.search_reset))
-       ]
-    *)
+      ]
     and append = [ Bs.button (Text "Suchen") Submit ]
     and placeholder = "Schlüsselwort" in
     Incr_dom_widgets.Interactive.render
