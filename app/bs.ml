@@ -84,8 +84,8 @@ let button
           ; create "rel" "noopener norefferer"
           ]
       , [] )
-    | Action f -> Node.button, Attr.[ on_click (fun _ -> f ()) ], []
-    | No_action -> Node.button, [], []
+    | Action f -> Node.button, Attr.[ on_click (fun _ -> f ()); type_ "button" ], []
+    | No_action -> Node.button, [ Attr.type_ "button" ], []
     | Submit -> Node.button, [ Attr.type_ "submit" ], []
     | Download_b64 f ->
       ( Node.a
@@ -109,7 +109,7 @@ let button
       let node ?key attr children =
         Node.div
           []
-          [ Node.button ?key attr children
+          [ Node.button ?key (Attr.type_ "button" :: attr) children
           ; Node.textarea
               [ Attr.id id
               ; Attr.style
