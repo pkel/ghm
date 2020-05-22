@@ -122,7 +122,9 @@ let apply_action
     let schedule_action = Fn.compose schedule_action Action.table in
     let table = Component.apply_action ~schedule_action table a () in
     { model with table }
-  | Fts fts -> { model with fts }
+  | Fts fts ->
+    schedule_action Search;
+    { model with fts }
   | Search ->
     let filter =
       if model.fts
@@ -130,7 +132,7 @@ let apply_action
       else keyword_filter_of_input model.search_input
     in
     get_customers ~conn:state.connection ~schedule_action ?filter ();
-    { model with search_init = model.search_input }
+    { model with search_init = model.search_input; customers = `Loading }
   | Search_input search_input -> { model with search_input }
   | Get_more ->
     let page = model.page + 1
@@ -143,7 +145,7 @@ let apply_action
     model
   | Search_reset ->
     get_customers ~conn:state.connection ~schedule_action ();
-    { model with search_init = ""; search_input = "" }
+    { model with search_init = ""; search_input = ""; fts = false }
 ;;
 
 open Vdom
