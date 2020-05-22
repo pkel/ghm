@@ -6,8 +6,9 @@ create table customers (
     created timestamp not null default now (),
     modified timestamp not null default now (),
     data jsonb not null,
-    /* extract keyword from data for filtering */
-    keyword text generated always as (data->>'keyword') stored not null);
+    /* extract keyword and search vector from data for filtering */
+    keyword text generated always as (data->>'keyword') stored not null,
+    tsv tsvector generated always as (to_tsvector('simple', data)) stored);
 
 create function arrival_of_booking(data jsonb) returns date as $$
 begin

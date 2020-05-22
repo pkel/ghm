@@ -51,6 +51,7 @@ module Customers = struct
   let id' = key id
   let modified = date "modified"
   let keyword = string "keyword"
+  let tsv = tsvector "tsv"
 end
 
 module Bookings = struct

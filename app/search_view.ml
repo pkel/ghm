@@ -10,6 +10,7 @@ module Model = struct
     ; table : Customer_table.Model.t
     ; search_init : string
     ; search_input : string
+    ; fts : bool
     ; page : int
     }
   [@@deriving compare, fields]
@@ -19,6 +20,7 @@ module Model = struct
     ; table = Customer_table.Model.create ()
     ; search_init = ""
     ; search_input = ""
+    ; fts = false
     ; page = 0
     }
   ;;
@@ -26,6 +28,7 @@ end
 
 module Action = struct
   type t =
+    | Fts of bool
     | Search
     | Search_input of string
     | Search_reset
@@ -49,7 +52,17 @@ let get_customers ~conn ~schedule_action ?(page = 0) ?filter () =
     ~handler:(fun resp -> schedule_action Action.(got_customers ~page ~resp))
 ;;
 
-let search_filter_of_input s =
+let fts_filter_of_input s =
+  let open String in
+  let s = strip s in
+  match s with
+  | "" -> None
+  | s ->
+    let open Pg.Tsvector in
+    Some Pg.(websearch Customers.tsv s)
+;;
+
+let keyword_filter_of_input s =
   let open String in
   let s = strip s in
   let l, r = is_prefix ~prefix:"_" s, is_suffix ~suffix:"_" s in
@@ -109,14 +122,23 @@ let apply_action
     let schedule_action = Fn.compose schedule_action Action.table in
     let table = Component.apply_action ~schedule_action table a () in
     { model with table }
+  | Fts fts -> { model with fts }
   | Search ->
-    let filter = search_filter_of_input model.search_input in
+    let filter =
+      if model.fts
+      then fts_filter_of_input model.search_input
+      else keyword_filter_of_input model.search_input
+    in
     get_customers ~conn:state.connection ~schedule_action ?filter ();
     { model with search_init = model.search_input }
   | Search_input search_input -> { model with search_input }
   | Get_more ->
     let page = model.page + 1
-    and filter = search_filter_of_input model.search_init in
+    and filter =
+      if model.fts
+      then fts_filter_of_input model.search_input
+      else keyword_filter_of_input model.search_input
+    in
     get_customers ~page ~conn:state.connection ~schedule_action ?filter ();
     model
   | Search_reset ->
@@ -127,8 +149,9 @@ let apply_action
 open Vdom
 open Incr.Let_syntax
 
-let view_search ~inject ~init =
-  let%bind init = init in
+let view_search ~inject ~init ~fts =
+  let%bind init = init
+  and fts = fts in
   let%map input =
     let prepend =
       [ Bs.button
@@ -136,16 +159,23 @@ let view_search ~inject ~init =
           (Action (fun () -> inject Action.search_reset))
       ]
     and append = [ Bs.button (Text "Suchen") Submit ]
-    and placeholder = "Schlüsselwort" in
+    and placeholder = if fts then "Suchwort" else "Schlüsselwort" in
     Incr_dom_widgets.Interactive.render
       ~on_input:Action.search_input
       ~inject
       (Bs.Form.string ~prepend ~append ~placeholder ~init ())
+  and fts =
+    Incr_dom_widgets.Interactive.render
+      ~on_input:Action.fts
+      ~inject
+      (Bs.Form.checkbox ~init:fts ~label:"Volltextsuche" ())
   in
   Node.create
     "form"
-    [ Attr.on "submit" (fun _ -> inject Action.Search) ]
-    [ Bs.Grid.(frow ~c:[ "mb-4"; "mt-2" ] [ col_auto [ input ] ]) ]
+    [ Attr.on "submit" (fun _ -> inject Action.Search)
+    ; Attr.classes [ "mb-2"; "mt-2"; "form-inline" ]
+    ]
+    [ input; Node.span [ Attr.style Css_gen.(width (`Em 1)) ] []; fts ]
 ;;
 
 let view ~inject ~table (model : Model.t Incr.t) =
@@ -159,7 +189,8 @@ let view ~inject ~table (model : Model.t Incr.t) =
         ]
     ]
   in
-  let%map head = view_search ~inject ~init:(model >>| Model.search_init)
+  let%map head =
+    view_search ~fts:(model >>| Model.fts) ~inject ~init:(model >>| Model.search_init)
   and customers = model >>| Model.customers
   and page = model >>| Model.page
   and table = table in
