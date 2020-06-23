@@ -20,7 +20,9 @@ and position =
   }
 [@@deriving yojson, fields, compare, sexp]
 
-let empty_position = { quantity = 1; description = ""; price = Monetary.zero; tax = 19 }
+let empty_position =
+  { quantity = 1; description = ""; price = Monetary.zero; tax = 16 (* tax = 19 *) }
+;;
 
 let empty =
   { recipient = ""
