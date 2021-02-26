@@ -58,7 +58,7 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
           , { quantity = a.beds
             ; description = describe a
             ; price = Monetary.(a.price_per_bed - of_int 5)
-            ; (* ; tax = 7 *) tax = 5
+            ; tax = 7
             }
             :: p ))
     in
@@ -67,12 +67,12 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
       then
         [ { quantity = eaters
           ; price = Monetary.of_float 3.5 |> Option.value_exn
-          ; (* tax = 19 *) tax = 5
+          ; tax = 7
           ; description = "Frühstück (Speisen)"
           }
         ; { quantity = eaters
           ; price = Monetary.of_float 1.5 |> Option.value_exn
-          ; (* tax = 19 *) tax = 16
+          ; tax = 19
           ; description = "Frühstück (Getränke)"
           }
         ]
@@ -80,12 +80,7 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
     @
     if s.tax_payers > 0 && not b.tax_free
     then
-      [ { quantity = s.tax_payers
-        ; price = tax_unit
-        ; description = "Kurtaxe"
-        ; (* tax = 7 *) tax = 5
-        }
-      ]
+      [ { quantity = s.tax_payers; price = tax_unit; description = "Kurtaxe"; tax = 7 } ]
     else [])
     |> List.map ~f:(fun p -> { p with quantity = p.quantity * nights })
   and deposit = Option.value ~default:Monetary.zero b.deposit_got
