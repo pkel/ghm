@@ -15,12 +15,13 @@ dev-repo: "git+https://github.com/pkel/ghm.git"
 synopsis: "JSOO Booking Management"
 description: "A longer description"
 depends: [
-  "incr_dom" {build}
+  "incr_dom" {< "v0.13"}
   "incr_dom_partial_render" {build}
   "incr_dom_widgets" {build}
   "ppx_jane" {build}
   "cmdliner" {build}
   "ppx_deriving_cmdliner" {build}
+  "ppx_deriving_yojson" {> "0"}
   "tyxml" {build}
   "gen_js_api" {build}
   "csv" {build}

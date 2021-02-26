@@ -20,6 +20,15 @@ static:
 	${DOCKER} build -t ghm-image-ocaml -f static-Dockerfile .
 	${DOCKER} run -it --userns=keep-id -v $(shell pwd):/src:z ghm-image-ocaml
 
+ghm.opam: dune-project
+	dune build ghm.opam
+
+deps: ghm.opam
+	opam install . --deps-only
+
+switch:
+	opam switch create . 4.07.1 --deps-only
+
 .PHONY: format
 format:
 	# do not auto promote test output
