@@ -17,6 +17,7 @@ module Model = struct
     ; last_input_at : int (* TODO: make nav read only incremental argument *)
     ; nav : Nav.noi * Nav.booking
     ; is_loading : bool
+    ; is_saving : bool (* save mutex / avoid concurrent HTTP PATCH/POST *)
     ; is_valid : bool
     }
   [@@deriving compare, fields]
@@ -43,6 +44,7 @@ module Model = struct
     ; last_input_at = Int.max_value
     ; nav
     ; is_loading
+    ; is_saving = false
     }
   ;;
 
@@ -56,7 +58,9 @@ module Model = struct
   let create () = t (Nav.New, Nav.BData)
 
   let sync m =
-    if m.is_valid
+    if m.is_saving
+    then `Saving
+    else if m.is_valid
     then (
       match m.remote with
       | None -> `Async
@@ -132,14 +136,16 @@ let apply_action
     in
     model
   | Save ->
-    let () =
+    if model.is_saving
+    then (* avoid concurrent saves, especially posts *)
+      delay_after_input model
+    else (
       match customer_id with
-      | Nav.New -> ()
-      | Id customer ->
-        if Some model.last_valid <> Option.map ~f:(fun x -> x.data) model.remote
-        then (
-          let body = { Pg.Bookings.data = model.last_valid; customer } in
-          let c = state.connection in
+      | Nav.Id customer
+        when Some model.last_valid <> Option.map ~f:(fun x -> x.data) model.remote ->
+        let body = { Pg.Bookings.data = model.last_valid; customer } in
+        let c = state.connection in
+        let () =
           match model.remote with
           | None ->
             let handler = Fn.compose schedule_action Action.pg_posted in
@@ -150,9 +156,10 @@ let apply_action
               ~c
               ~body
               ~handler
-              Pg.(update' Int.(Bookings.id' == remote.id) Bookings.t))
-    in
-    model
+              Pg.(update' Int.(Bookings.id' == remote.id) Bookings.t)
+        in
+        { model with is_saving = true }
+      | Nav.New | _ -> model)
   | Reload_invoice ->
     let invoice = Invoice_gen.gen ~date:(Ext_date.today ()) customer model.last_valid in
     let invoice = Invoice_form.init invoice
@@ -161,15 +168,15 @@ let apply_action
       { x with invoice = Some invoice }
     in
     delay_after_input { model with invoice; last_valid }
-  | Pg_patched (Ok remote) -> { model with remote = Some remote }
+  | Pg_patched (Ok remote) -> { model with remote = Some remote; is_saving = false }
   | Pg_posted (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
     let () = Nav.set (Nav.Customer (customer_id, Nav.Booking nav)) in
-    { model with remote = Some remote; nav }
+    { model with remote = Some remote; nav; is_saving = false }
   | Pg_got (Ok return) -> Model.loaded return model.nav
   | Pg_posted (Error detail) | Pg_patched (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
-    model
+    { model with is_saving = false }
   | Pg_got (Error detail) ->
     state.handle_error { gist = "Laden fehlgeschlagen"; detail };
     model
@@ -224,6 +231,11 @@ let save_btn ~sync ~inject =
     Bs.button ~color:`Outline_success (Icon (S "check", "Gespeichert")) (Action action)
   | `Async ->
     Bs.button ~color:`Outline_warning (Icon (S "save", "Speichern")) (Action action)
+  | `Saving ->
+    Bs.button
+      ~color:`Outline_warning
+      (Icon (S "hourglass", "Speichert ..."))
+      (Action action)
   | `Invalid_input ->
     Bs.button ~color:`Outline_danger (Icon (S "times", "Speichern")) (Action action)
 ;;

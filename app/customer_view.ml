@@ -12,6 +12,7 @@ module Model = struct
     ; last_input_at : int
     ; nav : Nav.noi * Nav.customer
     ; is_loading : bool
+    ; is_saving : bool (* save mutex / avoid concurrent HTTP PATCH/POST *)
     ; is_valid : bool
     }
   [@@deriving compare, fields]
@@ -30,6 +31,7 @@ module Model = struct
     ; last_input_at = Int.max_value
     ; nav
     ; is_loading
+    ; is_saving = false
     }
   ;;
 
@@ -43,11 +45,14 @@ module Model = struct
   let create () = t Nav.(New, CData)
 
   let sync m =
-    if m.is_valid
+    if m.is_saving
+    then `Saving
+    else if m.is_valid
     then (
       match m.remote with
       | None -> `Async
-      | Some x -> if Customer.compare m.last_valid x.data = 0 then `Sync else `Async)
+      | Some remote ->
+        if Customer.compare m.last_valid remote.data = 0 then `Sync else `Async)
     else `Invalid_input
   ;;
 end
@@ -125,9 +130,12 @@ let apply_action
     in
     model
   | Save ->
-    let () =
-      if Some model.last_valid <> Option.map ~f:(fun x -> x.data) model.remote
-      then (
+    if model.is_saving
+    then (* avoid concurrent saves, especially posts *)
+      delay_after_input model
+    else if Some model.last_valid <> Option.map ~f:(fun x -> x.data) model.remote
+    then (
+      let () =
         let body = model.last_valid in
         let c = state.connection in
         match model.remote with
@@ -140,22 +148,23 @@ let apply_action
             ~c
             ~body
             ~handler
-            Pg.(update' Int.(Customers.id' == remote.id) Customers.t))
-    in
-    model
+            Pg.(update' Int.(Customers.id' == remote.id) Customers.t)
+      in
+      { model with is_saving = true })
+    else model
   | GotCustomerLoad (Ok return) -> Model.loaded model return
   | GotCustomerRefresh (Error detail) | GotCustomerLoad (Error detail) ->
     state.handle_error { gist = "Laden fehlgeschlagen"; detail };
     model
   | GotCustomerRefresh (Ok x) -> { model with remote = Some x }
-  | PatchedCustomer (Ok x) -> { model with remote = Some x }
+  | PatchedCustomer (Ok x) -> { model with remote = Some x; is_saving = false }
   | PostedCustomer (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
     let () = Nav.set (Customer nav) in
-    { model with remote = Some remote; nav }
+    { model with remote = Some remote; nav; is_saving = false }
   | PostedCustomer (Error detail) | PatchedCustomer (Error detail) ->
     state.handle_error { gist = "Speichern fehlgeschlagen"; detail };
-    model
+    { model with is_saving = false }
   | DeleteCustomer ->
     let () =
       match model.nav with
@@ -202,6 +211,11 @@ let save_btn ~sync ~inject =
     Bs.button ~color:`Outline_success (Icon (S "check", "Gespeichert")) (Action action)
   | `Async ->
     Bs.button ~color:`Outline_warning (Icon (S "save", "Speichern")) (Action action)
+  | `Saving ->
+    Bs.button
+      ~color:`Outline_warning
+      (Icon (S "hourglass", "Speichert ..."))
+      (Action action)
   | `Invalid_input ->
     Bs.button ~color:`Outline_danger (Icon (S "times", "Speichern")) (Action action)
 ;;
