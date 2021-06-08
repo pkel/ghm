@@ -291,8 +291,7 @@ let view ~form (model : Model.t Incr.t) ~inject =
     let sync = model >>| Model.sync in
     view ~form ~sync ~inject (model >>| Model.last_valid)
   in
-  let save _evt = inject Action.(Save) in
-  Node.create "form" [ Attr.on "submit" save ] form
+  Node.create "form" [] form
 ;;
 
 let view ~inject ~form model =

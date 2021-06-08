@@ -174,7 +174,9 @@ let view_search ~inject ~init ~fts =
   in
   Node.create
     "form"
-    [ Attr.on "submit" (fun _ -> inject Action.Search)
+    [ Attr.on "submit" (fun _ ->
+          let open Event in
+          Many [ inject Action.Search; Prevent_default ])
     ; Attr.classes [ "mb-2"; "mt-2"; "form-inline" ]
     ]
     [ input; Node.span [ Attr.style Css_gen.(width (`Em 1)) ] []; fts ]
