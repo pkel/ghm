@@ -143,7 +143,7 @@ let guest ~inject ~nth ~(init : Booking.guest) =
     ]
 ;;
 
-let main ~inject ~(init : Booking.t) =
+let main ~inject ~(init : Booking.t) (model : Booking.t Incr.t) =
   let x = init in
   let input on_input = render ~inject ~on_input in
   let%map perioda = input perioda (date ~init:(Period.a x.period) ~label:"Von" ())
@@ -156,18 +156,23 @@ let main ~inject ~(init : Booking.t) =
       (monetary_opt ~init:x.deposit_asked ~label:"Anzahlung gefordert" ())
   and tax_free =
     input tax_free (checkbox ~init:x.tax_free ~label:"befreit von Kurtaxe" ())
-  and note = input note (textarea ~init:x.note ~label:"Notiz" ~nrows:8 ()) in
+  and note = input note (textarea ~init:x.note ~label:"Notiz" ~nrows:8 ())
+  and n_nights =
+    let%map n = model >>| Booking.period >>| Period.nights in
+    if n > 1 then Printf.sprintf "%i Nächte" n else "eine Nacht"
+  in
   Bs.Grid.
     [ Node.h4 [] [ Node.text "Aufenthalt" ]
     ; Node.hr []
     ; frow [ col [ perioda ]; col [ periodb ] ]
+    ; frow [ col [ Node.p [] [ Node.text n_nights ] ] ]
     ; frow [ col [ deposit_asked ]; col [ deposit_got ] ]
     ; frow [ col ~c:[ "mb-2" ] [ tax_free ] ]
     ; frow [ col [ note ] ]
     ]
 ;;
 
-let booking ~inject ~(init : Booking.t) =
+let booking ~inject ~(init : Booking.t) model =
   let x = init in
   let act f _ = inject f in
   let%map guests =
@@ -204,15 +209,14 @@ let booking ~inject ~(init : Booking.t) =
               ]
           ]
       ]
-  and main = main ~inject ~init in
+  and main = main ~inject ~init model in
   Node.create "form" [] Bs.Grid.[ frow [ col main; col allocs; col guests ] ]
 ;;
 
 let create ~env:() ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let%map form =
-    let%bind init = model >>| Model.initital in
-    let init = snd init in
-    booking ~inject ~init
+    let%bind init = model >>| Model.initital >>| snd in
+    booking ~inject ~init (model >>| Model.cache)
   and model = model in
   let apply_action = apply_action model in
   Component.create ~apply_action model form
