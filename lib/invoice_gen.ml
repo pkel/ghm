@@ -11,14 +11,18 @@ let id x =
     sprintf "%i%i%i" y m d
 ;;
 
-let tax_unit_default = Monetary.cents 200
-
 (* TODO: it might be nice to split the period and handle kurtaxe on a
  * daily basis. *)
 let tax_unit date =
-  let m = Date.month date |> Core_kernel.Month.to_int in
   (* https://www.reichenau-tourismus.de/de/planen-buchen/kurtaxe-gaestekarte *)
-  if m < 4 || m > 10 then Monetary.cents 80 else tax_unit_default
+  let y = Date.year date
+  and m = Date.month date |> Month.to_int in
+  let offseason, season =
+    if y <= 2021
+    then Monetary.cents 80, Monetary.cents 200
+    else Monetary.cents 100, Monetary.cents 250
+  in
+  if m < 4 || m > 10 then offseason else season
 ;;
 
 let gen ?date (c : Customer.t) (b : Booking.t) =
@@ -32,11 +36,11 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
       let date = Period.till b.period in
       let open Date in
       let d = day date
-      and m = month date |> Core_kernel.Month.to_int
+      and m = month date |> Month.to_int
       and y = year date % 1000 in
       let s = sprintf "%02i%02i%02i-%s" y m d room in
       Some s, tax_unit date
-    | _ -> None, tax_unit_default
+    | _ -> None, tax_unit (Date.today ~zone:Time.Zone.utc)
   in
   let intro =
     Printf.sprintf
