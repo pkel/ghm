@@ -208,6 +208,7 @@ let apply_action
           ; deposit_got = None
           ; note = ""
           ; period = Model.default_period ()
+          ; invoice = None
           }
         in
         Model.t ~b nav
