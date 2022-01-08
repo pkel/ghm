@@ -78,6 +78,7 @@ module Action = struct
     | Delete
     | Save
     | Reload_invoice
+    | Delete_invoice
     | Pg_posted of Pg.Bookings.return sexp_opaque Or_error.t
     | Pg_patched of Pg.Bookings.return sexp_opaque Or_error.t
     | Pg_got of Pg.Bookings.return sexp_opaque Or_error.t
@@ -168,6 +169,9 @@ let apply_action
       { x with invoice = Some invoice }
     in
     delay_after_input { model with invoice; last_valid }
+  | Delete_invoice ->
+    let last_valid = { model.last_valid with invoice = None } in
+    delay_after_input { model with last_valid }
   | Pg_patched (Ok remote) -> { model with remote = Some remote; is_saving = false }
   | Pg_posted (Ok remote) ->
     let nav = Nav.Id remote.id, snd model.nav in
@@ -252,6 +256,7 @@ let view_booking ~sync ~inject ~form ~customer ~booking =
   let delete_c _evt = inject Action.Delete in
   let%map sync = sync
   and form = form
+  and lock_invoice = booking >>| Booking.invoice >>| Option.is_some
   and confirmation, excel, meldeschein =
     let%map booking = booking
     and customer = customer in
@@ -273,21 +278,43 @@ let view_booking ~sync ~inject ~form ~customer ~booking =
     , Excel_br_2014_v2.of_customer_and_booking customer booking
     , Bs.Download { filename; media_type = "application/xml"; content } )
   in
-  Bs.Grid.
-    [ Component.view form
-    ; frow
-        ~c:[ "mt-5"; "pb-3" ]
-        [ col_auto [ Bs.button (Text "Bestätigung") (Href_blank confirmation) ]
-        ; col_auto [ Bs.button (Text "Excel") (Clipboard excel) ]
-        ; col_auto [ Bs.button (Text "Meldeschein") meldeschein ]
-        ; col
-            [ frow
-                ~c:[ "justify-content-end" ]
-                [ col_auto [ danger_btn delete_c "Buchung löschen" ]
-                ; col_auto [ save_btn ~sync ~inject ]
-                ]
-            ]
-        ]
+  let open Bs.Grid in
+  let buttons =
+    frow
+      ~c:[ "mt-5"; "pb-3" ]
+      [ col_auto [ Bs.button (Text "Bestätigung") (Href_blank confirmation) ]
+      ; col_auto [ Bs.button (Text "Excel") (Clipboard excel) ]
+      ; col_auto [ Bs.button (Text "Meldeschein") meldeschein ]
+      ; col
+          [ frow
+              ~c:[ "justify-content-end" ]
+              [ col_auto [ danger_btn delete_c "Buchung löschen" ]
+              ; col_auto [ save_btn ~sync ~inject ]
+              ]
+          ]
+      ]
+  and unlock_invoice =
+    let open Vdom in
+    frow
+      ~c:[ "alert"; "alert-warning"; "align-items-center" ]
+      [ col_auto
+          ~c:[ "mr-auto" ]
+          [ Node.text
+              "Die Buchung kann nicht mehr bearbeitet werden, da bereits eine Rechnung \
+               erstellt wurde."
+          ]
+      ; col_auto
+          [ Bs.button
+              ~tabskip:true
+              (Text "Rechnung zurücksetzen")
+              (Action (fun _ -> inject Action.Delete_invoice))
+          ]
+      ]
+  in
+  List.filter_opt
+    [ Some (Component.view form)
+    ; (if lock_invoice then Some unlock_invoice else None)
+    ; Some buttons
     ]
 ;;
 
@@ -307,7 +334,7 @@ let view_invoice ~sync ~inject ~form ~booking =
         ; col
             [ frow
                 ~c:[ "justify-content-end" ]
-                [ col_auto [ danger_btn reload_c "Neu Laden" ]
+                [ col_auto [ danger_btn reload_c "Rechnung zurücksetzen" ]
                 ; col_auto [ save_btn ~sync ~inject ]
                 ]
             ]
@@ -321,7 +348,7 @@ let view ~invoice ~booking (model : Model.t Incr.t) ~inject ~customer =
   and last_valid = model >>| Model.last_valid in
   let%bind booking =
     view_booking ~form:booking ~sync ~inject ~customer ~booking:last_valid
-  and invoice = view_invoice ~sync ~form:invoice ~inject ~booking:last_valid in
+  and invoice = view_invoice ~form:invoice ~sync ~inject ~booking:last_valid in
   let%map nav = model >>| Model.nav in
   match nav with
   | _, BData -> Node.create "form" [] booking
@@ -349,8 +376,14 @@ let menu ~customer_id (m : Model.t) : Menu.t =
 
 let create ~(env : env) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let booking =
-    let inject = Fn.compose inject Action.booking in
-    Booking_form.create ~env:() ~inject (model >>| Model.booking)
+    let env =
+      let lock_invoice =
+        let%map invoice = model >>| Model.last_valid >>| Booking.invoice in
+        if invoice = None then false else true
+      in
+      Booking_form.{ lock_invoice }
+    and inject = Fn.compose inject Action.booking in
+    Booking_form.create ~env ~inject (model >>| Model.booking)
   and invoice =
     let inject = Fn.compose inject Action.invoice in
     Invoice_form.create ~env:() ~inject (model >>| Model.invoice)

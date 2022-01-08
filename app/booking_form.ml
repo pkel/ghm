@@ -98,7 +98,9 @@ open Bs.Form
 open Incr_dom_widgets.Interactive
 open Incr.Let_syntax
 
-let alloc ~inject ~nth ~(init : Booking.alloc) =
+type env = { lock_invoice : bool Incr.t }
+
+let alloc ~env ~inject ~nth ~(init : Booking.alloc) =
   let x = init in
   let input on_input =
     let inject a = inject (Action.alloc nth (Field a)) in
@@ -107,25 +109,28 @@ let alloc ~inject ~nth ~(init : Booking.alloc) =
     let inject a = inject (Action.alloc nth (Tool a)) in
     List_tools.view ~inject "Zimmer"
   in
-  let%map room = input room (string ~init:x.room ~label:"Nr." ())
+  let%bind disabled = env.lock_invoice in
+  let%map room = input room (string ~disabled ~init:x.room ~label:"Nr." ())
   and description =
     let datalist = Booking.room_descriptions in
-    input description (string ~init:x.description ~datalist ~label:"Beschreibung" ())
-  and beds = input beds (int ~init:x.beds ~label:"Betten" ())
+    input
+      description
+      (string ~disabled ~init:x.description ~datalist ~label:"Beschreibung" ())
+  and beds = input beds (int ~disabled ~init:x.beds ~label:"Betten" ())
   and price_per_bed =
-    input price_per_bed (monetary ~init:x.price_per_bed ~label:"Preis" ())
+    input price_per_bed (monetary ~disabled ~init:x.price_per_bed ~label:"Preis" ())
   in
   Bs.Grid.
     [ frow [ col3 [ room ]; col9 [ description ] ]
     ; frow
         [ col4 [ beds ]
         ; col4 [ price_per_bed ]
-        ; col4 ~c:[ "align-self-end"; "text-right" ] el_tools
+        ; col4 ~c:[ "align-self-end"; "text-right" ] (if disabled then [] else el_tools)
         ]
     ]
 ;;
 
-let guest ~inject ~nth ~(init : Booking.guest) =
+let guest ~env ~inject ~nth ~(init : Booking.guest) =
   let x = init in
   let input on_input =
     let inject a = inject (Action.guest nth (Field a)) in
@@ -134,28 +139,36 @@ let guest ~inject ~nth ~(init : Booking.guest) =
     let inject a = inject (Action.guest nth (Tool a)) in
     List_tools.view ~inject "Gast"
   in
-  let%map given = input given (string ~init:x.given ~label:"Vorname" ())
-  and family = input family (string ~init:x.family ~label:"Nachname" ())
-  and born = input born (date_opt ~init:x.born ~label:"Geburtsdatum" ()) in
+  let%bind disabled = env.lock_invoice in
+  let%map given = input given (string ~disabled ~init:x.given ~label:"Vorname" ())
+  and family = input family (string ~disabled ~init:x.family ~label:"Nachname" ())
+  and born = input born (date_opt ~disabled ~init:x.born ~label:"Geburtsdatum" ()) in
   Bs.Grid.
     [ frow [ col [ given ]; col [ family ] ]
-    ; frow [ col [ born ]; col ~c:[ "align-self-end"; "text-right" ] el_tools ]
+    ; frow
+        [ col [ born ]
+        ; col ~c:[ "align-self-end"; "text-right" ] (if disabled then [] else el_tools)
+        ]
     ]
 ;;
 
-let main ~inject ~(init : Booking.t) (model : Booking.t Incr.t) =
+let main ~env ~inject ~(init : Booking.t) (model : Booking.t Incr.t) =
   let x = init in
   let input on_input = render ~inject ~on_input in
-  let%map perioda = input perioda (date ~init:(Period.a x.period) ~label:"Von" ())
-  and periodb = input periodb (date ~init:(Period.b x.period) ~label:"Bis" ())
+  let%bind disabled = env.lock_invoice in
+  let%map perioda =
+    input perioda (date ~disabled ~init:(Period.a x.period) ~label:"Von" ())
+  and periodb = input periodb (date ~disabled ~init:(Period.b x.period) ~label:"Bis" ())
   and deposit_got =
-    input deposit_got (monetary_opt ~init:x.deposit_got ~label:"Anzahlung erhalten" ())
+    input
+      deposit_got
+      (monetary_opt ~disabled ~init:x.deposit_got ~label:"Anzahlung erhalten" ())
   and deposit_asked =
     input
       deposit_asked
-      (monetary_opt ~init:x.deposit_asked ~label:"Anzahlung gefordert" ())
+      (monetary_opt ~disabled ~init:x.deposit_asked ~label:"Anzahlung gefordert" ())
   and tax_free =
-    input tax_free (checkbox ~init:x.tax_free ~label:"befreit von Kurtaxe" ())
+    input tax_free (checkbox ~disabled ~init:x.tax_free ~label:"befreit von Kurtaxe" ())
   and note = input note (textarea ~init:x.note ~label:"Notiz" ~nrows:8 ())
   and n_nights =
     let%map n = model >>| Booking.period >>| Period.nights in
@@ -172,16 +185,21 @@ let main ~inject ~(init : Booking.t) (model : Booking.t Incr.t) =
     ]
 ;;
 
-let booking ~inject ~(init : Booking.t) model =
+let booking ~env ~inject ~(init : Booking.t) model =
   let x = init in
   let act f _ = inject f in
+  let%bind lock_invoice = env.lock_invoice in
   let%map guests =
     let%map raw =
-      List.mapi x.guests ~f:(fun nth init -> guest ~inject ~nth ~init) |> Incr.all
+      List.mapi x.guests ~f:(fun nth init -> guest ~env ~inject ~nth ~init) |> Incr.all
     in
     (Node.h4 [] [ Node.text "Gäste" ]
     :: List.concat_map raw ~f:(fun nodes -> Node.hr [] :: nodes))
-    @ [ Node.hr []
+    @
+    if lock_invoice
+    then []
+    else
+      [ Node.hr []
       ; Bs.Grid.frow
           ~c:[ "justify-content-end" ]
           [ Bs.Grid.col_auto
@@ -194,11 +212,15 @@ let booking ~inject ~(init : Booking.t) model =
       ]
   and allocs =
     let%map raw =
-      List.mapi x.allocs ~f:(fun nth init -> alloc ~inject ~nth ~init) |> Incr.all
+      List.mapi x.allocs ~f:(fun nth init -> alloc ~env ~inject ~nth ~init) |> Incr.all
     in
     (Node.h4 [] [ Node.text "Positionen" ]
     :: List.concat_map raw ~f:(fun nodes -> Node.hr [] :: nodes))
-    @ [ Node.hr []
+    @
+    if lock_invoice
+    then []
+    else
+      [ Node.hr []
       ; Bs.Grid.frow
           ~c:[ "justify-content-end" ]
           [ Bs.Grid.col_auto
@@ -209,14 +231,14 @@ let booking ~inject ~(init : Booking.t) model =
               ]
           ]
       ]
-  and main = main ~inject ~init model in
+  and main = main ~env ~inject ~init model in
   Node.create "form" [] Bs.Grid.[ frow [ col main; col allocs; col guests ] ]
 ;;
 
-let create ~env:() ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
+let create ~(env : env) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
   let%map form =
     let%bind init = model >>| Model.initital >>| snd in
-    booking ~inject ~init (model >>| Model.cache)
+    booking ~env ~inject ~init (model >>| Model.cache)
   and model = model in
   let apply_action = apply_action model in
   Component.create ~apply_action model form

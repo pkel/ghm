@@ -234,11 +234,15 @@ module Form = struct
     | Int -> attrs_of_type (Number { step = 1. })
   ;;
 
-  let checkbox ~init ?label () =
+  let checkbox ~init ?label ?(disabled = false) () =
     let _key, id = Primitives.shared_setup ~id:None in
     let open Incr_dom_widgets.Interactive in
     let checkbox =
-      Primitives.checkbox ~attrs:[ Attr.class_ "form-check-input" ] ~id ~init ()
+      let attrs =
+        Attr.class_ "form-check-input"
+        :: (if disabled then [ Attr.create "disabled" "true" ] else [])
+      in
+      Primitives.checkbox ~attrs ~id ~init ()
     in
     map_nodes checkbox ~f:(fun nodes ->
         [ Node.div
