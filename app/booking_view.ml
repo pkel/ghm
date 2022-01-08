@@ -195,10 +195,10 @@ let apply_action
     in
     (* This hack makes the parent component reload. *)
     { model with nav = Nav.(Id Int.min_value, BData) }
-  | NavChange nav ->
-    if model.nav <> nav
+  | NavChange ((booking, view) as nav) ->
+    if fst model.nav <> booking (* navigate from one booking to another *)
     then (
-      match fst nav with
+      match booking with
       | Nav.New ->
         let b =
           let current = model.last_valid in
@@ -218,7 +218,14 @@ let apply_action
         let c = state.connection in
         Xhr.send' ~c ~handler rq;
         Model.loading nav)
-    else { model with nav }
+    else (
+      (* navigate within the same booking *)
+      match snd model.nav, view, model.last_valid.invoice with
+      | BData, Invoice, None ->
+        (* initialize invoice during open if invoice was empty *)
+        schedule_action Reload_invoice;
+        { model with nav }
+      | _ -> { model with nav })
 ;;
 
 let danger_btn action title =
