@@ -232,8 +232,8 @@ let apply_action
       | _ -> { model with nav })
 ;;
 
-let danger_btn action title =
-  Bs.button ~tabskip:true ~color:`Outline_danger (Text title) (Action action)
+let danger_btn ?disabled action title =
+  Bs.button ?disabled ~tabskip:true ~color:`Outline_danger (Text title) (Action action)
 ;;
 
 let save_btn ~sync ~inject =
@@ -288,7 +288,7 @@ let view_booking ~sync ~inject ~form ~customer ~booking =
       ; col
           [ frow
               ~c:[ "justify-content-end" ]
-              [ col_auto [ danger_btn delete_c "Buchung löschen" ]
+              [ col_auto [ danger_btn ~disabled:lock_invoice delete_c "Buchung löschen" ]
               ; col_auto [ save_btn ~sync ~inject ]
               ]
           ]
