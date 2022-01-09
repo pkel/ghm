@@ -15,7 +15,7 @@ module Model = struct
     ; invoice : Invoice_form.Model.t
     ; last_valid : Booking.t
     ; last_input_at : int (* TODO: make nav read only incremental argument *)
-    ; nav : Nav.noi * Nav.booking
+    ; nav : Nav.noi
     ; is_loading : bool
     ; is_saving : bool (* save mutex / avoid concurrent HTTP PATCH/POST *)
     ; is_valid : bool
@@ -33,7 +33,7 @@ module Model = struct
     Booking.empty ~period
   ;;
 
-  let booking_id { nav; _ } = fst nav
+  let booking_id { nav; _ } = nav
 
   let t ?(is_loading = false) ?(b = fresh_booking ()) nav =
     { remote = None
@@ -55,7 +55,7 @@ module Model = struct
     { m with remote = Some remote }
   ;;
 
-  let create () = t (Nav.New, Nav.BData)
+  let create () = t Nav.New
 
   let sync m =
     if m.is_saving
@@ -77,12 +77,12 @@ module Action = struct
     | Delayed_after_input
     | Delete
     | Save
-    | Reload_invoice
+    | Create_invoice
     | Delete_invoice
     | Pg_posted of Pg.Bookings.return sexp_opaque Or_error.t
     | Pg_patched of Pg.Bookings.return sexp_opaque Or_error.t
     | Pg_got of Pg.Bookings.return sexp_opaque Or_error.t
-    | NavChange of (Nav.noi * Nav.booking) sexp_opaque
+    | NavChange of Nav.noi sexp_opaque
   [@@deriving sexp_of, variants]
 end
 
@@ -161,7 +161,7 @@ let apply_action
         in
         { model with is_saving = true }
       | Nav.New | _ -> model)
-  | Reload_invoice ->
+  | Create_invoice ->
     let invoice = Invoice_gen.gen ~date:(Ext_date.today ()) customer model.last_valid in
     let invoice = Invoice_form.init invoice
     and last_valid =
@@ -174,7 +174,7 @@ let apply_action
     delay_after_input { model with last_valid }
   | Pg_patched (Ok remote) -> { model with remote = Some remote; is_saving = false }
   | Pg_posted (Ok remote) ->
-    let nav = Nav.Id remote.id, snd model.nav in
+    let nav = Nav.Id remote.id in
     let () = Nav.set (Nav.Customer (customer_id, Nav.Booking nav)) in
     { model with remote = Some remote; nav; is_saving = false }
   | Pg_got (Ok return) -> Model.loaded return model.nav
@@ -187,8 +187,8 @@ let apply_action
   | Delete ->
     let () =
       match model.nav with
-      | New, _ -> Nav.set (Nav.Customer (customer_id, Nav.CData))
-      | Id i, _ ->
+      | New -> Nav.set (Nav.Customer (customer_id, Nav.CData))
+      | Id i ->
         let handler = function
           | Error detail ->
             state.handle_error { gist = "Löschen fehlgeschlagen"; detail }
@@ -198,11 +198,11 @@ let apply_action
         Xhr.send' ~c ~handler Pg.(delete Int.(Bookings.id = i) Bookings.t)
     in
     (* This hack makes the parent component reload. *)
-    { model with nav = Nav.(Id Int.min_value, BData) }
-  | NavChange ((booking, view) as nav) ->
-    if fst model.nav <> booking (* navigate from one booking to another *)
+    { model with nav = Nav.(Id Int.min_value) }
+  | NavChange nav ->
+    if model.nav <> nav
     then (
-      match booking with
+      match nav with
       | Nav.New ->
         let b =
           let current = model.last_valid in
@@ -216,20 +216,13 @@ let apply_action
           }
         in
         Model.t ~b nav
-      | Id i ->
-        let rq = Pg.(read' Int.(Bookings.id' == i) Bookings.t) in
+      | Id id ->
+        let rq = Pg.(read' Int.(Bookings.id' == id) Bookings.t) in
         let handler = Fn.compose schedule_action Action.pg_got in
         let c = state.connection in
         Xhr.send' ~c ~handler rq;
         Model.loading nav)
-    else (
-      (* navigate within the same booking *)
-      match snd model.nav, view, model.last_valid.invoice with
-      | BData, Invoice, None ->
-        (* initialize invoice during open if invoice was empty *)
-        schedule_action Reload_invoice;
-        { model with nav }
-      | _ -> { model with nav })
+    else model
 ;;
 
 let danger_btn ?disabled action title =
@@ -252,10 +245,13 @@ let save_btn ~sync ~inject =
     Bs.button ~color:`Outline_danger (Icon (S "times", "Speichern")) (Action action)
 ;;
 
-let view_booking ~sync ~inject ~form ~customer ~booking =
-  let delete_c _evt = inject Action.Delete in
+let view_booking ~sync ~inject ~main_form ~invoice_form ~customer ~booking =
+  let delete_booking_c _evt = inject Action.Delete
+  and create_invoice_c _evt = inject Action.Create_invoice
+  and delete_invoice_c _evt = inject Action.Delete_invoice in
   let%map sync = sync
-  and form = form
+  and main_form = main_form
+  and invoice_form = invoice_form
   and lock_invoice = booking >>| Booking.invoice >>| Option.is_some
   and confirmation, excel, meldeschein =
     let%map booking = booking
@@ -277,68 +273,49 @@ let view_booking ~sync ~inject ~form ~customer ~booking =
     ( Letter.(confirm ~booking ~date customer |> href)
     , Excel_br_2014_v2.of_customer_and_booking customer booking
     , Bs.Download { filename; media_type = "application/xml"; content } )
+  and invoice =
+    let%map x = booking >>| Booking.invoice >>| Option.value ~default:Invoice.empty in
+    Letter.(invoice x |> href)
   in
   let open Bs.Grid in
   let buttons =
     frow
-      ~c:[ "mt-5"; "pb-3" ]
+      ~c:[ "mt-3"; "mb-3" ]
       [ col_auto [ Bs.button (Text "Bestätigung") (Href_blank confirmation) ]
       ; col_auto [ Bs.button (Text "Excel") (Clipboard excel) ]
       ; col_auto [ Bs.button (Text "Meldeschein") meldeschein ]
+      ; (if lock_invoice
+        then col_auto [ Bs.button (Text "Rechnung drucken") (Href_blank invoice) ]
+        else col_auto [ Bs.button (Text "Rechnung erstellen") (Action create_invoice_c) ])
       ; col
           [ frow
               ~c:[ "justify-content-end" ]
-              [ col_auto [ danger_btn ~disabled:lock_invoice delete_c "Buchung löschen" ]
+              [ col_auto
+                  [ (if lock_invoice
+                    then danger_btn delete_invoice_c "Rechnung zurücksetzen"
+                    else danger_btn delete_booking_c "Buchung löschen")
+                  ]
               ; col_auto [ save_btn ~sync ~inject ]
               ]
           ]
       ]
-  and unlock_invoice =
+  and lock_warning =
     let open Vdom in
     frow
-      ~c:[ "alert"; "alert-warning"; "align-items-center" ]
-      [ col_auto
-          ~c:[ "mr-auto" ]
+      ~c:[ "alert"; "alert-warning" ]
+      [ col
           [ Node.text
               "Die Buchung kann nicht mehr bearbeitet werden, da bereits eine Rechnung \
-               erstellt wurde."
-          ]
-      ; col_auto
-          [ Bs.button
-              ~tabskip:true
-              (Text "Rechnung zurücksetzen")
-              (Action (fun _ -> inject Action.Delete_invoice))
+               erstellt wurde. Um die Buchung zu bearbeiten, muss die Rechnung \
+               zurückgesetzt werden."
           ]
       ]
   in
   List.filter_opt
-    [ Some (Component.view form)
-    ; (if lock_invoice then Some unlock_invoice else None)
+    [ Some (Component.view main_form)
+    ; (if lock_invoice then Some lock_warning else None)
     ; Some buttons
-    ]
-;;
-
-let view_invoice ~sync ~inject ~form ~booking =
-  let reload_c _evt = inject Action.Reload_invoice in
-  let%map sync = sync
-  and form = form
-  and confirmation =
-    let%map x = booking >>| Booking.invoice >>| Option.value ~default:Invoice.empty in
-    Letter.(invoice x |> href)
-  in
-  Bs.Grid.
-    [ Component.view form
-    ; frow
-        ~c:[ "mt-5"; "pb-3" ]
-        [ col_auto [ Bs.button (Text "Drucken") (Href_blank confirmation) ]
-        ; col
-            [ frow
-                ~c:[ "justify-content-end" ]
-                [ col_auto [ danger_btn reload_c "Rechnung zurücksetzen" ]
-                ; col_auto [ save_btn ~sync ~inject ]
-                ]
-            ]
-        ]
+    ; (if lock_invoice then Some (Component.view invoice_form) else None)
     ]
 ;;
 
@@ -346,13 +323,14 @@ let view ~invoice ~booking (model : Model.t Incr.t) ~inject ~customer =
   let open Vdom in
   let sync = model >>| Model.sync
   and last_valid = model >>| Model.last_valid in
-  let%bind booking =
-    view_booking ~form:booking ~sync ~inject ~customer ~booking:last_valid
-  and invoice = view_invoice ~form:invoice ~sync ~inject ~booking:last_valid in
-  let%map nav = model >>| Model.nav in
-  match nav with
-  | _, BData -> Node.create "form" [] booking
-  | _, Invoice -> Node.create "form" [] invoice
+  view_booking
+    ~main_form:booking
+    ~invoice_form:invoice
+    ~sync
+    ~inject
+    ~customer
+    ~booking:last_valid
+  >>| Node.div []
 ;;
 
 let view ~customer ~inject ~booking ~invoice model =
@@ -361,17 +339,6 @@ let view ~customer ~inject ~booking ~invoice model =
     cond
     ~then_:(Incr.const Bs.Grid.loading_row)
     ~else_:(view ~customer ~booking ~invoice ~inject model)
-;;
-
-let menu ~customer_id (m : Model.t) : Menu.t =
-  let open Menu in
-  let abs rel = Nav.Customer (customer_id, Booking (fst m.nav, rel)) in
-  let entry name rel =
-    let href = Href (abs rel |> Nav.href)
-    and active = snd m.nav = rel in
-    entry name href active
-  in
-  [ entry "Buchungsdaten" BData; entry "Rechnung" Invoice ]
 ;;
 
 let create ~(env : env) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t Incr.t) =
@@ -397,8 +364,6 @@ let create ~(env : env) ~(inject : Action.t -> Vdom.Event.t) (model : Model.t In
   and booking = booking
   and invoice = invoice in
   let apply_action = apply_action ~customer ~booking ~invoice ~customer_id model
-  and extra : Menu.t * Period.t option =
-    menu ~customer_id model, Option.map model.remote ~f:(fun x -> x.data.period)
-  in
+  and extra : Period.t option = Option.map model.remote ~f:(fun x -> x.data.period) in
   Component.create_with_extra ~apply_action ~extra model view
 ;;

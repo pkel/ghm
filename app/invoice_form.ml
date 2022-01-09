@@ -182,7 +182,9 @@ let invoice ~inject ~(init : Invoice.t) cache =
     ignore (monetary ~init ~label:"Nach Anzahlung" ~disabled ())
   in
   let open Bs.Grid in
-  [ frow [ col4 [ recipient ]; col4 []; col4 [ id; date ] ]
+  [ Node.h4 [] [ Node.text "Rechnung" ]
+  ; Node.hr []
+  ; frow [ col4 [ recipient ]; col4 []; col4 [ id; date ] ]
   ; frow [ col [ title ] ]
   ; frow [ col [ intro ] ]
   ]

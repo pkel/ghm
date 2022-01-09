@@ -323,21 +323,16 @@ let menu ~booking (m : Model.t) : Menu.t =
   let children =
     entry "Stammdaten" CData
     ::
-    (let children =
-       match snd m.nav with
-       | Booking (New, _) -> fst booking
-       | _ -> []
-     in
-     entry ~children "Neue Buchung" (Booking (New, BData))
+    (let children = [] in
+     entry ~children "Neue Buchung" (Booking New)
      :: List.map bookings ~f:(fun { arrival; departure; id } ->
-            let children, period =
+            let period =
               let fb = Period.of_dates arrival departure in
-              match snd m.nav, booking with
-              | Booking (Id id', _), (sub, period) when id' = id ->
-                sub, Option.value ~default:fb period
-              | _ -> [], fb
+              match snd m.nav with
+              | Booking (Id id') when id' = id -> Option.value ~default:fb booking
+              | _ -> fb
             in
-            entry ~children Period.(to_string_hum period) (Booking (Id id, BData))))
+            entry ~children Period.(to_string_hum period) (Booking (Id id))))
   in
   let title =
     if m.is_loading

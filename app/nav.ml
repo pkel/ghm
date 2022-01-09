@@ -78,37 +78,22 @@ let noi_of_string_opt = function
     | None -> None)
 ;;
 
-type booking =
-  | BData
-  | Invoice
-[@@deriving compare, sexp_of]
-
-let booking_of_path = function
-  | [ "invoice" ] -> Invoice
-  | _ -> BData
-;;
-
-let booking_to_path = function
-  | BData -> []
-  | Invoice -> [ "invoice" ]
-;;
-
 type customer =
   | CData
-  | Booking of (noi * booking)
+  | Booking of noi
 [@@deriving compare, sexp_of]
 
 let customer_of_path = function
-  | "booking" :: i :: tl ->
+  | "booking" :: i :: _ ->
     (match noi_of_string_opt i with
-    | Some i -> Booking (i, booking_of_path tl)
+    | Some i -> Booking i
     | None -> CData)
   | _ -> CData
 ;;
 
 let customer_to_path = function
   | CData -> []
-  | Booking (i, b) -> "booking" :: noi_to_string i :: booking_to_path b
+  | Booking i -> [ "booking"; noi_to_string i ]
 ;;
 
 type main =

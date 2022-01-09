@@ -201,7 +201,7 @@ let booking ~env ~inject ~(init : Booking.t) model =
     else
       [ Node.hr []
       ; Bs.Grid.frow
-          ~c:[ "justify-content-end" ]
+          ~c:[ "justify-content-end"; "pb-3" ]
           [ Bs.Grid.col_auto
               [ Bs.button
                   ~size:`Small
@@ -222,7 +222,7 @@ let booking ~env ~inject ~(init : Booking.t) model =
     else
       [ Node.hr []
       ; Bs.Grid.frow
-          ~c:[ "justify-content-end" ]
+          ~c:[ "justify-content-end"; "pb-3" ]
           [ Bs.Grid.col_auto
               [ Bs.button
                   ~size:`Small

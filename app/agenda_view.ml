@@ -67,9 +67,7 @@ let card ~rooms (booking : Pg.Bookings.return) =
   let rooms = Booking.Rooms.to_string rooms
   and n_guests = List.length booking.data.guests
   and till = Localize.date (Period.till booking.data.period)
-  and link =
-    Nav.href (Customer (Id booking.customer.id, Booking (Id booking.id, BData)))
-  in
+  and link = Nav.href (Customer (Id booking.customer.id, Booking (Id booking.id))) in
   let open Node in
   let open Attr in
   div

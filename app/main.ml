@@ -137,7 +137,7 @@ let create model ~old_model ~inject =
           ; sidemenu
           ; Node.hr [ Attr.class_ "mt-0" ]
           ]
-      ; Node.div [ Attr.id "page"; Attr.classes [ "col"; "pr-0" ] ] page
+      ; Node.div [ Attr.id "page"; Attr.classes [ "col"; "pr-0"; "pb-5" ] ] page
       ]
   and update_visibility ~schedule_action =
     let schedule_action = Fn.compose schedule_action Action.search_view in
