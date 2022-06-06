@@ -48,7 +48,12 @@ let get_customers ~conn ~schedule_action ?(page = 0) ?filter () =
   Xhr.send'
     ~c:conn
     Pg.(
-      read ~order:[ desc Customers.modified ] ?offset ~limit:page_size ?filter Customers.t)
+      read
+        ~order:[ desc Customers.modified ]
+        ?offset
+        ~limit:page_size
+        ?filter
+        Customers.t)
     ~handler:(fun resp -> schedule_action Action.(got_customers ~page ~resp))
 ;;
 
@@ -202,7 +207,8 @@ let view ~inject ~table (model : Model.t Incr.t) =
     head
     ::
     (match customers with
-    | `Ok m when Int.Map.length m = (page + 1) * page_size -> Component.view table :: more
+    | `Ok m when Int.Map.length m = (page + 1) * page_size ->
+      Component.view table :: more
     | `Ok _ -> [ Component.view table ]
     | `Loading ->
       [ Bs.Grid.loading_row ] (* TODO: create and use Bs.Grid.failed_row for `Failed ?*)

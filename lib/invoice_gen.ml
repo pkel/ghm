@@ -28,7 +28,9 @@ let tax_unit date =
 let gen ?date (c : Customer.t) (b : Booking.t) =
   let nights = Period.nights b.period
   and s = Booking.Summary.of_booking b
-  and describe (a : Booking.alloc) = Printf.sprintf "Übernachtung im %s" a.description in
+  and describe (a : Booking.alloc) =
+    Printf.sprintf "Übernachtung im %s" a.description
+  in
   let title = "Rechnung"
   and id, tax_unit =
     match Booking.Rooms.first s.rooms with

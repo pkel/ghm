@@ -27,7 +27,8 @@ module Action = struct
   let refresh = Get
 end
 
-let apply_action (model : Model.t) (action : Action.t) (state : State.t) ~schedule_action =
+let apply_action (model : Model.t) (action : Action.t) (state : State.t) ~schedule_action
+  =
   let init m = Model.{ m with date_init = m.date } in
   match action with
   | Got (Error detail) ->
