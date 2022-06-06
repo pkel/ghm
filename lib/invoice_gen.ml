@@ -1,16 +1,6 @@
 open Core_kernel
 open Invoice
 
-let id x =
-  match x.date with
-  | None -> "n/a"
-  | Some d ->
-    let d = Date.day d
-    and m = Date.month d |> Month.to_int
-    and y = Date.year d mod 2000 in
-    sprintf "%i%i%i" y m d
-;;
-
 (* TODO: it might be nice to split the period and handle kurtaxe on a
  * daily basis. *)
 let tax_unit date =
@@ -40,6 +30,11 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
       let d = day date
       and m = month date |> Month.to_int
       and y = year date % 1000 in
+      let room =
+        match int_of_string_opt room with
+        | Some i -> sprintf "%03i" i
+        | None -> room
+      in
       let s = sprintf "%02i%02i%02i-%s" y m d room in
       Some s, tax_unit date
     | _ -> None, tax_unit (Date.today ~zone:Time.Zone.utc)

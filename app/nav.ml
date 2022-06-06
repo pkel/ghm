@@ -98,6 +98,7 @@ let customer_to_path = function
 
 type main =
   | Overview
+  | Statistics
   | Search
   | Customer of (noi * customer)
 [@@deriving compare, sexp_of]
@@ -109,12 +110,14 @@ let of_path = function
     (match noi_of_string_opt i with
     | Some i -> Customer (i, customer_of_path tl)
     | None -> default)
+  | [ "statistics" ] -> Statistics
   | [ "search" ] -> Search
   | _ -> default
 ;;
 
 let to_path = function
   | Overview -> []
+  | Statistics -> [ "statistics" ]
   | Search -> [ "search" ]
   | Customer (i, c) -> "customer" :: noi_to_string i :: customer_to_path c
 ;;

@@ -8,6 +8,7 @@ module Model = struct
     { agenda_view : Agenda_view.Model.t
     ; search_view : Search_view.Model.t
     ; customer_view : Customer_view.Model.t
+    ; statistics_view : Statistics_view.Model.t
     ; errors : Errors.Model.t
     ; nav : Nav.main
     }
@@ -20,6 +21,7 @@ let init () : Model.t =
   { agenda_view = Agenda_view.Model.create ()
   ; search_view = Search_view.Model.create ()
   ; customer_view = Customer_view.Model.create ()
+  ; statistics_view = Statistics_view.Model.create ()
   ; errors = Errors.Model.empty
   ; nav = Nav.Overview
   }
@@ -31,6 +33,7 @@ module Action = struct
     | Agenda_view of Agenda_view.Action.t
     | Search_view of Search_view.Action.t
     | Customer_view of Customer_view.Action.t
+    | Statistics_view of Statistics_view.Action.t
     | Errors of Errors.Action.t
   [@@deriving sexp_of, variants]
 end
@@ -78,6 +81,10 @@ let create model ~old_model ~inject =
     let inject = Fn.compose inject Action.customer_view
     and model = model >>| Model.customer_view in
     Customer_view.create ~inject model
+  and statistics =
+    let inject = Fn.compose inject Action.statistics_view
+    and model = model >>| Model.statistics_view in
+    Statistics_view.create ~inject model
   and errors =
     let inject = Fn.compose inject Action.errors
     and model = model >>| Model.errors in
@@ -97,6 +104,10 @@ let create model ~old_model ~inject =
       let schedule_action = Fn.compose schedule_action Action.customer_view in
       let customer_view = Component.apply_action ~schedule_action customer a s in
       { model with customer_view }
+    | Statistics_view a ->
+      let schedule_action = Fn.compose schedule_action Action.statistics_view in
+      let statistics_view = Component.apply_action ~schedule_action statistics a s in
+      { model with statistics_view }
     | Errors a ->
       let schedule_action = Fn.compose schedule_action Action.errors in
       let errors = Component.apply_action ~schedule_action errors a s in
@@ -107,6 +118,8 @@ let create model ~old_model ~inject =
         | Customer x ->
           schedule_action (Action.customer_view (Customer_view.Action.navchange x))
         | Overview -> schedule_action (Action.agenda_view Agenda_view.Action.refresh)
+        | Statistics ->
+          schedule_action (Action.statistics_view Statistics_view.Action.refresh)
         | Search -> schedule_action (Action.search_view Search_view.Action.refresh)
       in
       { model with nav }
@@ -115,11 +128,13 @@ let create model ~old_model ~inject =
     let attr, page, submenu =
       match model.nav with
       | Overview -> [], [ Component.view agenda ], []
+      | Statistics -> [], [ Component.view statistics ], []
       | Search -> [], [ Component.view search ], []
       | Customer _ -> [], [ Component.view customer ], Component.extra customer
     in
     let sidemenu =
       [ Menu.entry "Übersicht" (Menu.Href Nav.(href Overview)) (model.nav = Overview)
+      ; Menu.entry "Statistik" (Menu.Href Nav.(href Statistics)) (model.nav = Statistics)
       ; Menu.entry "Suchen" (Menu.Href Nav.(href Search)) (model.nav = Search)
       ]
       @ submenu

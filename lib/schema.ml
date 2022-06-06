@@ -64,6 +64,7 @@ module Bookings = struct
   type return_customer =
     { id : int
     ; keyword : string
+    ; data : Customer.t
     }
   [@@deriving yojson, compare]
 
@@ -79,7 +80,7 @@ module Bookings = struct
     type b = return
 
     let name = "api/bookings"
-    let select = [ "id"; "data"; "customers(id,keyword)" ]
+    let select = [ "id"; "data"; "customers(id,keyword,data)" ]
     let provide = provide_to_yojson
     let return = parse ~f:return_of_yojson
   end)
