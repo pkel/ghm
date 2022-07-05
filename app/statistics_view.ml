@@ -93,7 +93,7 @@ let row ~p (booking : Pg.Bookings.return) =
          ~min:(Date.max from (Period.from p))
          ~max:(Date.add_days till (-1)))
   in
-  let no, who, where =
+  let date, no, who, where =
     let from_invoice =
       match booking.data.invoice with
       | Some i ->
@@ -104,14 +104,16 @@ let row ~p (booking : Pg.Bookings.return) =
             match String.split ~on:'-' l with
             | [ _ ] | [] -> booking.customer.data.address.country_code
             | hd :: _tl -> hd
-          and no = Option.value ~default:"" i.id in
-          Some (no, name, cc)
+          and no = Option.value ~default:"" i.id
+          and date = Option.map ~f:Localize.date i.date |> Option.value ~default:"" in
+          Some (date, no, name, cc)
         | _, _ -> None)
       | None -> None
     in
     match from_invoice with
     | Some x -> x
-    | None -> "", booking.customer.keyword, booking.customer.data.address.country_code
+    | None ->
+      "", "", booking.customer.keyword, booking.customer.data.address.country_code
   in
   let open Node in
   let open Attr in
@@ -122,6 +124,7 @@ let row ~p (booking : Pg.Bookings.return) =
       []
       [ td [] [ a [ href link ] [ text "Öffnen" ] ]
       ; td [] [ text no ]
+      ; td [] [ text date ]
       ; td [] [ text who ]
       ; td [] [ text (Localize.date from) ]
       ; td [] [ text (Localize.date till) ]
@@ -181,13 +184,11 @@ let statistics ~p ~bookings =
     List.filter_map
       ~f:(fun (b : Pg.Bookings.return) ->
         match b.data.invoice with
-        | Some i ->
-          Some (Option.value i.date ~default:(Period.till b.data.period), i.id, b)
+        | Some i -> Some (i.id, b)
         | None -> None)
       bookings
-    |> List.sort ~compare:(fun (_, a, _) (_, b, _) -> compare a b)
-    |> List.sort ~compare:(fun (a, _, _) (b, _, _) -> Date.compare a b)
-    |> List.map ~f:(fun (_, _, x) -> x)
+    |> List.sort ~compare:(fun (a, _) (b, _) -> compare a b)
+    |> List.map ~f:(fun (_, x) -> x)
   in
   let stats, bookings_rows =
     List.fold bookings ~init:(String.Map.empty, []) ~f:(fun (m, l) b ->
@@ -208,8 +209,9 @@ let statistics ~p ~bookings =
           [ tr
               []
               [ th [ create "scope" "col" ] [ text "" ]
-              ; th [ create "scope" "col" ] [ text "" ]
-              ; th [ create "scope" "col" ] [ text "" ]
+              ; th [ create "scope" "col" ] [ text "RNr." ]
+              ; th [ create "scope" "col" ] [ text "Datum" ]
+              ; th [ create "scope" "col" ] [ text "Name" ]
               ; th [ create "scope" "col" ] [ text "Von" ]
               ; th [ create "scope" "col" ] [ text "Bis" ]
               ; th [ create "scope" "col" ] [ text "Land" ]
