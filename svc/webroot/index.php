@@ -16,9 +16,8 @@ function pdo() {
     $pass = getenv('DB_PASS');
     $user = getenv('DB_USER');
     $name = getenv('DB_NAME');
-    $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $name
-      . ';user=' . $user . ';password=' . $pass;
-    $pdo = new PDO($dsn);
+    $dsn = 'pgsql:host=' . $host . ';port=' . $port . ';dbname=' . $name;
+    $pdo = new PDO($dsn, $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $__pdo = $pdo;
     return $pdo;
