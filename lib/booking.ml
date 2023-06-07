@@ -54,7 +54,7 @@ module Rooms : sig
   type t [@@deriving compare]
 
   val of_booking : _booking -> t
-  val to_string : t -> string
+  val to_string : t -> string option
   val first : t -> string option
 end = struct
   type el =
@@ -86,11 +86,11 @@ end = struct
     | Nil -> None
   ;;
 
-  let to_string l : string =
+  let to_string l : string option =
     List.filter_map l ~f:el_to_string
     |> function
-    | [] -> "n/a"
-    | l -> String.concat ~sep:", " l
+    | [] -> None
+    | l -> Some (String.concat ~sep:", " l)
   ;;
 
   let first = function

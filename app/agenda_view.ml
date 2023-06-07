@@ -65,9 +65,14 @@ open Incr.Let_syntax
 open Ghm
 
 let card ~rooms (booking : Pg.Bookings.return) =
-  let rooms = Booking.Rooms.to_string rooms
-  and n_guests = List.length booking.data.guests
-  and till = Localize.date (Period.till booking.data.period)
+  let rooms =
+    match Booking.Rooms.to_string rooms with
+    | Some s -> sprintf " in Zimmer %s" s
+    | None -> ""
+  and n_guests =
+    let n = List.length booking.data.guests in
+    if n <> 1 then sprintf "%i Personen" n else sprintf "1 Person"
+  and period = Period.to_string_hum booking.data.period
   and link = Nav.href (Customer (Id booking.customer.id, Booking (Id booking.id))) in
   let open Node in
   let open Attr in
@@ -76,9 +81,7 @@ let card ~rooms (booking : Pg.Bookings.return) =
     [ div [ class_ "card-header" ] [ text booking.customer.keyword ]
     ; div
         [ class_ "card-body" ]
-        [ p [] [ text (sprintf "Zimmer: %s" rooms) ]
-        ; p [] [ text (sprintf "Gäste: %i" n_guests) ]
-        ; p [] [ text (sprintf "Abreise: %s" till) ]
+        [ p [] [ text (sprintf "%s vom %s %s" n_guests period rooms) ]
         ; a [ href link; class_ "stretched-link" ] [ text "Details anzeigen" ]
         ]
     ]
