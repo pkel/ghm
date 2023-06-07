@@ -11,7 +11,14 @@ module Model = struct
 
   let create () =
     let today = Ext_date.today () in
-    { bookings = `Loading; date = today; date_init = today }
+    let first_this_month =
+      let days = Date.day today in
+      Date.add_days today (1 - days)
+    in
+    let first_last_month =
+      Date.add_months first_this_month (-1)
+    in
+    { bookings = `Loading; date = first_last_month; date_init = first_last_month }
   ;;
 
   let period t =
