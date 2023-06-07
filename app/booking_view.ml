@@ -168,10 +168,16 @@ let apply_action
       let x = model.last_valid in
       { x with invoice = Some invoice }
     in
-    delay_after_input { model with invoice; last_valid }
+    (* pkel June 2023: reinitialize form to avoid input loss (local not remote) when
+       form is switched to disabled *)
+    let booking = Booking_form.init last_valid in
+    delay_after_input { model with booking; invoice; last_valid }
   | Delete_invoice ->
     let last_valid = { model.last_valid with invoice = None } in
-    delay_after_input { model with last_valid }
+    (* pkel June 2023: reinitialize form to avoid input loss (local not remote) when
+       form is switched to disabled *)
+    let booking = Booking_form.init last_valid in
+    delay_after_input { model with booking; last_valid }
   | Pg_patched (Ok remote) -> { model with remote = Some remote; is_saving = false }
   | Pg_posted (Ok remote) ->
     let nav = Nav.Id remote.id in
