@@ -15,9 +15,7 @@ module Model = struct
       let days = Date.day today in
       Date.add_days today (1 - days)
     in
-    let first_last_month =
-      Date.add_months first_this_month (-1)
-    in
+    let first_last_month = Date.add_months first_this_month (-1) in
     { bookings = `Loading; date = first_last_month; date_init = first_last_month }
   ;;
 
@@ -108,9 +106,12 @@ let row ~p (booking : Pg.Bookings.return) =
         (match List.hd l, List.last l with
         | Some name, Some l ->
           let cc =
-            match String.split ~on:'-' l with
-            | [ _ ] | [] -> booking.customer.data.address.country_code
-            | hd :: _tl -> hd
+            let raw =
+              match String.split ~on:'-' l with
+              | [ _ ] | [] -> booking.customer.data.address.country_code
+              | hd :: _tl -> hd
+            in
+            String.strip raw
           and no = Option.value ~default:"" i.id
           and date = Option.map ~f:Localize.date i.date |> Option.value ~default:"" in
           Some (date, no, name, cc)
