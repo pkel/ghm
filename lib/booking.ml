@@ -42,9 +42,9 @@ let empty_guest = { given = ""; family = ""; born = None }
 
 let empty_alloc =
   { room = ""
-  ; price_per_bed = Monetary.of_float 53. |> Option.value ~default:Monetary.zero
-  ; beds = 2
-  ; description = "Doppelzimmer"
+  ; price_per_bed = Monetary.zero
+  ; beds = 0
+  ; description = ""
   }
 ;;
 
