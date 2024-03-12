@@ -67,14 +67,9 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
     @ (if eaters > 0
       then
         [ { quantity = eaters
-          ; price = Monetary.of_float 3.5 |> Option.value_exn
-          ; tax = 7
-          ; description = "Frühstück (Speisen)"
-          }
-        ; { quantity = eaters
-          ; price = Monetary.of_float 1.5 |> Option.value_exn
+          ; price = Monetary.of_float 5. |> Option.value_exn
           ; tax = 19
-          ; description = "Frühstück (Getränke)"
+          ; description = "Frühstück"
           }
         ]
       else [])
