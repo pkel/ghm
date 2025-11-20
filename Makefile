@@ -52,4 +52,4 @@ clean:
 
 .PHONY: psql
 deploy-webroot: opt
-	rsync -a --delete --info=progress2 svc/webroot/ hestia:ghm/webroot/
+	rsync -rt --chmod=D755,F644 --delete --info=progress2 svc/webroot/ root@hestia:/var/www/ghm/
