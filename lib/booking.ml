@@ -108,6 +108,12 @@ module Summary = struct
   [@@deriving fields]
 
   let of_booking b : t =
+    (* TODO the logic for calculating tax is split between here and
+     * invoice_gen.ml. Merge this into one place. Also, the part in invoice_gen
+     * model the evolutions of taxation rules over the years. That should
+     * happen for the tax_payers count as well. Even better, embrace the fact
+     * that tax_payers is a property of the invoice, not the booking, and thus
+     * depends on the time of the stay. *)
     (* Age on arrival >= 15 makes you a tax payer *)
     let tax_cutoff = Date.add_years (Period.till b.period) (-15) in
     let guests = List.length b.guests

@@ -10,7 +10,9 @@ let tax_unit date =
   let offseason, season =
     if y <= 2021
     then Monetary.cents 80, Monetary.cents 200
-    else Monetary.cents 100, Monetary.cents 250
+    else if y <= 2025
+    then Monetary.cents 100, Monetary.cents 250
+    else Monetary.cents 150, Monetary.cents 330
   in
   if m < 4 || m > 10 then offseason else season
 ;;
