@@ -41,11 +41,7 @@ let empty ~period =
 let empty_guest = { given = ""; family = ""; born = None }
 
 let empty_alloc =
-  { room = ""
-  ; price_per_bed = Monetary.zero
-  ; beds = 0
-  ; description = ""
-  }
+  { room = ""; price_per_bed = Monetary.zero; beds = 0; description = "" }
 ;;
 
 type _booking = t
