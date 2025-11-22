@@ -1,0 +1,31 @@
+(lang dune 1.10)
+(generate_opam_files true)
+(name postgrest)
+(license none)
+(maintainers "Patrik Keller, <patrik@keller-re.de>")
+(authors "Patrik Keller, <patrik@keller-re.de>")
+(source (github n/a))
+
+(package
+  (name postgrest)
+  (synopsis "An OCaml Postgrest adapter")
+  (description "An OCaml Postgrest adapter")
+  (depends
+    (dune (>= 2))
+    (core_kernel (and (>= v0.13) (< v0.14)))
+    (yojson (> 0))
+    (ppx_deriving_yojson (> 0))
+    (ppx_jane (> 0))
+    )
+)
+
+(package
+  (name postgrest-devel)
+  (description "Development Tools")
+  (synopsis "Development Tools")
+  (depends
+   (ocamlformat (and (< 0.14) (>= 0.13)))
+   (odig (> 0))
+   (merlin (>= 3))
+   (ocp-indent (> 0))
+   (odoc (> 0))))

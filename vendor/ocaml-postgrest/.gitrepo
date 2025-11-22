@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = ssh://git@git.tr1k.de/patrik/ocaml-postgrest.git
+	branch = ghm
+	commit = ae7f1372f666c5dadd60ef0f8b08d29bbb4fce12
+	parent = ff13f1440b4832ef10342a255d41848626ed5e64
+	method = merge
+	cmdver = 0.4.9
