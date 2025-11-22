@@ -24,7 +24,7 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
     Printf.sprintf "Übernachtung im %s" a.description
   in
   let title = "Rechnung"
-  and id, tax_unit =
+  and id =
     match Booking.Rooms.first s.rooms with
     | Some room ->
       let date = Period.till b.period in
@@ -38,8 +38,11 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
         | None -> room
       in
       let s = sprintf "%02i%02i%02i-%s" y m d room in
-      Some s, tax_unit date
-    | _ -> None, tax_unit (Date.today ~zone:Time.Zone.utc)
+      Some s
+    | _ -> None
+  and tax_unit =
+    let date = Period.till b.period in
+    tax_unit date
   in
   let intro =
     Printf.sprintf
