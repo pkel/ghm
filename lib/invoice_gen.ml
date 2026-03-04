@@ -63,7 +63,7 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
           ( a.beds + b
           , { quantity = a.beds
             ; description = describe a
-            ; price = Monetary.(a.price_per_bed - of_int 5)
+            ; price = Monetary.(a.price_per_bed - of_int 3) (* substract drinks *)
             ; tax = 7
             }
             :: p ))
@@ -72,9 +72,9 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
     @ (if eaters > 0
       then
         [ { quantity = eaters
-          ; price = Monetary.of_float 5. |> Option.value_exn
+          ; price = Monetary.of_int 3
           ; tax = 19
-          ; description = "Frühstück"
+          ; description = "Getränke-Anteil am Frühstück"
           }
         ]
       else [])
