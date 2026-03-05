@@ -145,13 +145,23 @@ Ankunftszeit mitteilen könnten. Danke schön! |}
       ]
 ;;
 
+let sprint_tax =
+  let open Invoice in
+  function
+  | General19 -> "19%"
+  | Reduced7 -> "7%"
+  | Reduced7With3EuroDrinks19 -> "7% (*)"
+  | Legacy i -> Printf.sprintf "%d%%" i
+;;
+
 let invoice (inv : Invoice.t) =
   let open H in
   let tdr = td ~a:[ a_style "text-align:right" ]
   and th s = th ~a:[ a_style ("text-align:" ^ s) ] in
   let open Printf in
   let open Invoice in
-  let s = summary inv in
+  let sum = sum inv in
+  let tax = tabulate_tax inv in
   let body =
     [ p' inv.intro
     ; table
@@ -161,7 +171,7 @@ let invoice (inv : Invoice.t) =
              [ tr
                  [ th "left" [ txt "Anzahl" ]
                  ; th "left" [ txt "Beschreibung" ]
-                 ; th "right" [ txt "Steuersatz" ]
+                 ; th "right" [ txt "Steuer" ]
                  ; th "right" [ txt "Einzelpreis" ]
                  ; th "right" [ txt "Preis" ]
                  ]
@@ -171,7 +181,7 @@ let invoice (inv : Invoice.t) =
              tr
                [ td [ txt (sprintf "%dx" p.quantity) ]
                ; td [ txt p.description ]
-               ; tdr [ txt (sprintf "%i%%" p.tax) ]
+               ; tdr [ txt (sprint_tax p.tax) ]
                ; tdr [ txt (sprintf "%s€" (Monetary.to_string p.price)) ]
                ; tdr
                    [ txt
@@ -184,7 +194,7 @@ let invoice (inv : Invoice.t) =
               ; td []
               ; td []
               ; th "right" [ txt "Summe" ]
-              ; tdr [ txt (sprintf "%s€" (Monetary.to_string s.sum)) ]
+              ; tdr [ txt (sprintf "%s€" (Monetary.to_string sum)) ]
               ]
           ; tr
               [ td []
@@ -198,26 +208,25 @@ let invoice (inv : Invoice.t) =
               ; td []
               ; td []
               ; th "right" [ txt "Restsumme" ]
-              ; tdr [ txt (sprintf "%s€" Monetary.(s.sum - inv.deposit |> to_string)) ]
+              ; tdr [ txt (sprintf "%s€" Monetary.(sum - inv.deposit |> to_string)) ]
               ]
           ])
-    ; table
-        ~a:[ a_style "text-align:right;font-size:0.8em;margin-bottom:2rem" ]
-        ~thead:
-          (thead
-             [ tr
-                 [ H.th
-                     ~a:[ a_colspan 2; a_style "text-align:right" ]
-                     [ txt "enthaltene Mehrwertsteuer" ]
+    ; div
+        ~a:[ a_class [ "tax-grid" ] ]
+        (div
+           ~a:[ a_class [ "tax-header" ] ]
+           [ strong [ txt "enthaltene Mehrwertsteuer" ] ]
+        :: List.concat_map tax ~f:(fun (label, description, value) ->
+               match description with
+               | `Rate r ->
+                 [ div [ strong [ txt label ] ]
+                 ; div [ txt (sprintf "%i%%" r) ]
+                 ; div [ txt (sprintf "%s€" (Monetary.to_string value)) ]
                  ]
-             ])
-        (List.map
-           ~f:(fun (rate, v) ->
-             tr
-               [ tdr [ txt (sprintf "%i%%" rate) ]
-               ; tdr [ txt (sprintf "%s€" (Monetary.to_string v)) ]
-               ])
-           s.included_tax)
+               | `Split s ->
+                 [ div [ strong [ txt label ] ]
+                 ; div ~a:[ a_class [ "tax-split" ] ] [ txt s ]
+                 ]))
     ; p' inv.closing
     ]
     |> elts_to_string

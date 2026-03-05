@@ -27,7 +27,7 @@ module Action = struct
     | Quantity of int
     | Description of string
     | Price of Monetary.t
-    | Tax of int
+    | Tax of Invoice.tax
   [@@deriving sexp_of, variants]
 
   type 'a list_element =
@@ -109,7 +109,7 @@ let position_labels =
     ]
 ;;
 
-let position ~labels ~inject ~nth ~(init : Invoice.position) =
+let position ~labels ~inject ~nth ~all ~(init : Invoice.position) =
   let int ~init ~label () =
     let label = if labels then Some label else None in
     int ~init ?label ()
@@ -127,8 +127,40 @@ let position ~labels ~inject ~nth ~(init : Invoice.position) =
   and el_tools =
     let inject a = inject (Action.position nth (Tool a)) in
     List_tools.view ~inject "Position"
+  and tax =
+    let to_key = function
+      | General19 -> "general19"
+      | Reduced7 -> "reduced7"
+      | Reduced7With3EuroDrinks19 -> "reduced7-3€-drinks19"
+      | Legacy i -> Printf.sprintf "custom%d" i
+    and of_key = function
+      | "general19" -> Some General19
+      | "reduced7" -> Some Reduced7
+      | "reduced7-3€-drinks19" -> Some Reduced7With3EuroDrinks19
+      | s ->
+        (try Scanf.sscanf s "custom%d" (fun i -> Some (Legacy i)) with
+        | Scanf.Scan_failure _ -> None)
+    and to_label = function
+      | General19 -> "Generell, 19%"
+      | Reduced7 -> "Reduziert, 7%"
+      | Reduced7With3EuroDrinks19 -> "Reduziert, 3€ Getränke"
+      | Legacy i -> Printf.sprintf "%d%% (alt)" i
+    and inject a = inject (Action.position nth (Field a))
+    and options =
+      let active = [ General19; Reduced7; Reduced7With3EuroDrinks19 ] in
+      let compat =
+        List.fold_left all ~init:[] ~f:(fun acc pos ->
+            if List.mem active pos.tax ~equal:( = )
+            then acc
+            else if List.mem acc pos.tax ~equal:( = )
+            then acc
+            else pos.tax :: acc)
+      in
+      active @ compat
+    in
+    render ~inject ~on_input:tax (select ~init:x.tax ~to_key ~of_key ~to_label options)
   in
-  let%map tax = input tax (int ~init:x.tax ~label:"Steuer" ())
+  let%map tax = tax
   and description =
     input description (string ~init:x.description ~label:"Beschreibung" ())
   and quantity = input quantity (int ~init:x.quantity ~label:"Anzahl" ())
@@ -157,7 +189,8 @@ let invoice ~inject ~(init : Invoice.t) cache =
   and deposit = input deposit (monetary ~init:x.deposit ~label:"Anzahlung" ()) in
   let%bind cache = cache
   and positions =
-    List.mapi x.positions ~f:(fun nth init -> position ~labels:false ~inject ~nth ~init)
+    List.mapi x.positions ~f:(fun nth init ->
+        position ~labels:false ~inject ~nth ~all:x.positions ~init)
     |> Incr.all
   in
   let add_position =
@@ -172,12 +205,12 @@ let invoice ~inject ~(init : Invoice.t) cache =
             ]
         ])
   in
-  let s = Invoice.summary cache in
-  let%map sum = ignore (monetary ~init:s.sum ~label:"Summe" ~disabled ())
+  let sum = Invoice.sum cache in
+  let%map sum = ignore (monetary ~init:sum ~label:"Summe" ~disabled ())
   and sum_after_deposit =
     let init =
       let open Monetary in
-      s.sum - cache.deposit
+      sum - cache.deposit
     in
     ignore (monetary ~init ~label:"Nach Anzahlung" ~disabled ())
   in

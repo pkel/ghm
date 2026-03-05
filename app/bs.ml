@@ -219,21 +219,6 @@ module Form = struct
     ;;
   end
 
-  type input =
-    | Text
-    | Number of { step : float }
-    | Date
-    | Int
-
-  let rec attrs_of_type =
-    let open Attr in
-    function
-    | Text -> [ type_ "text" ]
-    | Number { step } -> [ type_ "number"; create "step" (string_of_float step) ]
-    | Date -> [ type_ "date" ]
-    | Int -> attrs_of_type (Number { step = 1. })
-  ;;
-
   let checkbox ~init ?label ?(disabled = false) () =
     let _key, id = Primitives.shared_setup ~id:None in
     let open Incr_dom_widgets.Interactive in
@@ -257,6 +242,71 @@ module Form = struct
               ]
             | None -> [])
         ])
+  ;;
+
+  let select
+      (type a)
+      ?label
+      ?(disabled = false)
+      ~(to_key : a -> string)
+      ~(of_key : string -> a option)
+      ~(to_label : a -> string)
+      ~(init : a)
+      (options : a list)
+      : a Interactive.t
+    =
+    let label = Option.map ~f:(fun l -> Node.label [] [ Node.text l ]) label in
+    let err msg = Node.div [ Attr.class_ "invalid-feedback" ] [ Node.text msg ] in
+    let of_string str =
+      match of_key str with
+      | None -> Error "invalid key"
+      | Some x -> Ok x
+    in
+    let render ~key ~id:_ ~attrs ~value =
+      let options =
+        List.map options ~f:(fun o ->
+            let key = to_key o in
+            let attrs =
+              if key = value
+              then [ Attr.value key; Attr.selected ]
+              else [ Attr.value key ]
+            in
+            Node.option attrs [ Node.text (to_label o) ])
+      in
+      let attrs classes =
+        List.filter_opt
+          [ Some (Attr.classes ("form-control" :: classes))
+          ; (if disabled then Some (Attr.create "disabled" "true") else None)
+          ]
+        @ attrs
+      in
+      let nodes =
+        match of_key value with
+        | Some _ -> [ label; Some (Node.select ~key (attrs []) options) ]
+        | None ->
+          [ label
+          ; Some (Node.input ~key (attrs [ "is-invalid" ]) options)
+          ; Some (err "Auswahl ungültig!")
+          ]
+      in
+      [ Node.div [ Attr.class_ "form-group" ] (List.filter_opt nodes) ]
+    in
+    Primitives.generic ~to_string:to_key ~of_string ~init ~render ()
+  ;;
+
+  type input =
+    | Text
+    | Number of { step : float }
+    | Date
+    | Int
+
+  let rec attrs_of_type =
+    let open Attr in
+    function
+    | Text -> [ type_ "text" ]
+    | Number { step } -> [ type_ "number"; create "step" (string_of_float step) ]
+    | Date -> [ type_ "date" ]
+    | Int -> attrs_of_type (Number { step = 1. })
   ;;
 
   let input_conv

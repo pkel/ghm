@@ -58,30 +58,21 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
       c.address.postal_code
       c.address.city
   and positions =
-    let eaters, positions =
-      List.fold_right b.allocs ~init:(0, []) ~f:(fun a (b, p) ->
-          ( a.beds + b
-          , { quantity = a.beds
-            ; description = describe a
-            ; price = Monetary.(a.price_per_bed - of_int 3) (* substract drinks *)
-            ; tax = 7
-            }
-            :: p ))
-    in
-    (positions
-    @ (if eaters > 0
-      then
-        [ { quantity = eaters
-          ; price = Monetary.of_int 3
-          ; tax = 19
-          ; description = "Getränke-Anteil am Frühstück"
-          }
-        ]
-      else [])
+    (List.map b.allocs ~f:(fun a ->
+         { quantity = a.beds
+         ; description = describe a
+         ; price = a.price_per_bed
+         ; tax = Reduced7With3EuroDrinks19
+         })
     @
     if s.tax_payers > 0 && not b.tax_free
     then
-      [ { quantity = s.tax_payers; price = tax_unit; description = "Kurtaxe"; tax = 7 } ]
+      [ { quantity = s.tax_payers
+        ; price = tax_unit
+        ; description = "Kurtaxe"
+        ; tax = Reduced7
+        }
+      ]
     else [])
     |> List.map ~f:(fun p -> { p with quantity = p.quantity * nights })
   and deposit = Option.value ~default:Monetary.zero b.deposit_got

@@ -2,6 +2,7 @@
  * @author      Kim-Christian Meyer
  * @copyright   2016 Kim-Christian Meyer
  *              2019 Patrik Keller (rem, drop baseline grid)
+ *              2026 Patrik Keller (gridded tax table)
  * @license     GPL-3.0+
  */
 
@@ -191,6 +192,26 @@ input[type=checkbox] {
 .line-3 {
   top: 210mm;
   width: 3mm;
+}
+
+.tax-grid {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  column-gap: 0.75rem;
+  align-items: baseline;
+  font-size:0.8rem;
+  margin-bottom:2rem
+}
+
+.tax-header {
+  grid-column: 1 / -1;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+/* Split description spans rate + value */
+.tax-split {
+  grid-column: 2 / 4;
 }
 
 @media screen {
