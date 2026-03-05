@@ -1,4 +1,4 @@
-FROM nginx:stable-alpine
+FROM docker.io/nginx:stable-alpine
 
 COPY ./nginx-site.template /etc/nginx/conf.d/mysite.template
 COPY ./webroot /var/www/html

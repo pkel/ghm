@@ -61,7 +61,7 @@ $docker run -d --name "$(container db)" \
   -e POSTGRES_PASSWORD_FILE=/secrets/db-user-root/password \
   -v "$(pwd)/secrets:/secrets:z" \
   -v "$(pwd)/initdb.d:/docker-entrypoint-initdb.d:z" \
-  postgres:12
+  docker.io/postgres:16
 
 $docker run -d --name "$(container api)" \
   "${net_options[@]}" \
@@ -72,7 +72,7 @@ $docker run -d --name "$(container api)" \
   -e PGRST_DB_URI="postgres://$(secret db-user-api/username):$(secret db-user-api/password)@$(link db):5432/$(secret db-cfg/db-name)" \
   -e PGRST_JWT_SECRET="$(secret jwt/secret)" \
   -e PGRST_SECRET_IS_BASE64="false" \
-  postgrest/postgrest
+  docker.io/postgrest/postgrest
 
 if [[ -v MOUNT_WEBROOT ]]
 then
