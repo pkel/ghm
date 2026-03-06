@@ -161,7 +161,7 @@ let invoice (inv : Invoice.t) =
   let open Printf in
   let open Invoice in
   let sum = sum inv in
-  let tax = tabulate_tax inv in
+  let tax_rows, tax_lookup = Tax.tax inv in
   let body =
     [ p' inv.intro
     ; table
@@ -181,7 +181,7 @@ let invoice (inv : Invoice.t) =
              tr
                [ td [ txt (sprintf "%dx" p.quantity) ]
                ; td [ txt p.description ]
-               ; tdr [ txt (sprint_tax p.tax) ]
+               ; tdr [ txt (tax_lookup p.tax |> Option.value ~default:"?") ]
                ; tdr [ txt (sprintf "%s€" (Monetary.to_string p.price)) ]
                ; tdr
                    [ txt
@@ -216,7 +216,7 @@ let invoice (inv : Invoice.t) =
         (div
            ~a:[ a_class [ "tax-header" ] ]
            [ strong [ txt "enthaltene Mehrwertsteuer" ] ]
-        :: List.concat_map tax ~f:(fun (label, description, value) ->
+        :: List.concat_map tax_rows ~f:(fun (label, description, value) ->
                match description with
                | `Rate r ->
                  [ div [ strong [ txt label ] ]

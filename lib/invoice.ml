@@ -16,15 +16,27 @@ let tax_of_yojson json =
   | other -> tax_of_yojson other
 ;;
 
-let tax_rule = function
-  | General19 -> `Simple 19
-  | Reduced7 -> `Simple 7
-  | Legacy rate -> `Simple rate
-  | Reduced7With3EuroDrinks19 ->
-    `Split
-      ( [ (7, fun v -> Monetary.(v - of_int 3)); (19, fun _v -> Monetary.of_int 3) ]
-      , "Enthält 3,00€ Getränke pro Nacht zu 19%, Rest 7%" )
-;;
+module Tax_logic = struct
+  type t =
+    | Simple of int
+    | Split of
+        { logic : (int * (Monetary.t -> Monetary.t)) list [@equal.ignore]
+        ; descr : string
+        }
+  [@@deriving equal]
+
+  let t = function
+    | General19 -> Simple 19
+    | Reduced7 -> Simple 7
+    | Legacy rate -> Simple rate
+    | Reduced7With3EuroDrinks19 ->
+      Split
+        { logic =
+            [ (7, fun v -> Monetary.(v - of_int 3)); (19, fun _v -> Monetary.of_int 3) ]
+        ; descr = "Enthält 3,00€ Getränke pro Nacht zu 19%, Rest 7%"
+        }
+  ;;
+end
 
 type t =
   { id : string option
@@ -68,24 +80,21 @@ let sum t =
     t.positions
 ;;
 
-module Tax_row = struct
-  type t =
+module Tax = struct
+  type tax_row =
     { label : string
     ; description : [ `Rate of int | `Split of string ]
     ; mutable value : float (* = zero, for Split rules *)
     }
-end
 
-let tabulate_tax t =
-  let open Tax_row in
-  let table =
-    (* 1. initialize all rows *)
+  let init_tax_table t =
+    (* create assoc: tax_rule -> tax_row *)
     List.concat_map
       ~f:(fun pos ->
-        match tax_rule pos.tax with
-        | `Simple i -> [ `Simple i ]
-        | `Split (logic, _descr) as this ->
-          this :: List.map ~f:(fun (rate, _) -> `Simple rate) logic)
+        match Tax_logic.t pos.tax with
+        | Simple i -> [ Tax_logic.Simple i ]
+        | Split { logic; _ } as this ->
+          this :: List.map ~f:(fun (rate, _) -> Tax_logic.Simple rate) logic)
       t.positions
     |> List.sort ~compare:Stdlib.compare
     |> List.fold_left
@@ -97,36 +106,50 @@ let tabulate_tax t =
                { label = List.length assoc + 65 |> Char.unsafe_of_int |> Char.to_string
                ; description =
                    (match rule with
-                   | `Simple rate -> `Rate rate
-                   | `Split (_logic, descr) -> `Split descr)
+                   | Simple rate -> `Rate rate
+                   | Split { descr; _ } -> `Split descr)
                ; value = 0.
                }
              in
              (rule, row) :: assoc))
          ~init:[]
     |> List.rev
-  in
-  let () =
-    (* 2. apply taxation rules *)
+  ;;
+
+  let calculate_tax_into table t =
+    (* apply taxation rules into tax table; mutation *)
     t.positions
     |> List.map ~f:(fun pos ->
-           let rule = tax_rule pos.tax
+           let rule = Tax_logic.t pos.tax
            and value = Monetary.(times pos.quantity pos.price) in
            value, rule)
     |> List.concat_map ~f:(fun (value, rule) ->
            match rule with
-           | `Simple rate -> [ value, rate ]
-           | `Split (logic, _descr) ->
-             List.map ~f:(fun (rate, get) -> get value, rate) logic)
+           | Simple rate -> [ value, rate ]
+           | Split { logic; _ } -> List.map ~f:(fun (rate, get) -> get value, rate) logic)
     |> List.iter ~f:(fun (value, rate) ->
-           let row = List.Assoc.find_exn ~equal:( = ) table (`Simple rate) in
+           let row =
+             List.Assoc.find_exn ~equal:Tax_logic.equal table (Tax_logic.Simple rate)
+           in
            let rate = float_of_int rate /. 100. in
            let value = Monetary.to_float value in
            let add_v = value *. rate /. (1. +. rate) in
            row.value <- row.value +. add_v)
-  in
-  List.map
-    ~f:(fun (_, row) ->
-      row.label, row.description, Option.value_exn (Monetary.of_float row.value))
-    table
-;;
+  ;;
+
+  let tax t =
+    (* calculate taxes, return rows of tax table and (tax -> string) tax class lookup *)
+    let table = init_tax_table t in
+    let () = calculate_tax_into table t in
+    let tax_rows =
+      List.map
+        ~f:(fun (_, row) ->
+          row.label, row.description, Option.value_exn (Monetary.of_float row.value))
+        table
+    and lookup tax =
+      List.Assoc.find ~equal:Tax_logic.equal table (Tax_logic.t tax)
+      |> Option.map ~f:(fun r -> r.label)
+    in
+    tax_rows, lookup
+  ;;
+end
