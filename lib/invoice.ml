@@ -33,7 +33,7 @@ module Tax_logic = struct
       Split
         { logic =
             [ (7, fun v -> Monetary.(v - of_int 3)); (19, fun _v -> Monetary.of_int 3) ]
-        ; descr = "Enthält 3,00€ Getränke pro Nacht zu 19%, Rest 7%"
+        ; descr = "Enthält 3,00€ Getränke-Anteil pro Frühstück zu 19%, Rest 7%"
         }
   ;;
 end
@@ -161,19 +161,19 @@ module Tax = struct
     (* apply taxation rules into tax table; mutation *)
     t.positions
     |> List.map ~f:(fun pos ->
-           let rule = Tax_logic.t pos.tax
-           and value = Monetary.(times pos.quantity pos.price) in
-           value, rule)
-    |> List.concat_map ~f:(fun (value, rule) ->
+           let rule = Tax_logic.t pos.tax in
+           pos, rule)
+    |> List.concat_map ~f:(fun (pos, rule) ->
            match rule with
-           | Simple rate -> [ value, rate ]
-           | Split { logic; _ } -> List.map ~f:(fun (rate, get) -> get value, rate) logic)
-    |> List.iter ~f:(fun (value, rate) ->
+           | Simple rate -> [ pos.quantity, pos.price, rate ]
+           | Split { logic; _ } ->
+             List.map ~f:(fun (rate, get) -> pos.quantity, get pos.price, rate) logic)
+    |> List.iter ~f:(fun (n, value, rate) ->
            let row =
              List.Assoc.find_exn ~equal:Tax_logic.equal table (Tax_logic.Simple rate)
            in
            let rate = float_of_int rate /. 100. in
-           let value = Monetary.to_float value in
+           let value = Monetary.(times n value |> to_float) in
            let add_v = value *. rate /. (1. +. rate) in
            row.value <- row.value +. add_v)
   ;;
