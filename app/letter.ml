@@ -220,8 +220,11 @@ let invoice (inv : Invoice.t) =
                match description with
                | `Rate r ->
                  [ div [ strong [ txt label ] ]
-                 ; div [ txt (sprintf "%i%%" r) ]
-                 ; div [ txt (sprintf "%s€" (Monetary.to_string value)) ]
+                 ; div ~a:[ a_class [ "tax-rate" ] ] [ txt (sprintf "%i%%" r) ]
+                 ; div
+                     ~a:[ a_class [ "tax-value" ] ]
+                     [ txt (sprintf "%s€" (Monetary.to_string value)) ]
+                 ; div [] (* placeholder, grows with tax-split *)
                  ]
                | `Split s ->
                  [ div [ strong [ txt label ] ]
@@ -231,19 +234,17 @@ let invoice (inv : Invoice.t) =
     ]
     |> elts_to_string
   and sidebar =
-    (match inv.id, inv.date with
-    | Some id, Some date ->
-      [ b [ txt "Rechnungsnummer" ]
-      ; br ()
-      ; txt id
-      ; br ()
-      ; b [ txt "Datum" ]
-      ; br ()
-      ; txt (Localize.date date)
-      ]
-    | Some id, None -> [ b [ txt "Rechnungsnummer" ]; br (); txt id ]
-    | None, Some date -> [ b [ txt "Datum" ]; br (); txt (Localize.date date) ]
-    | None, None -> [])
+    [ Option.map ~f:(fun x -> [ b [ txt "Rechnungsnummer" ]; txt x ]) inv.id
+    ; Option.map
+        ~f:(fun x -> [ b [ txt "Rechnungs-Datum" ]; txt (Localize.date x) ])
+        inv.invoice_date
+    ; Option.map
+        ~f:(fun x -> [ b [ txt "Abreise-Datum" ]; txt (Localize.date x) ])
+        inv.departure_date
+    ]
+    |> List.filter_opt
+    |> List.concat
+    |> List.intersperse ~sep:(br ())
     |> elts_to_string
   and attachments = [] |> elts_to_string in
   { sender = ""

@@ -17,7 +17,7 @@ let tax_unit date =
   if m < 4 || m > 10 then offseason else season
 ;;
 
-let gen ?date (c : Customer.t) (b : Booking.t) =
+let gen ?invoice_date (c : Customer.t) (b : Booking.t) =
   let nights = Period.nights b.period
   and s = Booking.Summary.of_booking b
   and describe (a : Booking.alloc) =
@@ -40,6 +40,7 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
       let s = sprintf "%02i%02i%02i-%s" y m d room in
       Some s
     | _ -> None
+  and departure_date = Some (Period.till b.period)
   and tax_unit =
     let date = Period.till b.period in
     tax_unit date
@@ -77,7 +78,17 @@ let gen ?date (c : Customer.t) (b : Booking.t) =
     |> List.map ~f:(fun p -> { p with quantity = p.quantity * nights })
   and deposit = Option.value ~default:Monetary.zero b.deposit_got
   and closing =
-    "Wir danken für Ihren Besuch und freuen uns auf Ihren nächsten Aufenthalt."
+    "Wir hoffen, dass es Ihnen bei uns gefallen hat und freuen uns, wenn Sie uns wieder \
+     einmal besuchen."
   in
-  { recipient; title; id; date; positions; deposit; intro; closing }
+  { recipient
+  ; title
+  ; id
+  ; invoice_date
+  ; departure_date
+  ; positions
+  ; deposit
+  ; intro
+  ; closing
+  }
 ;;

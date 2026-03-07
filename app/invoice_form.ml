@@ -38,7 +38,8 @@ module Action = struct
   type t =
     | Recipient of string
     | Title of string
-    | Date of Date.t option
+    | Invoice_date of Date.t option
+    | Departure_date of Date.t option
     | Id of string option
     | Position of int * position list_element
     | Add_position
@@ -60,7 +61,8 @@ let apply_action model =
   | Intro intro -> cache { x with intro }
   | Closing closing -> cache { x with closing }
   | Id id -> cache { x with id }
-  | Date date -> cache { x with date }
+  | Invoice_date invoice_date -> cache { x with invoice_date }
+  | Departure_date departure_date -> cache { x with departure_date }
   | Deposit deposit -> cache { x with deposit }
   | Add_position -> init { x with positions = x.positions @ [ Invoice.empty_position ] }
   | Position (i, Tool a) ->
@@ -184,7 +186,12 @@ let invoice ~inject ~(init : Invoice.t) cache =
     input recipient (textarea ~nrows:4 ~init:x.recipient ~label:"Empfänger" ())
   and intro = input intro (string ~init:x.intro ~label:"Freitext" ())
   and closing = input closing (string ~init:x.closing ~label:"Freitext" ())
-  and date = input Action.date (date_opt ~init:x.date ~label:"Datum" ())
+  and invoice_date =
+    input Action.invoice_date (date_opt ~init:x.invoice_date ~label:"Rechnungs-Datum" ())
+  and departure_date =
+    input
+      Action.departure_date
+      (date_opt ~init:x.departure_date ~label:"Abreise-Datum" ())
   and id = input id (string_opt ~init:x.id ~label:"Rechnungsnummer" ())
   and deposit = input deposit (monetary ~init:x.deposit ~label:"Anzahlung" ()) in
   let%bind cache = cache
@@ -217,7 +224,7 @@ let invoice ~inject ~(init : Invoice.t) cache =
   let open Bs.Grid in
   [ Node.h4 [] [ Node.text "Rechnung" ]
   ; Node.hr []
-  ; frow [ col4 [ recipient ]; col4 []; col4 [ id; date ] ]
+  ; frow [ col4 [ recipient ]; col4 []; col4 [ id; invoice_date; departure_date ] ]
   ; frow [ col [ title ] ]
   ; frow [ col [ intro ] ]
   ]

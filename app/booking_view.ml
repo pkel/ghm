@@ -162,7 +162,9 @@ let apply_action
         { model with is_saving = true }
       | Nav.New | _ -> model)
   | Create_invoice ->
-    let invoice = Invoice_gen.gen ~date:(Ext_date.today ()) customer model.last_valid in
+    let invoice =
+      Invoice_gen.gen ~invoice_date:(Ext_date.today ()) customer model.last_valid
+    in
     let invoice = Invoice_form.init invoice
     and last_valid =
       let x = model.last_valid in

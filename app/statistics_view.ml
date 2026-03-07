@@ -113,7 +113,9 @@ let row ~p (booking : Pg.Bookings.return) =
             in
             String.strip raw
           and no = Option.value ~default:"" i.id
-          and date = Option.map ~f:Localize.date i.date |> Option.value ~default:"" in
+          and date =
+            Option.map ~f:Localize.date i.invoice_date |> Option.value ~default:""
+          in
           Some (date, no, name, cc)
         | _, _ -> None)
       | None -> None
@@ -218,7 +220,7 @@ let statistics ~p ~bookings =
               []
               [ th [ create "scope" "col" ] [ text "" ]
               ; th [ create "scope" "col" ] [ text "RNr." ]
-              ; th [ create "scope" "col" ] [ text "Datum" ]
+              ; th [ create "scope" "col" ] [ text "RDat." ]
               ; th [ create "scope" "col" ] [ text "Name" ]
               ; th [ create "scope" "col" ] [ text "Von" ]
               ; th [ create "scope" "col" ] [ text "Bis" ]

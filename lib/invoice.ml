@@ -38,24 +38,64 @@ module Tax_logic = struct
   ;;
 end
 
-type t =
-  { id : string option
-  ; recipient : string
-  ; date : Date.t option
-  ; title : string
-  ; intro : string
-  ; positions : position list
-  ; closing : string
-  ; deposit : Monetary.t
-  }
-
-and position =
+type position =
   { quantity : int
   ; description : string
   ; price : Monetary.t
   ; tax : tax
   }
 [@@deriving yojson, fields, compare, sexp]
+
+type t =
+  { id : string option
+  ; recipient : string
+  ; invoice_date : Date.t option
+  ; departure_date : Date.t option
+  ; title : string
+  ; intro : string
+  ; positions : position list
+  ; closing : string
+  ; deposit : Monetary.t
+  }
+[@@deriving yojson, fields, compare, sexp]
+
+module Compat_t_0 = struct
+  (** old invoice; before introducing departure date *)
+
+  type t =
+    { id : string option
+    ; recipient : string
+    ; date : Date.t option
+    ; title : string
+    ; intro : string
+    ; positions : position list
+    ; closing : string
+    ; deposit : Monetary.t
+    }
+  [@@deriving of_yojson]
+
+  let upgrade t0 =
+    { id = t0.id
+    ; recipient = t0.recipient
+    ; invoice_date = t0.date
+    ; departure_date = None
+    ; title = t0.title
+    ; intro = t0.intro
+    ; positions = t0.positions
+    ; closing = t0.closing
+    ; deposit = t0.deposit
+    }
+  ;;
+end
+
+let of_yojson json =
+  match of_yojson json with
+  | Ok t -> Ok t
+  | Error msg ->
+    (match Compat_t_0.of_yojson json with
+    | Ok t0 -> Ok (Compat_t_0.upgrade t0)
+    | Error _ -> Error msg)
+;;
 
 let empty_position =
   { quantity = 1; description = ""; price = Monetary.zero; tax = General19 }
@@ -65,7 +105,8 @@ let empty =
   { recipient = ""
   ; title = ""
   ; id = None
-  ; date = None
+  ; invoice_date = None
+  ; departure_date = None
   ; positions = []
   ; deposit = Monetary.zero
   ; intro = ""
