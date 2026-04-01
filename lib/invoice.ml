@@ -6,7 +6,7 @@ type tax =
   | Reduced7
   | Reduced7With3EuroDrinks19
   | Legacy of int
-[@@deriving yojson, compare, sexp]
+[@@deriving yojson, equal, compare, sexp]
 
 let tax_of_yojson json =
   match json with
@@ -20,20 +20,23 @@ module Tax_logic = struct
   type t =
     | Simple of int
     | Split of
-        { logic : (int * (Monetary.t -> Monetary.t)) list [@equal.ignore]
+        { logic : (int * (Monetary.t -> Monetary.t)) list
+              [@equal.ignore] [@compare.ignore]
         ; descr : string
+        ; tax : tax (* to ensure sound comparison/equality *)
         }
-  [@@deriving equal]
+  [@@deriving equal, compare]
 
   let t = function
     | General19 -> Simple 19
     | Reduced7 -> Simple 7
     | Legacy rate -> Simple rate
-    | Reduced7With3EuroDrinks19 ->
+    | Reduced7With3EuroDrinks19 as tax ->
       Split
         { logic =
             [ (7, fun v -> Monetary.(v - of_int 3)); (19, fun _v -> Monetary.of_int 3) ]
         ; descr = "Enthält 3,00€ Getränke-Anteil pro Frühstück zu 19%, Rest 7%"
+        ; tax
         }
   ;;
 end
@@ -137,10 +140,10 @@ module Tax = struct
         | Split { logic; _ } as this ->
           this :: List.map ~f:(fun (rate, _) -> Tax_logic.Simple rate) logic)
       t.positions
-    |> List.sort ~compare:Stdlib.compare
+    |> List.sort ~compare:Tax_logic.compare
     |> List.fold_left
          ~f:(fun assoc rule ->
-           if List.Assoc.mem ~equal:( = ) assoc rule
+           if List.Assoc.mem ~equal:Tax_logic.equal assoc rule
            then assoc
            else (
              let row =
